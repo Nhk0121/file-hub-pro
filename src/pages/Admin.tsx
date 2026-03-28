@@ -19,7 +19,7 @@ import {
 import type { FolderPermission, AuditLog } from '@/types';
 
 const actionIcons: Record<AuditLog['action'], React.ReactNode> = {
-  '登入': <LogIn className="w-4 h-4 text-green-500" />,
+  '登入': <LogIn className="w-4 h-4 text-success" />,
   '登出': <LogOut className="w-4 h-4 text-muted-foreground" />,
   '上傳': <Upload className="w-4 h-4 text-primary" />,
   '下載': <Download className="w-4 h-4 text-primary" />,
