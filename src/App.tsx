@@ -5,9 +5,12 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { FileProvider } from "@/contexts/FileContext";
+import { AuditProvider } from "@/contexts/AuditContext";
+import { PermissionProvider } from "@/contexts/PermissionContext";
 import AppLayout from "@/components/layout/AppLayout";
 import Index from "./pages/Index";
 import Editor from "./pages/Editor";
+import Admin from "./pages/Admin";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -23,26 +26,31 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
-        <FileProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route
-                element={
-                  <ProtectedRoute>
-                    <AppLayout />
-                  </ProtectedRoute>
-                }
-              >
-                <Route path="/" element={<Index />} />
-                <Route path="/edit/:fileId" element={<Editor />} />
-              </Route>
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </FileProvider>
+        <AuditProvider>
+          <PermissionProvider>
+            <FileProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <Routes>
+                  <Route path="/login" element={<Login />} />
+                  <Route
+                    element={
+                      <ProtectedRoute>
+                        <AppLayout />
+                      </ProtectedRoute>
+                    }
+                  >
+                    <Route path="/" element={<Index />} />
+                    <Route path="/edit/:fileId" element={<Editor />} />
+                    <Route path="/admin" element={<Admin />} />
+                  </Route>
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </BrowserRouter>
+            </FileProvider>
+          </PermissionProvider>
+        </AuditProvider>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>

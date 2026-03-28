@@ -1,5 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useFiles } from '@/contexts/FileContext';
+import { useAudit } from '@/contexts/AuditContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -69,12 +70,21 @@ const FolderTree = ({
 const AppSidebar = () => {
   const { user, logout } = useAuth();
   const { files, currentFolderId, setCurrentFolderId } = useFiles();
+  const { addLog } = useAudit();
   const navigate = useNavigate();
   const location = useLocation();
 
   const handleFolderSelect = (id: string | null) => {
     setCurrentFolderId(id);
     if (location.pathname !== '/') navigate('/');
+  };
+
+  const handleLogout = () => {
+    if (user) {
+      addLog({ userId: user.id, userName: user.displayName, action: '登出' });
+    }
+    logout();
+    navigate('/login');
   };
 
   return (
@@ -102,6 +112,17 @@ const AppSidebar = () => {
           <Home className="w-4 h-4" />
           <span>所有檔案</span>
         </button>
+
+        {user?.role === '管理員' && (
+          <button
+            onClick={() => navigate('/admin')}
+            className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors mt-1
+              ${location.pathname === '/admin' ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium' : 'text-sidebar-foreground hover:bg-sidebar-accent/50'}`}
+          >
+            <Settings className="w-4 h-4" />
+            <span>系統管理</span>
+          </button>
+        )}
       </div>
 
       <Separator className="bg-sidebar-border mx-2" />
@@ -131,7 +152,7 @@ const AppSidebar = () => {
           variant="ghost"
           size="sm"
           className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent"
-          onClick={() => { logout(); navigate('/login'); }}
+          onClick={handleLogout}
         >
           <LogOut className="w-4 h-4 mr-2" />
           登出
