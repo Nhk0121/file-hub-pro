@@ -1,4 +1,7 @@
 import { useFiles } from '@/contexts/FileContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useAudit } from '@/contexts/AuditContext';
+import { usePermissions } from '@/contexts/PermissionContext';
 import { useNavigate } from 'react-router-dom';
 import {
   ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger,
@@ -9,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-  Folder, FileText, Image, File, Download, Trash2, Pencil, FileCode,
+  Folder, FileText, Image, File, Download, Trash2, Pencil, FileCode, Lock,
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -44,10 +47,20 @@ const formatDate = (iso: string) => {
 
 const FileList = ({ viewMode, searchQuery }: FileListProps) => {
   const { currentFolderId, setCurrentFolderId, getChildren, deleteItem, renameItem } = useFiles();
+  const { user } = useAuth();
+  const { addLog } = useAudit();
+  const { getFolderPermission } = usePermissions();
   const navigate = useNavigate();
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renamingItem, setRenamingItem] = useState<FileItem | null>(null);
   const [newName, setNewName] = useState('');
+
+  // 取得目前資料夾的權限
+  const currentPermission = user && currentFolderId
+    ? (user.role === '管理員' ? '完整權限' : getFolderPermission(currentFolderId, user.id))
+    : '完整權限';
+  const canWrite = currentPermission === '完整權限';
+  const canAccess = currentPermission !== '無權限';
 
   let items = getChildren(currentFolderId);
   if (searchQuery) {
@@ -86,21 +99,35 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
     a.download = item.name;
     a.click();
     URL.revokeObjectURL(url);
+    if (user) addLog({ userId: user.id, userName: user.displayName, action: '下載', targetName: item.name, targetId: item.id });
     toast.success('下載完成');
   };
 
   const handleDelete = (item: FileItem) => {
+    if (!canWrite) { toast.error('您沒有刪除權限'); return; }
     deleteItem(item.id);
+    if (user) addLog({ userId: user.id, userName: user.displayName, action: '刪除', targetName: item.name, targetId: item.id });
     toast.success(`已刪除「${item.name}」`);
   };
 
   const handleRename = () => {
+    if (!canWrite) { toast.error('您沒有重新命名權限'); return; }
     if (renamingItem && newName.trim()) {
       renameItem(renamingItem.id, newName.trim());
+      if (user) addLog({ userId: user.id, userName: user.displayName, action: '重新命名', targetName: renamingItem.name, details: `→ ${newName.trim()}` });
       setRenameDialogOpen(false);
       toast.success('已重新命名');
     }
   };
+
+  if (!canAccess) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+        <Lock className="w-16 h-16 mb-4 opacity-30" />
+        <p className="text-lg">您沒有權限存取此資料夾</p>
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     return (
@@ -150,14 +177,18 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
             下載
           </ContextMenuItem>
         )}
-        <ContextMenuItem onClick={() => { setRenamingItem(item); setNewName(item.name); setRenameDialogOpen(true); }}>
-          <Pencil className="w-4 h-4 mr-2" />
-          重新命名
-        </ContextMenuItem>
-        <ContextMenuItem className="text-destructive" onClick={() => handleDelete(item)}>
-          <Trash2 className="w-4 h-4 mr-2" />
-          刪除
-        </ContextMenuItem>
+        {canWrite && (
+          <>
+            <ContextMenuItem onClick={() => { setRenamingItem(item); setNewName(item.name); setRenameDialogOpen(true); }}>
+              <Pencil className="w-4 h-4 mr-2" />
+              重新命名
+            </ContextMenuItem>
+            <ContextMenuItem className="text-destructive" onClick={() => handleDelete(item)}>
+              <Trash2 className="w-4 h-4 mr-2" />
+              刪除
+            </ContextMenuItem>
+          </>
+        )}
       </ContextMenuContent>
     </ContextMenu>
   );
