@@ -4,13 +4,20 @@ import type { User } from '@/types';
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  allUsers: User[];
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
+  addUser: (user: User, password: string) => void;
+  removeUser: (userId: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const MOCK_USERS: Array<User & { password: string }> = [
+interface StoredUser extends User {
+  password: string;
+}
+
+const DEFAULT_USERS: StoredUser[] = [
   {
     id: '1',
     username: 'admin',
@@ -29,14 +36,23 @@ const MOCK_USERS: Array<User & { password: string }> = [
   },
 ];
 
+const getStoredUsers = (): StoredUser[] => {
+  const saved = localStorage.getItem('dms_all_users');
+  return saved ? JSON.parse(saved) : DEFAULT_USERS;
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('dms_user');
     return saved ? JSON.parse(saved) : null;
   });
+  const [storedUsers, setStoredUsers] = useState<StoredUser[]>(getStoredUsers);
+
+  const allUsers: User[] = storedUsers.map(({ password, ...u }) => u);
 
   const login = useCallback(async (username: string, password: string) => {
-    const found = MOCK_USERS.find(u => u.username === username && u.password === password);
+    const users = getStoredUsers();
+    const found = users.find(u => u.username === username && u.password === password);
     if (found) {
       const { password: _, ...userData } = found;
       setUser(userData);
@@ -51,8 +67,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('dms_user');
   }, []);
 
+  const addUser = useCallback((newUser: User, password: string) => {
+    setStoredUsers(prev => {
+      const next = [...prev, { ...newUser, password }];
+      localStorage.setItem('dms_all_users', JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const removeUser = useCallback((userId: string) => {
+    setStoredUsers(prev => {
+      const next = prev.filter(u => u.id !== userId);
+      localStorage.setItem('dms_all_users', JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, allUsers, login, logout, addUser, removeUser }}>
       {children}
     </AuthContext.Provider>
   );
