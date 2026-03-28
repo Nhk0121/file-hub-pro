@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAudit } from '@/contexts/AuditContext';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +13,8 @@ const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, allUsers } = useAuth();
+  const { addLog } = useAudit();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -21,6 +23,10 @@ const Login = () => {
     const success = await login(username, password);
     setLoading(false);
     if (success) {
+      const foundUser = allUsers.find(u => u.username === username);
+      if (foundUser) {
+        addLog({ userId: foundUser.id, userName: foundUser.displayName, action: '登入' });
+      }
       toast.success('登入成功');
       navigate('/');
     } else {

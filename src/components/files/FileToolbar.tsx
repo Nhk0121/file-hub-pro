@@ -125,32 +125,34 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
           </Button>
         </div>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              新增
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => setFolderDialogOpen(true)}>
-              <FolderPlus className="w-4 h-4 mr-2" />
-              新增資料夾
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => { setNewDocType('markdown'); setDocDialogOpen(true); }}>
-              <FilePlus className="w-4 h-4 mr-2" />
-              新增 Markdown 文件
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => { setNewDocType('richtext'); setDocDialogOpen(true); }}>
-              <FilePlus className="w-4 h-4 mr-2" />
-              新增富文字文件
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleUpload}>
-              <Upload className="w-4 h-4 mr-2" />
-              上傳檔案
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {canWrite && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button>
+                <Plus className="w-4 h-4 mr-2" />
+                新增
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setFolderDialogOpen(true)}>
+                <FolderPlus className="w-4 h-4 mr-2" />
+                新增資料夾
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setNewDocType('markdown'); setDocDialogOpen(true); }}>
+                <FilePlus className="w-4 h-4 mr-2" />
+                新增 Markdown 文件
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setNewDocType('richtext'); setDocDialogOpen(true); }}>
+                <FilePlus className="w-4 h-4 mr-2" />
+                新增富文字文件
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleUpload}>
+                <Upload className="w-4 h-4 mr-2" />
+                上傳檔案
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       {/* Create folder dialog */}
