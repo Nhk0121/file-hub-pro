@@ -1,0 +1,199 @@
+import { useFiles } from '@/contexts/FileContext';
+import { useNavigate } from 'react-router-dom';
+import {
+  ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger,
+} from '@/components/ui/context-menu';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Folder, FileText, Image, File, Download, Trash2, Pencil, FileCode,
+} from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
+import type { FileItem } from '@/types';
+
+interface FileListProps {
+  viewMode: 'grid' | 'list';
+  searchQuery: string;
+}
+
+const getFileIcon = (item: FileItem) => {
+  if (item.type === 'folder') return <Folder className="w-10 h-10 text-primary" />;
+  if (item.mimeType?.startsWith('image/')) return <Image className="w-10 h-10 text-accent-foreground" />;
+  if (item.name.endsWith('.md')) return <FileCode className="w-10 h-10 text-accent-foreground" />;
+  if (item.mimeType?.includes('html')) return <FileText className="w-10 h-10 text-accent-foreground" />;
+  return <File className="w-10 h-10 text-muted-foreground" />;
+};
+
+const formatSize = (bytes?: number) => {
+  if (!bytes) return '-';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const formatDate = (iso: string) => {
+  return new Date(iso).toLocaleDateString('zh-TW', {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit',
+  });
+};
+
+const FileList = ({ viewMode, searchQuery }: FileListProps) => {
+  const { currentFolderId, setCurrentFolderId, getChildren, deleteItem, renameItem } = useFiles();
+  const navigate = useNavigate();
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [renamingItem, setRenamingItem] = useState<FileItem | null>(null);
+  const [newName, setNewName] = useState('');
+
+  let items = getChildren(currentFolderId);
+  if (searchQuery) {
+    items = items.filter(i => i.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  }
+
+  // Sort: folders first, then files
+  items.sort((a, b) => {
+    if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
+    return a.name.localeCompare(b.name, 'zh-TW');
+  });
+
+  const handleOpen = (item: FileItem) => {
+    if (item.type === 'folder') {
+      setCurrentFolderId(item.id);
+    } else if (item.mimeType?.includes('markdown') || item.mimeType?.includes('html') || item.name.endsWith('.md')) {
+      navigate(`/edit/${item.id}`);
+    }
+  };
+
+  const handleDownload = (item: FileItem) => {
+    if (!item.content) { toast.error('此檔案無內容可下載'); return; }
+    let blob: Blob;
+    if (item.content.startsWith('data:')) {
+      const [, base64] = item.content.split(',');
+      const binary = atob(base64);
+      const arr = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
+      blob = new Blob([arr]);
+    } else {
+      blob = new Blob([item.content], { type: item.mimeType || 'text/plain' });
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = item.name;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('下載完成');
+  };
+
+  const handleDelete = (item: FileItem) => {
+    deleteItem(item.id);
+    toast.success(`已刪除「${item.name}」`);
+  };
+
+  const handleRename = () => {
+    if (renamingItem && newName.trim()) {
+      renameItem(renamingItem.id, newName.trim());
+      setRenameDialogOpen(false);
+      toast.success('已重新命名');
+    }
+  };
+
+  if (items.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+        <Folder className="w-16 h-16 mb-4 opacity-30" />
+        <p className="text-lg">此資料夾為空</p>
+        <p className="text-sm">使用上方「新增」按鈕來建立檔案或資料夾</p>
+      </div>
+    );
+  }
+
+  const renderItem = (item: FileItem) => (
+    <ContextMenu key={item.id}>
+      <ContextMenuTrigger>
+        {viewMode === 'grid' ? (
+          <div
+            className="group flex flex-col items-center p-4 rounded-xl border border-border/50 bg-card hover:bg-accent/50 hover:border-primary/30 transition-all cursor-pointer"
+            onDoubleClick={() => handleOpen(item)}
+          >
+            {getFileIcon(item)}
+            <p className="mt-2 text-sm font-medium text-center truncate w-full">{item.name}</p>
+            <p className="text-xs text-muted-foreground">{item.type === 'folder' ? '資料夾' : formatSize(item.size)}</p>
+          </div>
+        ) : (
+          <div
+            className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-accent/50 transition-colors cursor-pointer border-b border-border/30"
+            onDoubleClick={() => handleOpen(item)}
+          >
+            <div className="shrink-0">{getFileIcon(item)}</div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{item.name}</p>
+              <p className="text-xs text-muted-foreground">{item.createdBy}</p>
+            </div>
+            <div className="text-xs text-muted-foreground w-28 text-right">{formatSize(item.size)}</div>
+            <div className="text-xs text-muted-foreground w-40 text-right">{formatDate(item.updatedAt)}</div>
+          </div>
+        )}
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem onClick={() => handleOpen(item)}>
+          <FileText className="w-4 h-4 mr-2" />
+          開啟
+        </ContextMenuItem>
+        {item.type === 'file' && (
+          <ContextMenuItem onClick={() => handleDownload(item)}>
+            <Download className="w-4 h-4 mr-2" />
+            下載
+          </ContextMenuItem>
+        )}
+        <ContextMenuItem onClick={() => { setRenamingItem(item); setNewName(item.name); setRenameDialogOpen(true); }}>
+          <Pencil className="w-4 h-4 mr-2" />
+          重新命名
+        </ContextMenuItem>
+        <ContextMenuItem className="text-destructive" onClick={() => handleDelete(item)}>
+          <Trash2 className="w-4 h-4 mr-2" />
+          刪除
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
+  );
+
+  return (
+    <>
+      {viewMode === 'grid' ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+          {items.map(renderItem)}
+        </div>
+      ) : (
+        <div>
+          <div className="flex items-center gap-3 px-4 py-2 text-xs text-muted-foreground font-medium border-b">
+            <div className="w-10" />
+            <div className="flex-1">名稱</div>
+            <div className="w-28 text-right">大小</div>
+            <div className="w-40 text-right">修改日期</div>
+          </div>
+          {items.map(renderItem)}
+        </div>
+      )}
+
+      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>重新命名</DialogTitle>
+          </DialogHeader>
+          <Input value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleRename()} />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameDialogOpen(false)}>取消</Button>
+            <Button onClick={handleRename}>確認</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+};
+
+export default FileList;
