@@ -8,6 +8,9 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useFiles } from '@/contexts/FileContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useAudit } from '@/contexts/AuditContext';
+import { usePermissions } from '@/contexts/PermissionContext';
 import { FolderPlus, FilePlus, Upload, Plus, Search, LayoutGrid, List } from 'lucide-react';
 import type { FileItem } from '@/types';
 
@@ -20,15 +23,23 @@ interface FileToolbarProps {
 
 const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }: FileToolbarProps) => {
   const { currentFolderId, addFolder, addFile } = useFiles();
+  const { user } = useAuth();
+  const { addLog } = useAudit();
+  const { getFolderPermission } = usePermissions();
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
   const [docDialogOpen, setDocDialogOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [newDocName, setNewDocName] = useState('');
   const [newDocType, setNewDocType] = useState<'markdown' | 'richtext'>('markdown');
 
+  const canWrite = !currentFolderId || !user || user.role === '管理員'
+    ? true
+    : getFolderPermission(currentFolderId, user.id) === '完整權限';
+
   const handleCreateFolder = () => {
     if (newFolderName.trim()) {
       addFolder(newFolderName.trim(), currentFolderId);
+      if (user) addLog({ userId: user.id, userName: user.displayName, action: '建立資料夾', targetName: newFolderName.trim() });
       setNewFolderName('');
       setFolderDialogOpen(false);
     }
@@ -47,10 +58,11 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
         parentId: currentFolderId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        createdBy: '目前使用者',
+        createdBy: user?.displayName ?? '目前使用者',
         content: newDocType === 'markdown' ? '# 新文件\n\n開始編輯...' : '<p>開始編輯...</p>',
       };
       addFile(file);
+      if (user) addLog({ userId: user.id, userName: user.displayName, action: '上傳', targetName: name });
       setNewDocName('');
       setDocDialogOpen(false);
     }
@@ -75,10 +87,11 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
             parentId: currentFolderId,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
-            createdBy: '目前使用者',
+            createdBy: user?.displayName ?? '目前使用者',
             content: typeof reader.result === 'string' ? reader.result : undefined,
           };
           addFile(item);
+          if (user) addLog({ userId: user.id, userName: user.displayName, action: '上傳', targetName: f.name });
         };
         if (f.type.startsWith('text/') || f.name.endsWith('.md') || f.name.endsWith('.json')) {
           reader.readAsText(f);
