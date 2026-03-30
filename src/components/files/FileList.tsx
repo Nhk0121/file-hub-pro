@@ -54,7 +54,7 @@ const formatDate = (iso: string) => {
 };
 
 const FileList = ({ viewMode, searchQuery }: FileListProps) => {
-  const { currentFolderId, setCurrentFolderId, getChildren, deleteItem, renameItem, isSystemFolder } = useFiles();
+  const { currentFolderId, setCurrentFolderId, getChildren, deleteItem, renameItem, isSystemFolder, files: allFiles } = useFiles();
   const { user } = useAuth();
   const { addLog } = useAudit();
   const { getFolderPermission } = usePermissions();
@@ -76,7 +76,7 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
     if (!isContractor) return false;
     let fid = currentFolderId;
     while (fid) {
-      const folder = useFiles().files.find(f => f.id === fid);
+      const folder = allFiles.find(f => f.id === fid);
       if (!folder) break;
       if (folder.folderLevel === 'zone' && folder.name === '永久區') return true;
       fid = folder.parentId;
