@@ -7,26 +7,19 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import {
   FileText, FolderOpen, Home, LogOut, ChevronRight, ChevronDown, Settings, User,
+  UserPlus, Clock, Archive,
 } from 'lucide-react';
 import { useState } from 'react';
 import type { FileItem } from '@/types';
 
 const FolderTree = ({
-  files,
-  parentId,
-  level,
-  onSelect,
-  currentFolderId,
+  files, parentId, level, onSelect, currentFolderId,
 }: {
-  files: FileItem[];
-  parentId: string | null;
-  level: number;
-  onSelect: (id: string | null) => void;
-  currentFolderId: string | null;
+  files: FileItem[]; parentId: string | null; level: number;
+  onSelect: (id: string | null) => void; currentFolderId: string | null;
 }) => {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const folders = files.filter(f => f.type === 'folder' && f.parentId === parentId);
-
   if (folders.length === 0) return null;
 
   return (
@@ -35,12 +28,14 @@ const FolderTree = ({
         const isExpanded = expanded[folder.id];
         const isActive = currentFolderId === folder.id;
         const hasChildren = files.some(f => f.type === 'folder' && f.parentId === folder.id);
+        const isZone = folder.folderLevel === 'zone';
 
         return (
           <div key={folder.id}>
             <button
               className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors
-                ${isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium' : 'text-sidebar-foreground hover:bg-sidebar-accent/50'}`}
+                ${isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium' : 'text-sidebar-foreground hover:bg-sidebar-accent/50'}
+                ${isZone ? 'font-semibold' : ''}`}
               style={{ paddingLeft: `${12 + level * 16}px` }}
               onClick={() => onSelect(folder.id)}
             >
@@ -54,7 +49,13 @@ const FolderTree = ({
               ) : (
                 <span className="w-4" />
               )}
-              <FolderOpen className="w-4 h-4 text-sidebar-primary shrink-0" />
+              {isZone ? (
+                folder.name === '時效區'
+                  ? <Clock className="w-4 h-4 text-yellow-500 shrink-0" />
+                  : <Archive className="w-4 h-4 text-blue-500 shrink-0" />
+              ) : (
+                <FolderOpen className="w-4 h-4 text-sidebar-primary shrink-0" />
+              )}
               <span className="truncate">{folder.name}</span>
             </button>
             {isExpanded && (
@@ -80,29 +81,36 @@ const AppSidebar = () => {
   };
 
   const handleLogout = () => {
-    if (user) {
-      addLog({ userId: user.id, userName: user.displayName, action: '登出' });
-    }
+    if (user) addLog({ userId: user.id, userName: user.displayName, action: '登出' });
     logout();
     navigate('/login');
   };
 
+  const navBtn = (path: string, label: string, icon: React.ReactNode) => (
+    <button
+      onClick={() => navigate(path)}
+      className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors mt-1
+        ${location.pathname === path ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium' : 'text-sidebar-foreground hover:bg-sidebar-accent/50'}`}
+    >
+      {icon}
+      <span>{label}</span>
+    </button>
+  );
+
   return (
     <div className="w-64 h-screen bg-sidebar-background text-sidebar-foreground flex flex-col border-r border-sidebar-border">
-      {/* Logo */}
       <div className="p-4 flex items-center gap-3">
         <div className="w-9 h-9 bg-sidebar-primary rounded-lg flex items-center justify-center">
           <FileText className="w-5 h-5 text-sidebar-primary-foreground" />
         </div>
         <div>
           <h1 className="text-sm font-bold text-sidebar-foreground">文件管理系統</h1>
-          <p className="text-xs text-sidebar-muted">DMS v1.0</p>
+          <p className="text-xs text-sidebar-muted">DMS v2.0</p>
         </div>
       </div>
 
       <Separator className="bg-sidebar-border" />
 
-      {/* Navigation */}
       <div className="p-2">
         <button
           onClick={() => handleFolderSelect(null)}
@@ -113,21 +121,14 @@ const AppSidebar = () => {
           <span>所有檔案</span>
         </button>
 
-        {user?.role === '管理員' && (
-          <button
-            onClick={() => navigate('/admin')}
-            className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors mt-1
-              ${location.pathname === '/admin' ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium' : 'text-sidebar-foreground hover:bg-sidebar-accent/50'}`}
-          >
-            <Settings className="w-4 h-4" />
-            <span>系統管理</span>
-          </button>
-        )}
+        {navBtn('/profile', '個人資料', <User className="w-4 h-4" />)}
+        {navBtn('/contractor', '外包人員管理', <UserPlus className="w-4 h-4" />)}
+
+        {user?.role === '管理員' && navBtn('/admin', '系統管理', <Settings className="w-4 h-4" />)}
       </div>
 
       <Separator className="bg-sidebar-border mx-2" />
 
-      {/* Folder tree */}
       <div className="px-2 pt-2">
         <p className="text-xs text-sidebar-muted px-3 mb-1 font-medium">資料夾</p>
       </div>
@@ -137,7 +138,6 @@ const AppSidebar = () => {
 
       <Separator className="bg-sidebar-border" />
 
-      {/* User info */}
       <div className="p-3">
         <div className="flex items-center gap-2 mb-2">
           <div className="w-8 h-8 bg-sidebar-accent rounded-full flex items-center justify-center">
@@ -148,14 +148,8 @@ const AppSidebar = () => {
             <p className="text-xs text-sidebar-muted">{user?.role}</p>
           </div>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent"
-          onClick={handleLogout}
-        >
-          <LogOut className="w-4 h-4 mr-2" />
-          登出
+        <Button variant="ghost" size="sm" className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent" onClick={handleLogout}>
+          <LogOut className="w-4 h-4 mr-2" />登出
         </Button>
       </div>
     </div>

@@ -1,9 +1,17 @@
+export type UserRole = '管理員' | '使用者' | '外包人員';
+
 export interface User {
   id: string;
   username: string;
   displayName: string;
   email: string;
-  role: '管理員' | '使用者';
+  role: UserRole;
+  // 個人資料
+  employeeCode?: string; // 代號
+  department?: string;   // 組別
+  section?: string;      // 課別
+  phone?: string;
+  extension?: string;    // 分機
 }
 
 export interface FileItem {
@@ -17,6 +25,11 @@ export interface FileItem {
   updatedAt: string;
   createdBy: string;
   content?: string;
+  // 結構標記：用於區分系統資料夾（不可刪除/重命名）
+  isSystem?: boolean;
+  folderLevel?: 'zone' | 'department' | 'section';
+  // 磁碟對應路徑（未來移機用）
+  diskPath?: string;
 }
 
 export interface BreadcrumbItem {
@@ -41,9 +54,24 @@ export interface AuditLog {
   timestamp: string;
   userId: string;
   userName: string;
-  action: '登入' | '登出' | '上傳' | '下載' | '刪除' | '建立資料夾' | '重新命名' | '編輯' | '權限變更';
+  action: '登入' | '登出' | '上傳' | '下載' | '刪除' | '建立資料夾' | '重新命名' | '編輯' | '權限變更' | '外包申請';
   targetName?: string;
   targetId?: string;
   details?: string;
   ipAddress?: string;
+}
+
+// 外包人員申請
+export interface ContractorApplication {
+  id: string;
+  applicantName: string;
+  company: string;
+  purpose: string;
+  startDate: string;
+  endDate: string;
+  status: '待審核' | '已核准' | '已拒絕';
+  createdAt: string;
+  createdBy: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
 }

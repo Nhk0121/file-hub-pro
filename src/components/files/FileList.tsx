@@ -11,8 +11,9 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import {
-  Folder, FileText, Image, File, Download, Trash2, Pencil, FileCode, Lock,
+  Folder, FileText, Image, File, Download, Trash2, Pencil, FileCode, Lock, Clock, Archive,
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -24,7 +25,14 @@ interface FileListProps {
 }
 
 const getFileIcon = (item: FileItem) => {
-  if (item.type === 'folder') return <Folder className="w-10 h-10 text-primary" />;
+  if (item.type === 'folder') {
+    if (item.folderLevel === 'zone') {
+      return item.name === '時效區'
+        ? <Clock className="w-10 h-10 text-yellow-500" />
+        : <Archive className="w-10 h-10 text-blue-500" />;
+    }
+    return <Folder className="w-10 h-10 text-primary" />;
+  }
   if (item.mimeType?.startsWith('image/')) return <Image className="w-10 h-10 text-accent-foreground" />;
   if (item.name.endsWith('.md')) return <FileCode className="w-10 h-10 text-accent-foreground" />;
   if (item.mimeType?.includes('html')) return <FileText className="w-10 h-10 text-accent-foreground" />;
@@ -46,7 +54,7 @@ const formatDate = (iso: string) => {
 };
 
 const FileList = ({ viewMode, searchQuery }: FileListProps) => {
-  const { currentFolderId, setCurrentFolderId, getChildren, deleteItem, renameItem } = useFiles();
+  const { currentFolderId, setCurrentFolderId, getChildren, deleteItem, renameItem, isSystemFolder, files: allFiles } = useFiles();
   const { user } = useAuth();
   const { addLog } = useAudit();
   const { getFolderPermission } = usePermissions();
@@ -55,19 +63,38 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
   const [renamingItem, setRenamingItem] = useState<FileItem | null>(null);
   const [newName, setNewName] = useState('');
 
-  // 取得目前資料夾的權限
   const currentPermission = user && currentFolderId
     ? (user.role === '管理員' ? '完整權限' : getFolderPermission(currentFolderId, user.id))
     : '完整權限';
   const canWrite = currentPermission === '完整權限';
   const canAccess = currentPermission !== '無權限';
 
+  // 外包人員限制：只能存取時效區
+  const isContractor = user?.role === '外包人員';
+  // 檢查當前是否在永久區下
+  const isInPermanentZone = (() => {
+    if (!isContractor) return false;
+    let fid = currentFolderId;
+    while (fid) {
+      const folder = allFiles.find(f => f.id === fid);
+      if (!folder) break;
+      if (folder.folderLevel === 'zone' && folder.name === '永久區') return true;
+      fid = folder.parentId;
+    }
+    return false;
+  })();
+
   let items = getChildren(currentFolderId);
+
+  // 外包人員在根目錄時，隱藏永久區
+  if (isContractor && currentFolderId === null) {
+    items = items.filter(i => i.name !== '永久區');
+  }
+
   if (searchQuery) {
     items = items.filter(i => i.name.toLowerCase().includes(searchQuery.toLowerCase()));
   }
 
-  // Sort: folders first, then files
   items.sort((a, b) => {
     if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
     return a.name.localeCompare(b.name, 'zh-TW');
@@ -95,9 +122,7 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
     }
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = item.name;
-    a.click();
+    a.href = url; a.download = item.name; a.click();
     URL.revokeObjectURL(url);
     if (user) addLog({ userId: user.id, userName: user.displayName, action: '下載', targetName: item.name, targetId: item.id });
     toast.success('下載完成');
@@ -105,6 +130,7 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
 
   const handleDelete = (item: FileItem) => {
     if (!canWrite) { toast.error('您沒有刪除權限'); return; }
+    if (item.isSystem) { toast.error('系統資料夾無法刪除'); return; }
     deleteItem(item.id);
     if (user) addLog({ userId: user.id, userName: user.displayName, action: '刪除', targetName: item.name, targetId: item.id });
     toast.success(`已刪除「${item.name}」`);
@@ -112,6 +138,7 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
 
   const handleRename = () => {
     if (!canWrite) { toast.error('您沒有重新命名權限'); return; }
+    if (renamingItem?.isSystem) { toast.error('系統資料夾無法重新命名'); return; }
     if (renamingItem && newName.trim()) {
       renameItem(renamingItem.id, newName.trim());
       if (user) addLog({ userId: user.id, userName: user.displayName, action: '重新命名', targetName: renamingItem.name, details: `→ ${newName.trim()}` });
@@ -120,11 +147,11 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
     }
   };
 
-  if (!canAccess) {
+  if (!canAccess || isInPermanentZone) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
         <Lock className="w-16 h-16 mb-4 opacity-30" />
-        <p className="text-lg">您沒有權限存取此資料夾</p>
+        <p className="text-lg">{isInPermanentZone ? '外包人員無法存取永久區' : '您沒有權限存取此資料夾'}</p>
       </div>
     );
   }
@@ -149,7 +176,10 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
           >
             {getFileIcon(item)}
             <p className="mt-2 text-sm font-medium text-center truncate w-full">{item.name}</p>
-            <p className="text-xs text-muted-foreground">{item.type === 'folder' ? '資料夾' : formatSize(item.size)}</p>
+            <p className="text-xs text-muted-foreground">
+              {item.type === 'folder' ? (item.isSystem ? '系統資料夾' : '資料夾') : formatSize(item.size)}
+            </p>
+            {item.isSystem && <Badge variant="outline" className="mt-1 text-[10px]">系統</Badge>}
           </div>
         ) : (
           <div
@@ -158,7 +188,10 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
           >
             <div className="shrink-0">{getFileIcon(item)}</div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{item.name}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium truncate">{item.name}</p>
+                {item.isSystem && <Badge variant="outline" className="text-[10px]">系統</Badge>}
+              </div>
               <p className="text-xs text-muted-foreground">{item.createdBy}</p>
             </div>
             <div className="text-xs text-muted-foreground w-28 text-right">{formatSize(item.size)}</div>
@@ -168,24 +201,20 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
       </ContextMenuTrigger>
       <ContextMenuContent>
         <ContextMenuItem onClick={() => handleOpen(item)}>
-          <FileText className="w-4 h-4 mr-2" />
-          開啟
+          <FileText className="w-4 h-4 mr-2" />開啟
         </ContextMenuItem>
         {item.type === 'file' && (
           <ContextMenuItem onClick={() => handleDownload(item)}>
-            <Download className="w-4 h-4 mr-2" />
-            下載
+            <Download className="w-4 h-4 mr-2" />下載
           </ContextMenuItem>
         )}
-        {canWrite && (
+        {canWrite && !item.isSystem && (
           <>
             <ContextMenuItem onClick={() => { setRenamingItem(item); setNewName(item.name); setRenameDialogOpen(true); }}>
-              <Pencil className="w-4 h-4 mr-2" />
-              重新命名
+              <Pencil className="w-4 h-4 mr-2" />重新命名
             </ContextMenuItem>
             <ContextMenuItem className="text-destructive" onClick={() => handleDelete(item)}>
-              <Trash2 className="w-4 h-4 mr-2" />
-              刪除
+              <Trash2 className="w-4 h-4 mr-2" />刪除
             </ContextMenuItem>
           </>
         )}
@@ -213,9 +242,7 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
 
       <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>重新命名</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>重新命名</DialogTitle></DialogHeader>
           <Input value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleRename()} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setRenameDialogOpen(false)}>取消</Button>

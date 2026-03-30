@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import type { User } from '@/types';
+import type { User, UserRole } from '@/types';
 
 interface AuthContextType {
   user: User | null;
@@ -9,6 +9,9 @@ interface AuthContextType {
   logout: () => void;
   addUser: (user: User, password: string) => void;
   removeUser: (userId: string) => void;
+  updateUser: (userId: string, updates: Partial<User>) => void;
+  updateUserRole: (userId: string, role: UserRole) => void;
+  updateProfile: (updates: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -25,6 +28,7 @@ const DEFAULT_USERS: StoredUser[] = [
     displayName: '系統管理員',
     email: 'admin@example.com',
     role: '管理員',
+    department: '00.處長室',
   },
   {
     id: '2',
@@ -33,6 +37,8 @@ const DEFAULT_USERS: StoredUser[] = [
     displayName: '一般使用者',
     email: 'user@example.com',
     role: '使用者',
+    department: '02.設計組',
+    section: '資訊課',
   },
 ];
 
@@ -83,8 +89,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, []);
 
+  const updateUser = useCallback((userId: string, updates: Partial<User>) => {
+    setStoredUsers(prev => {
+      const next = prev.map(u => u.id === userId ? { ...u, ...updates } : u);
+      localStorage.setItem('dms_all_users', JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const updateUserRole = useCallback((userId: string, role: UserRole) => {
+    setStoredUsers(prev => {
+      const next = prev.map(u => u.id === userId ? { ...u, role } : u);
+      localStorage.setItem('dms_all_users', JSON.stringify(next));
+      return next;
+    });
+    // 如果是當前使用者，更新 session
+    setUser(prev => {
+      if (prev && prev.id === userId) {
+        const updated = { ...prev, role };
+        localStorage.setItem('dms_user', JSON.stringify(updated));
+        return updated;
+      }
+      return prev;
+    });
+  }, []);
+
+  const updateProfile = useCallback((updates: Partial<User>) => {
+    if (!user) return;
+    const updatedUser = { ...user, ...updates };
+    setUser(updatedUser);
+    localStorage.setItem('dms_user', JSON.stringify(updatedUser));
+    setStoredUsers(prev => {
+      const next = prev.map(u => u.id === user.id ? { ...u, ...updates } : u);
+      localStorage.setItem('dms_all_users', JSON.stringify(next));
+      return next;
+    });
+  }, [user]);
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, allUsers, login, logout, addUser, removeUser }}>
+    <AuthContext.Provider value={{
+      user, isAuthenticated: !!user, allUsers,
+      login, logout, addUser, removeUser, updateUser, updateUserRole, updateProfile,
+    }}>
       {children}
     </AuthContext.Provider>
   );
