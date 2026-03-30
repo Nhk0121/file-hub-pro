@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import type { FileItem } from '@/types';
+import { DEPARTMENTS, DEPARTMENT_SECTIONS, ZONES, buildDiskPath } from '@/config/organization';
 
 interface FileContextType {
   files: FileItem[];
@@ -13,80 +14,101 @@ interface FileContextType {
   getChildren: (parentId: string | null) => FileItem[];
   getBreadcrumbs: (folderId: string | null) => Array<{ id: string | null; name: string }>;
   getFile: (id: string) => FileItem | undefined;
+  canCreateSubfolder: (parentId: string | null) => boolean;
+  getFolderLevel: (folderId: string | null) => FileItem['folderLevel'] | undefined;
+  isSystemFolder: (folderId: string) => boolean;
 }
 
 const FileContext = createContext<FileContextType | null>(null);
 
-const initialFiles: FileItem[] = [
-  {
-    id: 'f1',
-    name: '公司文件',
-    type: 'folder',
-    parentId: null,
-    createdAt: '2024-01-15T08:00:00Z',
-    updatedAt: '2024-01-15T08:00:00Z',
-    createdBy: '系統管理員',
-  },
-  {
-    id: 'f2',
-    name: '專案資料',
-    type: 'folder',
-    parentId: null,
-    createdAt: '2024-01-16T09:00:00Z',
-    updatedAt: '2024-01-16T09:00:00Z',
-    createdBy: '系統管理員',
-  },
-  {
-    id: 'f3',
-    name: '會議記錄',
-    type: 'folder',
-    parentId: 'f1',
-    createdAt: '2024-01-17T10:00:00Z',
-    updatedAt: '2024-01-17T10:00:00Z',
-    createdBy: '系統管理員',
-  },
-  {
-    id: 'd1',
-    name: '歡迎使用文件管理系統.md',
-    type: 'file',
-    mimeType: 'text/markdown',
-    size: 1024,
-    parentId: null,
-    createdAt: '2024-01-15T08:30:00Z',
-    updatedAt: '2024-01-15T08:30:00Z',
-    createdBy: '系統管理員',
-    content: '# 歡迎使用文件管理系統\n\n這是一個功能完整的文件管理系統，支援：\n\n- 📁 資料夾管理\n- 📄 檔案上傳與下載\n- ✏️ 線上文件編輯（Markdown 與富文字）\n- 🔍 檔案搜尋\n\n## 快速開始\n\n1. 建立新資料夾來組織您的檔案\n2. 上傳檔案或建立新文件\n3. 雙擊文件即可開始編輯\n',
-  },
-  {
-    id: 'd2',
-    name: '2024年第一季報告.html',
-    type: 'file',
-    mimeType: 'text/html',
-    size: 2048,
-    parentId: 'f1',
-    createdAt: '2024-02-01T14:00:00Z',
-    updatedAt: '2024-02-15T16:30:00Z',
-    createdBy: '一般使用者',
-    content: '<h2>2024年第一季報告</h2><p>本季度業績表現優異，以下為重點摘要：</p><ul><li>營收成長 <strong>15%</strong></li><li>新客戶增加 <strong>200</strong> 家</li><li>客戶滿意度達 <strong>92%</strong></li></ul><p>詳細內容請參閱附件。</p>',
-  },
-];
+// 建立系統初始資料夾結構
+function buildInitialFolders(): FileItem[] {
+  const folders: FileItem[] = [];
+  const now = new Date().toISOString();
+
+  ZONES.forEach(zone => {
+    const zoneId = `zone_${zone}`;
+    folders.push({
+      id: zoneId,
+      name: zone,
+      type: 'folder',
+      parentId: null,
+      createdAt: now,
+      updatedAt: now,
+      createdBy: '系統',
+      isSystem: true,
+      folderLevel: 'zone',
+      diskPath: buildDiskPath(zone),
+    });
+
+    DEPARTMENTS.forEach(dept => {
+      const deptId = `dept_${zone}_${dept}`;
+      folders.push({
+        id: deptId,
+        name: dept,
+        type: 'folder',
+        parentId: zoneId,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: '系統',
+        isSystem: true,
+        folderLevel: 'department',
+        diskPath: buildDiskPath(zone, dept),
+      });
+
+      const sections = DEPARTMENT_SECTIONS[dept] ?? [];
+      sections.forEach(sec => {
+        const secId = `sec_${zone}_${dept}_${sec}`;
+        folders.push({
+          id: secId,
+          name: sec,
+          type: 'folder',
+          parentId: deptId,
+          createdAt: now,
+          updatedAt: now,
+          createdBy: '系統',
+          isSystem: true,
+          folderLevel: 'section',
+          diskPath: buildDiskPath(zone, dept, sec),
+        });
+      });
+    });
+  });
+
+  return folders;
+}
+
+const INITIAL_FILES = buildInitialFolders();
 
 export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [files, setFiles] = useState<FileItem[]>(() => {
-    const saved = localStorage.getItem('dms_files');
-    return saved ? JSON.parse(saved) : initialFiles;
+    const saved = localStorage.getItem('dms_files_v2');
+    if (saved) {
+      const parsed = JSON.parse(saved) as FileItem[];
+      // 確保系統資料夾都存在
+      const existingIds = new Set(parsed.map(f => f.id));
+      const missing = INITIAL_FILES.filter(f => !existingIds.has(f.id));
+      if (missing.length > 0) {
+        const merged = [...parsed, ...missing];
+        localStorage.setItem('dms_files_v2', JSON.stringify(merged));
+        return merged;
+      }
+      return parsed;
+    }
+    localStorage.setItem('dms_files_v2', JSON.stringify(INITIAL_FILES));
+    return INITIAL_FILES;
   });
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
 
-  const save = (newFiles: FileItem[]) => {
-    setFiles(newFiles);
-    localStorage.setItem('dms_files', JSON.stringify(newFiles));
+  const persist = (next: FileItem[]) => {
+    setFiles(next);
+    localStorage.setItem('dms_files_v2', JSON.stringify(next));
   };
 
   const addFile = useCallback((file: FileItem) => {
     setFiles(prev => {
       const next = [...prev, file];
-      localStorage.setItem('dms_files', JSON.stringify(next));
+      localStorage.setItem('dms_files_v2', JSON.stringify(next));
       return next;
     });
   }, []);
@@ -103,14 +125,15 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     setFiles(prev => {
       const next = [...prev, folder];
-      localStorage.setItem('dms_files', JSON.stringify(next));
+      localStorage.setItem('dms_files_v2', JSON.stringify(next));
       return next;
     });
   }, []);
 
   const deleteItem = useCallback((id: string) => {
     setFiles(prev => {
-      // Recursively delete children
+      const target = prev.find(f => f.id === id);
+      if (target?.isSystem) return prev; // 系統資料夾不可刪除
       const toDelete = new Set<string>();
       const collect = (targetId: string) => {
         toDelete.add(targetId);
@@ -118,15 +141,17 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
       collect(id);
       const next = prev.filter(f => !toDelete.has(f.id));
-      localStorage.setItem('dms_files', JSON.stringify(next));
+      localStorage.setItem('dms_files_v2', JSON.stringify(next));
       return next;
     });
   }, []);
 
   const renameItem = useCallback((id: string, newName: string) => {
     setFiles(prev => {
+      const target = prev.find(f => f.id === id);
+      if (target?.isSystem) return prev; // 系統資料夾不可重命名
       const next = prev.map(f => f.id === id ? { ...f, name: newName, updatedAt: new Date().toISOString() } : f);
-      localStorage.setItem('dms_files', JSON.stringify(next));
+      localStorage.setItem('dms_files_v2', JSON.stringify(next));
       return next;
     });
   }, []);
@@ -134,7 +159,7 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateFileContent = useCallback((id: string, content: string) => {
     setFiles(prev => {
       const next = prev.map(f => f.id === id ? { ...f, content, updatedAt: new Date().toISOString() } : f);
-      localStorage.setItem('dms_files', JSON.stringify(next));
+      localStorage.setItem('dms_files_v2', JSON.stringify(next));
       return next;
     });
   }, []);
@@ -159,11 +184,38 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const getFile = useCallback((id: string) => files.find(f => f.id === id), [files]);
 
+  // 判斷是否可以在指定資料夾下建立子資料夾
+  // 規則：組別資料夾下不可自行建立課別資料夾（課別由系統管理）
+  const canCreateSubfolder = useCallback((parentId: string | null): boolean => {
+    if (!parentId) return false; // 根目錄不允許（已有時效區/永久區）
+    const parent = files.find(f => f.id === parentId);
+    if (!parent) return false;
+    // zone 下不可建立（已有組別）
+    if (parent.folderLevel === 'zone') return false;
+    // department 下不可建立（課別由系統管理）
+    if (parent.folderLevel === 'department') return false;
+    // section 下可以建立自訂子資料夾
+    if (parent.folderLevel === 'section') return true;
+    // 非系統資料夾可以建立
+    if (!parent.isSystem) return true;
+    return false;
+  }, [files]);
+
+  const getFolderLevel = useCallback((folderId: string | null) => {
+    if (!folderId) return undefined;
+    return files.find(f => f.id === folderId)?.folderLevel;
+  }, [files]);
+
+  const isSystemFolder = useCallback((folderId: string) => {
+    return files.find(f => f.id === folderId)?.isSystem ?? false;
+  }, [files]);
+
   return (
     <FileContext.Provider value={{
       files, currentFolderId, setCurrentFolderId,
       addFile, addFolder, deleteItem, renameItem,
       updateFileContent, getChildren, getBreadcrumbs, getFile,
+      canCreateSubfolder, getFolderLevel, isSystemFolder,
     }}>
       {children}
     </FileContext.Provider>

@@ -16,22 +16,24 @@ import {
   Users, Shield, ScrollText, Settings, Search, Trash2, Plus, FolderOpen,
   UserPlus, Lock, Download, FileEdit, LogIn, LogOut, Upload, FolderPlus, Pencil,
 } from 'lucide-react';
-import type { FolderPermission, AuditLog } from '@/types';
+import type { FolderPermission, AuditLog, UserRole } from '@/types';
+import { DEPARTMENTS, getSectionsForDepartment } from '@/config/organization';
 
 const actionIcons: Record<AuditLog['action'], React.ReactNode> = {
-  '登入': <LogIn className="w-4 h-4 text-success" />,
+  '登入': <LogIn className="w-4 h-4 text-green-500" />,
   '登出': <LogOut className="w-4 h-4 text-muted-foreground" />,
   '上傳': <Upload className="w-4 h-4 text-primary" />,
   '下載': <Download className="w-4 h-4 text-primary" />,
   '刪除': <Trash2 className="w-4 h-4 text-destructive" />,
   '建立資料夾': <FolderPlus className="w-4 h-4 text-primary" />,
-  '重新命名': <Pencil className="w-4 h-4 text-warning" />,
+  '重新命名': <Pencil className="w-4 h-4 text-yellow-500" />,
   '編輯': <FileEdit className="w-4 h-4 text-primary" />,
-  '權限變更': <Shield className="w-4 h-4 text-warning" />,
+  '權限變更': <Shield className="w-4 h-4 text-yellow-500" />,
+  '外包申請': <UserPlus className="w-4 h-4 text-primary" />,
 };
 
 const Admin = () => {
-  const { user, allUsers, addUser, removeUser } = useAuth();
+  const { user, allUsers, addUser, removeUser, updateUserRole } = useAuth();
   const { files } = useFiles();
   const { logs, clearLogs } = useAudit();
   const { setFolderPermission, getFolderRules, removeFolderPermission } = usePermissions();
@@ -39,9 +41,12 @@ const Admin = () => {
   const [auditSearch, setAuditSearch] = useState('');
   const [auditActionFilter, setAuditActionFilter] = useState<string>('全部');
   const [addUserOpen, setAddUserOpen] = useState(false);
-  const [newUser, setNewUser] = useState({ username: '', displayName: '', email: '', password: '', role: '使用者' as '管理員' | '使用者' });
+  const [newUser, setNewUser] = useState({
+    username: '', displayName: '', email: '', password: '',
+    role: '使用者' as UserRole,
+    department: '',
+  });
 
-  // 權限管理 state
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [permUserId, setPermUserId] = useState('');
   const [permLevel, setPermLevel] = useState<FolderPermission>('完整權限');
@@ -72,9 +77,10 @@ const Admin = () => {
       displayName: newUser.displayName.trim() || newUser.username.trim(),
       email: newUser.email.trim(),
       role: newUser.role,
+      department: newUser.department || undefined,
     }, newUser.password);
     toast.success(`已新增使用者「${newUser.username}」`);
-    setNewUser({ username: '', displayName: '', email: '', password: '', role: '使用者' });
+    setNewUser({ username: '', displayName: '', email: '', password: '', role: '使用者', department: '' });
     setAddUserOpen(false);
   };
 
@@ -90,7 +96,6 @@ const Admin = () => {
     toast.success('權限已更新');
   };
 
-  // 過濾稽核日誌
   const filteredLogs = logs.filter(log => {
     const matchSearch = !auditSearch || log.userName.includes(auditSearch) || log.targetName?.includes(auditSearch) || log.details?.includes(auditSearch);
     const matchAction = auditActionFilter === '全部' || log.action === auditActionFilter;
@@ -125,9 +130,9 @@ const Admin = () => {
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                   <CardTitle>使用者管理</CardTitle>
-                  <CardDescription>管理系統中的所有使用者帳號</CardDescription>
+                  <CardDescription>管理系統中的所有使用者帳號，可邀請新使用者、編輯角色</CardDescription>
                 </div>
-                <Button onClick={() => setAddUserOpen(true)}><UserPlus className="w-4 h-4 mr-2" />新增使用者</Button>
+                <Button onClick={() => setAddUserOpen(true)}><UserPlus className="w-4 h-4 mr-2" />邀請使用者</Button>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -136,6 +141,7 @@ const Admin = () => {
                       <TableHead>帳號</TableHead>
                       <TableHead>顯示名稱</TableHead>
                       <TableHead>電子信箱</TableHead>
+                      <TableHead>組別</TableHead>
                       <TableHead>角色</TableHead>
                       <TableHead className="text-right">操作</TableHead>
                     </TableRow>
@@ -146,8 +152,22 @@ const Admin = () => {
                         <TableCell className="font-medium">{u.username}</TableCell>
                         <TableCell>{u.displayName}</TableCell>
                         <TableCell>{u.email}</TableCell>
+                        <TableCell className="text-sm">{u.department || '-'}</TableCell>
                         <TableCell>
-                          <Badge variant={u.role === '管理員' ? 'default' : 'secondary'}>{u.role}</Badge>
+                          <Select
+                            value={u.role}
+                            onValueChange={v => updateUserRole(u.id, v as UserRole)}
+                            disabled={u.id === user.id}
+                          >
+                            <SelectTrigger className="w-28 h-8">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="管理員">管理員</SelectItem>
+                              <SelectItem value="使用者">使用者</SelectItem>
+                              <SelectItem value="外包人員">外包人員</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleRemoveUser(u.id, u.username)} disabled={u.id === user.id}>
@@ -285,6 +305,7 @@ const Admin = () => {
                       <SelectItem value="建立資料夾">建立資料夾</SelectItem>
                       <SelectItem value="重新命名">重新命名</SelectItem>
                       <SelectItem value="權限變更">權限變更</SelectItem>
+                      <SelectItem value="外包申請">外包申請</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -307,9 +328,7 @@ const Admin = () => {
                       {filteredLogs.slice(0, 100).map(log => (
                         <TableRow key={log.id}>
                           <TableCell>{actionIcons[log.action]}</TableCell>
-                          <TableCell className="text-xs whitespace-nowrap">
-                            {new Date(log.timestamp).toLocaleString('zh-TW')}
-                          </TableCell>
+                          <TableCell className="text-xs whitespace-nowrap">{new Date(log.timestamp).toLocaleString('zh-TW')}</TableCell>
                           <TableCell className="font-medium">{log.userName}</TableCell>
                           <TableCell><Badge variant="outline">{log.action}</Badge></TableCell>
                           <TableCell className="text-sm">{log.targetName ?? '-'}</TableCell>
@@ -328,17 +347,26 @@ const Admin = () => {
       {/* 新增使用者 Dialog */}
       <Dialog open={addUserOpen} onOpenChange={setAddUserOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>新增使用者</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>邀請使用者</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <Input placeholder="帳號" value={newUser.username} onChange={e => setNewUser(p => ({ ...p, username: e.target.value }))} />
             <Input placeholder="顯示名稱" value={newUser.displayName} onChange={e => setNewUser(p => ({ ...p, displayName: e.target.value }))} />
             <Input placeholder="電子信箱" value={newUser.email} onChange={e => setNewUser(p => ({ ...p, email: e.target.value }))} />
             <Input placeholder="密碼" type="password" value={newUser.password} onChange={e => setNewUser(p => ({ ...p, password: e.target.value }))} />
-            <Select value={newUser.role} onValueChange={v => setNewUser(p => ({ ...p, role: v as '管理員' | '使用者' }))}>
+            <Select value={newUser.role} onValueChange={v => setNewUser(p => ({ ...p, role: v as UserRole }))}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="使用者">使用者</SelectItem>
                 <SelectItem value="管理員">管理員</SelectItem>
+                <SelectItem value="外包人員">外包人員</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={newUser.department} onValueChange={v => setNewUser(p => ({ ...p, department: v }))}>
+              <SelectTrigger><SelectValue placeholder="選擇組別（選填）" /></SelectTrigger>
+              <SelectContent>
+                {DEPARTMENTS.map(d => (
+                  <SelectItem key={d} value={d}>{d}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

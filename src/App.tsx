@@ -12,6 +12,8 @@ import Index from "./pages/Index";
 import Editor from "./pages/Editor";
 import Admin from "./pages/Admin";
 import Login from "./pages/Login";
+import Profile from "./pages/Profile";
+import ContractorApplication from "./pages/ContractorApplication";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -44,6 +46,8 @@ const App = () => (
                     <Route path="/" element={<Index />} />
                     <Route path="/edit/:fileId" element={<Editor />} />
                     <Route path="/admin" element={<Admin />} />
+                    <Route path="/profile" element={<Profile />} />
+                    <Route path="/contractor" element={<ContractorApplication />} />
                   </Route>
                   <Route path="*" element={<NotFound />} />
                 </Routes>

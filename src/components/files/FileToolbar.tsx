@@ -22,7 +22,7 @@ interface FileToolbarProps {
 }
 
 const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }: FileToolbarProps) => {
-  const { currentFolderId, addFolder, addFile } = useFiles();
+  const { currentFolderId, addFolder, addFile, canCreateSubfolder } = useFiles();
   const { user } = useAuth();
   const { addLog } = useAudit();
   const { getFolderPermission } = usePermissions();
@@ -35,6 +35,11 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
   const canWrite = !currentFolderId || !user || user.role === '管理員'
     ? true
     : getFolderPermission(currentFolderId, user.id) === '完整權限';
+
+  // 外包人員只能在時效區操作
+  const isContractor = user?.role === '外包人員';
+
+  const canAddFolder = canWrite && canCreateSubfolder(currentFolderId);
 
   const handleCreateFolder = () => {
     if (newFolderName.trim()) {
@@ -108,12 +113,7 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px] max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            value={searchQuery}
-            onChange={e => onSearchChange(e.target.value)}
-            placeholder="搜尋檔案..."
-            className="pl-9"
-          />
+          <Input value={searchQuery} onChange={e => onSearchChange(e.target.value)} placeholder="搜尋檔案..." className="pl-9" />
         </div>
 
         <div className="flex items-center gap-1 border rounded-md p-0.5">
@@ -128,39 +128,31 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
         {canWrite && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                新增
-              </Button>
+              <Button><Plus className="w-4 h-4 mr-2" />新增</Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setFolderDialogOpen(true)}>
-                <FolderPlus className="w-4 h-4 mr-2" />
-                新增資料夾
-              </DropdownMenuItem>
+              {canAddFolder && (
+                <DropdownMenuItem onClick={() => setFolderDialogOpen(true)}>
+                  <FolderPlus className="w-4 h-4 mr-2" />新增資料夾
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={() => { setNewDocType('markdown'); setDocDialogOpen(true); }}>
-                <FilePlus className="w-4 h-4 mr-2" />
-                新增 Markdown 文件
+                <FilePlus className="w-4 h-4 mr-2" />新增 Markdown 文件
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => { setNewDocType('richtext'); setDocDialogOpen(true); }}>
-                <FilePlus className="w-4 h-4 mr-2" />
-                新增富文字文件
+                <FilePlus className="w-4 h-4 mr-2" />新增富文字文件
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleUpload}>
-                <Upload className="w-4 h-4 mr-2" />
-                上傳檔案
+                <Upload className="w-4 h-4 mr-2" />上傳檔案
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         )}
       </div>
 
-      {/* Create folder dialog */}
       <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>新增資料夾</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>新增資料夾</DialogTitle></DialogHeader>
           <Input value={newFolderName} onChange={e => setNewFolderName(e.target.value)} placeholder="資料夾名稱" onKeyDown={e => e.key === 'Enter' && handleCreateFolder()} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setFolderDialogOpen(false)}>取消</Button>
@@ -169,12 +161,9 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
         </DialogContent>
       </Dialog>
 
-      {/* Create document dialog */}
       <Dialog open={docDialogOpen} onOpenChange={setDocDialogOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>新增{newDocType === 'markdown' ? 'Markdown' : '富文字'}文件</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>新增{newDocType === 'markdown' ? 'Markdown' : '富文字'}文件</DialogTitle></DialogHeader>
           <Input value={newDocName} onChange={e => setNewDocName(e.target.value)} placeholder="文件名稱" onKeyDown={e => e.key === 'Enter' && handleCreateDoc()} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setDocDialogOpen(false)}>取消</Button>
