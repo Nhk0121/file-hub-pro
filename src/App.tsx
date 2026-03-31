@@ -49,6 +49,7 @@ const App = () => (
                     <Route path="/admin" element={<Admin />} />
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/contractor" element={<ContractorApplication />} />
+                    <Route path="/storage-config" element={<StorageConfig />} />
                   </Route>
                   <Route path="*" element={<NotFound />} />
                 </Routes>
