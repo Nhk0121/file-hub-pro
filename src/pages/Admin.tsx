@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import {
   Users, Shield, ScrollText, Settings, Search, Trash2, Plus, FolderOpen,
   UserPlus, Lock, Download, FileEdit, LogIn, LogOut, Upload, FolderPlus, Pencil,
+  Clock, CheckCircle, XCircle, ClipboardList,
 } from 'lucide-react';
 import type { FolderPermission, AuditLog, UserRole } from '@/types';
 import { DEPARTMENTS, getSectionsForDepartment } from '@/config/organization';
@@ -30,12 +31,14 @@ const actionIcons: Record<AuditLog['action'], React.ReactNode> = {
   '編輯': <FileEdit className="w-4 h-4 text-primary" />,
   '權限變更': <Shield className="w-4 h-4 text-yellow-500" />,
   '外包申請': <UserPlus className="w-4 h-4 text-primary" />,
+  '帳號申請': <UserPlus className="w-4 h-4 text-blue-500" />,
+  '審核帳號': <CheckCircle className="w-4 h-4 text-green-500" />,
 };
 
 const Admin = () => {
-  const { user, allUsers, addUser, removeUser, updateUserRole } = useAuth();
+  const { user, allUsers, addUser, removeUser, updateUserRole, registrations, reviewRegistration } = useAuth();
   const { files } = useFiles();
-  const { logs, clearLogs } = useAudit();
+  const { logs, clearLogs, addLog } = useAudit();
   const { setFolderPermission, getFolderRules, removeFolderPermission } = usePermissions();
 
   const [auditSearch, setAuditSearch] = useState('');
@@ -45,6 +48,7 @@ const Admin = () => {
     username: '', displayName: '', email: '', password: '',
     role: '使用者' as UserRole,
     department: '',
+    section: '',
   });
 
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -52,6 +56,9 @@ const Admin = () => {
   const [permLevel, setPermLevel] = useState<FolderPermission>('完整權限');
 
   const folders = files.filter(f => f.type === 'folder');
+  const pendingCount = registrations.filter(r => r.status === '待審核').length;
+
+  const newUserSections = newUser.department ? getSectionsForDepartment(newUser.department) : [];
 
   if (user?.role !== '管理員') {
     return (
@@ -71,6 +78,10 @@ const Admin = () => {
       toast.error('請填寫帳號與密碼');
       return;
     }
+    if (allUsers.some(u => u.username === newUser.username.trim())) {
+      toast.error('帳號已存在');
+      return;
+    }
     addUser({
       id: crypto.randomUUID(),
       username: newUser.username.trim(),
@@ -78,9 +89,10 @@ const Admin = () => {
       email: newUser.email.trim(),
       role: newUser.role,
       department: newUser.department || undefined,
+      section: newUser.section || undefined,
     }, newUser.password);
     toast.success(`已新增使用者「${newUser.username}」`);
-    setNewUser({ username: '', displayName: '', email: '', password: '', role: '使用者', department: '' });
+    setNewUser({ username: '', displayName: '', email: '', password: '', role: '使用者', department: '', section: '' });
     setAddUserOpen(false);
   };
 
@@ -94,6 +106,18 @@ const Admin = () => {
     if (!selectedFolderId || !permUserId) { toast.error('請選擇資料夾與使用者'); return; }
     setFolderPermission(selectedFolderId, permUserId, permLevel);
     toast.success('權限已更新');
+  };
+
+  const handleReviewRegistration = (regId: string, status: '已核准' | '已拒絕') => {
+    reviewRegistration(regId, status, user.displayName);
+    addLog({
+      userId: user.id,
+      userName: user.displayName,
+      action: '審核帳號',
+      targetName: registrations.find(r => r.id === regId)?.displayName,
+      details: status,
+    });
+    toast.success(`帳號申請已${status === '已核准' ? '核准' : '拒絕'}`);
   };
 
   const filteredLogs = logs.filter(log => {
@@ -111,15 +135,21 @@ const Admin = () => {
           <Settings className="w-6 h-6 text-primary" />
           <div>
             <h1 className="text-2xl font-bold text-foreground">系統管理</h1>
-            <p className="text-sm text-muted-foreground">使用者管理、權限控制與稽核日誌</p>
+            <p className="text-sm text-muted-foreground">使用者管理、帳號審核、權限控制與稽核日誌</p>
           </div>
         </div>
       </div>
 
       <div className="flex-1 p-6 overflow-auto">
         <Tabs defaultValue="users" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3 max-w-lg">
+          <TabsList className="grid w-full grid-cols-4 max-w-2xl">
             <TabsTrigger value="users" className="flex items-center gap-2"><Users className="w-4 h-4" />使用者管理</TabsTrigger>
+            <TabsTrigger value="registrations" className="flex items-center gap-2 relative">
+              <ClipboardList className="w-4 h-4" />帳號審核
+              {pendingCount > 0 && (
+                <Badge variant="destructive" className="ml-1 h-5 min-w-5 text-xs px-1">{pendingCount}</Badge>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="permissions" className="flex items-center gap-2"><Shield className="w-4 h-4" />權限設定</TabsTrigger>
             <TabsTrigger value="audit" className="flex items-center gap-2"><ScrollText className="w-4 h-4" />稽核日誌</TabsTrigger>
           </TabsList>
@@ -130,9 +160,9 @@ const Admin = () => {
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                   <CardTitle>使用者管理</CardTitle>
-                  <CardDescription>管理系統中的所有使用者帳號，可邀請新使用者、編輯角色</CardDescription>
+                  <CardDescription>管理系統中的所有使用者帳號</CardDescription>
                 </div>
-                <Button onClick={() => setAddUserOpen(true)}><UserPlus className="w-4 h-4 mr-2" />邀請使用者</Button>
+                <Button onClick={() => setAddUserOpen(true)}><UserPlus className="w-4 h-4 mr-2" />新增使用者</Button>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -178,6 +208,71 @@ const Admin = () => {
                     ))}
                   </TableBody>
                 </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* 帳號審核 */}
+          <TabsContent value="registrations">
+            <Card>
+              <CardHeader>
+                <CardTitle>帳號申請審核</CardTitle>
+                <CardDescription>審核使用者從登入頁面提交的帳號申請</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {registrations.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-8 text-center">尚無帳號申請</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>帳號</TableHead>
+                        <TableHead>姓名</TableHead>
+                        <TableHead>信箱</TableHead>
+                        <TableHead>組別</TableHead>
+                        <TableHead>狀態</TableHead>
+                        <TableHead>申請時間</TableHead>
+                        <TableHead className="text-right">操作</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {registrations.map(reg => (
+                        <TableRow key={reg.id}>
+                          <TableCell className="font-medium">{reg.username}</TableCell>
+                          <TableCell>{reg.displayName}</TableCell>
+                          <TableCell>{reg.email || '-'}</TableCell>
+                          <TableCell className="text-sm">{reg.department || '-'}{reg.section ? ` / ${reg.section}` : ''}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              {reg.status === '待審核' && <Clock className="w-4 h-4 text-yellow-500" />}
+                              {reg.status === '已核准' && <CheckCircle className="w-4 h-4 text-green-500" />}
+                              {reg.status === '已拒絕' && <XCircle className="w-4 h-4 text-destructive" />}
+                              <Badge variant={reg.status === '已核准' ? 'default' : reg.status === '已拒絕' ? 'destructive' : 'secondary'}>
+                                {reg.status}
+                              </Badge>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-xs">{new Date(reg.createdAt).toLocaleString('zh-TW')}</TableCell>
+                          <TableCell className="text-right space-x-1">
+                            {reg.status === '待審核' && (
+                              <>
+                                <Button size="sm" variant="outline" onClick={() => handleReviewRegistration(reg.id, '已核准')}>
+                                  <CheckCircle className="w-3 h-3 mr-1" />核准
+                                </Button>
+                                <Button size="sm" variant="destructive" onClick={() => handleReviewRegistration(reg.id, '已拒絕')}>
+                                  <XCircle className="w-3 h-3 mr-1" />拒絕
+                                </Button>
+                              </>
+                            )}
+                            {reg.status !== '待審核' && (
+                              <span className="text-xs text-muted-foreground">{reg.reviewedBy} 於 {reg.reviewedAt ? new Date(reg.reviewedAt).toLocaleDateString('zh-TW') : ''}</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -306,6 +401,8 @@ const Admin = () => {
                       <SelectItem value="重新命名">重新命名</SelectItem>
                       <SelectItem value="權限變更">權限變更</SelectItem>
                       <SelectItem value="外包申請">外包申請</SelectItem>
+                      <SelectItem value="帳號申請">帳號申請</SelectItem>
+                      <SelectItem value="審核帳號">審核帳號</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -347,12 +444,12 @@ const Admin = () => {
       {/* 新增使用者 Dialog */}
       <Dialog open={addUserOpen} onOpenChange={setAddUserOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>邀請使用者</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>新增使用者</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <Input placeholder="帳號" value={newUser.username} onChange={e => setNewUser(p => ({ ...p, username: e.target.value }))} />
+            <Input placeholder="帳號 *" value={newUser.username} onChange={e => setNewUser(p => ({ ...p, username: e.target.value }))} />
             <Input placeholder="顯示名稱" value={newUser.displayName} onChange={e => setNewUser(p => ({ ...p, displayName: e.target.value }))} />
             <Input placeholder="電子信箱" value={newUser.email} onChange={e => setNewUser(p => ({ ...p, email: e.target.value }))} />
-            <Input placeholder="密碼" type="password" value={newUser.password} onChange={e => setNewUser(p => ({ ...p, password: e.target.value }))} />
+            <Input placeholder="密碼 *" type="password" value={newUser.password} onChange={e => setNewUser(p => ({ ...p, password: e.target.value }))} />
             <Select value={newUser.role} onValueChange={v => setNewUser(p => ({ ...p, role: v as UserRole }))}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -361,7 +458,7 @@ const Admin = () => {
                 <SelectItem value="外包人員">外包人員</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={newUser.department} onValueChange={v => setNewUser(p => ({ ...p, department: v }))}>
+            <Select value={newUser.department} onValueChange={v => setNewUser(p => ({ ...p, department: v, section: '' }))}>
               <SelectTrigger><SelectValue placeholder="選擇組別（選填）" /></SelectTrigger>
               <SelectContent>
                 {DEPARTMENTS.map(d => (
@@ -369,6 +466,16 @@ const Admin = () => {
                 ))}
               </SelectContent>
             </Select>
+            {newUserSections.length > 0 && (
+              <Select value={newUser.section} onValueChange={v => setNewUser(p => ({ ...p, section: v }))}>
+                <SelectTrigger><SelectValue placeholder="選擇課別（選填）" /></SelectTrigger>
+                <SelectContent>
+                  {newUserSections.map(s => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddUserOpen(false)}>取消</Button>

@@ -54,11 +54,30 @@ export interface AuditLog {
   timestamp: string;
   userId: string;
   userName: string;
-  action: '登入' | '登出' | '上傳' | '下載' | '刪除' | '建立資料夾' | '重新命名' | '編輯' | '權限變更' | '外包申請';
+  action: '登入' | '登出' | '上傳' | '下載' | '刪除' | '建立資料夾' | '重新命名' | '編輯' | '權限變更' | '外包申請' | '帳號申請' | '審核帳號';
   targetName?: string;
   targetId?: string;
   details?: string;
   ipAddress?: string;
+}
+
+// 帳號申請
+export type RegistrationStatus = '待審核' | '已核准' | '已拒絕';
+
+export interface UserRegistration {
+  id: string;
+  username: string;
+  password: string;
+  displayName: string;
+  email: string;
+  department?: string;
+  section?: string;
+  phone?: string;
+  status: RegistrationStatus;
+  createdAt: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  rejectReason?: string;
 }
 
 // 外包人員申請
