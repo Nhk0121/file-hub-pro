@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import type { User, UserRole } from '@/types';
+import type { User, UserRole, UserRegistration, RegistrationStatus } from '@/types';
 
 interface AuthContextType {
   user: User | null;
@@ -12,6 +12,10 @@ interface AuthContextType {
   updateUser: (userId: string, updates: Partial<User>) => void;
   updateUserRole: (userId: string, role: UserRole) => void;
   updateProfile: (updates: Partial<User>) => void;
+  // 帳號申請
+  registrations: UserRegistration[];
+  submitRegistration: (reg: Omit<UserRegistration, 'id' | 'status' | 'createdAt'>) => void;
+  reviewRegistration: (regId: string, status: '已核准' | '已拒絕', reviewerName: string, rejectReason?: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -47,14 +51,25 @@ const getStoredUsers = (): StoredUser[] => {
   return saved ? JSON.parse(saved) : DEFAULT_USERS;
 };
 
+const getStoredRegistrations = (): UserRegistration[] => {
+  const saved = localStorage.getItem('dms_registrations');
+  return saved ? JSON.parse(saved) : [];
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('dms_user');
     return saved ? JSON.parse(saved) : null;
   });
   const [storedUsers, setStoredUsers] = useState<StoredUser[]>(getStoredUsers);
+  const [registrations, setRegistrations] = useState<UserRegistration[]>(getStoredRegistrations);
 
   const allUsers: User[] = storedUsers.map(({ password, ...u }) => u);
+
+  const saveRegistrations = (regs: UserRegistration[]) => {
+    setRegistrations(regs);
+    localStorage.setItem('dms_registrations', JSON.stringify(regs));
+  };
 
   const login = useCallback(async (username: string, password: string) => {
     const users = getStoredUsers();
@@ -103,7 +118,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('dms_all_users', JSON.stringify(next));
       return next;
     });
-    // 如果是當前使用者，更新 session
     setUser(prev => {
       if (prev && prev.id === userId) {
         const updated = { ...prev, role };
@@ -126,10 +140,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, [user]);
 
+  const submitRegistration = useCallback((reg: Omit<UserRegistration, 'id' | 'status' | 'createdAt'>) => {
+    const newReg: UserRegistration = {
+      ...reg,
+      id: crypto.randomUUID(),
+      status: '待審核',
+      createdAt: new Date().toISOString(),
+    };
+    saveRegistrations([newReg, ...registrations]);
+  }, [registrations]);
+
+  const reviewRegistration = useCallback((regId: string, status: '已核准' | '已拒絕', reviewerName: string, rejectReason?: string) => {
+    const reg = registrations.find(r => r.id === regId);
+    if (!reg) return;
+
+    const next = registrations.map(r =>
+      r.id === regId ? { ...r, status: status as RegistrationStatus, reviewedBy: reviewerName, reviewedAt: new Date().toISOString(), rejectReason } : r
+    );
+    saveRegistrations(next);
+
+    // 核准時自動建立帳號
+    if (status === '已核准') {
+      const newUser: User = {
+        id: crypto.randomUUID(),
+        username: reg.username,
+        displayName: reg.displayName,
+        email: reg.email,
+        role: '使用者',
+        department: reg.department,
+        section: reg.section,
+        phone: reg.phone,
+      };
+      setStoredUsers(prev => {
+        const updated = [...prev, { ...newUser, password: reg.password }];
+        localStorage.setItem('dms_all_users', JSON.stringify(updated));
+        return updated;
+      });
+    }
+  }, [registrations]);
+
   return (
     <AuthContext.Provider value={{
       user, isAuthenticated: !!user, allUsers,
       login, logout, addUser, removeUser, updateUser, updateUserRole, updateProfile,
+      registrations, submitRegistration, reviewRegistration,
     }}>
       {children}
     </AuthContext.Provider>
