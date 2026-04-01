@@ -18,7 +18,7 @@ import {
   Clock, CheckCircle, XCircle, ClipboardList,
 } from 'lucide-react';
 import type { FolderPermission, AuditLog, UserRole } from '@/types';
-import { DEPARTMENTS, getSectionsForDepartment } from '@/config/organization';
+import { DEPARTMENTS, getSectionsForDepartment, JOB_TITLES } from '@/config/organization';
 
 const actionIcons: Record<AuditLog['action'], React.ReactNode> = {
   '登入': <LogIn className="w-4 h-4 text-green-500" />,
