@@ -1,15 +1,20 @@
 export type UserRole = '管理員' | '使用者' | '外包人員';
 
+// 申請者類型
+export type ApplicantType = '公司員工' | '外包人員';
+
 export interface User {
   id: string;
   username: string;
   displayName: string;
   email: string;
   role: UserRole;
+  applicantType?: ApplicantType;
   // 個人資料
   employeeCode?: string; // 代號
   department?: string;   // 組別
   section?: string;      // 課別
+  jobTitle?: string;     // 職稱
   phone?: string;
   extension?: string;    // 分機
 }
@@ -66,13 +71,16 @@ export type RegistrationStatus = '待審核' | '已核准' | '已拒絕';
 
 export interface UserRegistration {
   id: string;
+  applicantType: ApplicantType;
   username: string;
   password: string;
   displayName: string;
   email: string;
   department?: string;
   section?: string;
+  jobTitle?: string;
   phone?: string;
+  extension?: string;
   status: RegistrationStatus;
   createdAt: string;
   reviewedBy?: string;

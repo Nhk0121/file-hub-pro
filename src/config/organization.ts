@@ -21,11 +21,11 @@ export const DEPARTMENTS = [
 
 export type DepartmentName = typeof DEPARTMENTS[number];
 
-// 各組別下的課別
+// 各組別下的課別（可由管理員擴充）
 export const DEPARTMENT_SECTIONS: Record<string, string[]> = {
   '00.處長室': [],
   '01.維護組': [],
-  '02.設計組': ['規劃課', '設計課', '資訊課', '查核課'],
+  '02.設計組': ['00.經理室', '01.規劃課', '02.設計課', '03.查核課', '04.資訊課'],
   '03.業務組': [],
   '04.電費組': ['收費課', '處理課', '表務課'],
   '05.調度組': [],
@@ -40,6 +40,20 @@ export const DEPARTMENT_SECTIONS: Record<string, string[]> = {
   '14.福利會': [],
   '15.檔案下載': [],
 };
+
+// 職稱選項
+export const JOB_TITLES = [
+  '00.處長',
+  '01.電務副處長',
+  '02.業務副處長',
+  '03.經理',
+  '04.課長(主任)',
+  '05.主管',
+  '06.主辦',
+  '07.經辦(員工)',
+] as const;
+
+export type JobTitle = typeof JOB_TITLES[number];
 
 // 主區域
 export const ZONES = ['時效區', '永久區'] as const;

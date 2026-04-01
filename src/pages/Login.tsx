@@ -7,9 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FileText, Lock, User, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
-import { DEPARTMENTS, getSectionsForDepartment } from '@/config/organization';
+import { DEPARTMENTS, getSectionsForDepartment, JOB_TITLES } from '@/config/organization';
+import type { ApplicantType } from '@/types';
 
 const Login = () => {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -20,13 +22,20 @@ const Login = () => {
   const { addLog } = useAudit();
   const navigate = useNavigate();
 
-  // 申請表單
-  const [regForm, setRegForm] = useState({
+  // 員工申請表單
+  const [empForm, setEmpForm] = useState({
     username: '', password: '', confirmPassword: '',
-    displayName: '', email: '', department: '', section: '', phone: '',
+    displayName: '', email: '', department: '', section: '', jobTitle: '', phone: '', extension: '',
   });
 
-  const regSections = regForm.department ? getSectionsForDepartment(regForm.department) : [];
+  // 外包人員申請表單
+  const [conForm, setConForm] = useState({
+    username: '', password: '', confirmPassword: '',
+    displayName: '', email: '', department: '', section: '', phone: '', extension: '',
+  });
+
+  const empSections = empForm.department ? getSectionsForDepartment(empForm.department) : [];
+  const conSections = conForm.department ? getSectionsForDepartment(conForm.department) : [];
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,43 +54,81 @@ const Login = () => {
     }
   };
 
-  const handleRegister = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!regForm.username.trim() || !regForm.password.trim() || !regForm.displayName.trim()) {
+  const validateCommon = (form: { username: string; password: string; confirmPassword: string; displayName: string }, type: ApplicantType) => {
+    if (!form.username.trim() || !form.password.trim() || !form.displayName.trim()) {
       toast.error('請填寫帳號、密碼及姓名');
-      return;
+      return false;
     }
-    if (regForm.password !== regForm.confirmPassword) {
+    if (type === '公司員工' && !/^\d{6}$/.test(form.username.trim())) {
+      toast.error('公司員工帳號須為姓名代號數字6碼');
+      return false;
+    }
+    if (type === '外包人員' && !/^09\d{8}$/.test(form.username.trim())) {
+      toast.error('外包人員帳號須為手機號碼（09開頭共10碼）');
+      return false;
+    }
+    if (form.password.length < 12) {
+      toast.error('密碼至少需 12 個字元');
+      return false;
+    }
+    if (form.password !== form.confirmPassword) {
       toast.error('兩次密碼不一致');
-      return;
+      return false;
     }
-    if (regForm.password.length < 6) {
-      toast.error('密碼至少需 6 個字元');
-      return;
-    }
-    if (allUsers.some(u => u.username === regForm.username.trim())) {
+    if (allUsers.some(u => u.username === form.username.trim())) {
       toast.error('帳號已存在');
-      return;
+      return false;
     }
+    return true;
+  };
+
+  const handleEmployeeRegister = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateCommon(empForm, '公司員工')) return;
 
     submitRegistration({
-      username: regForm.username.trim(),
-      password: regForm.password,
-      displayName: regForm.displayName.trim(),
-      email: regForm.email.trim(),
-      department: regForm.department || undefined,
-      section: regForm.section || undefined,
-      phone: regForm.phone.trim() || undefined,
+      applicantType: '公司員工',
+      username: empForm.username.trim(),
+      password: empForm.password,
+      displayName: empForm.displayName.trim(),
+      email: empForm.email.trim(),
+      department: empForm.department || undefined,
+      section: empForm.section || undefined,
+      jobTitle: empForm.jobTitle || undefined,
+      phone: empForm.phone.trim() || undefined,
+      extension: empForm.extension.trim() || undefined,
     });
 
     toast.success('帳號申請已送出，請等待管理員審核');
-    setRegForm({ username: '', password: '', confirmPassword: '', displayName: '', email: '', department: '', section: '', phone: '' });
+    setEmpForm({ username: '', password: '', confirmPassword: '', displayName: '', email: '', department: '', section: '', jobTitle: '', phone: '', extension: '' });
+    setMode('login');
+  };
+
+  const handleContractorRegister = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateCommon(conForm, '外包人員')) return;
+
+    submitRegistration({
+      applicantType: '外包人員',
+      username: conForm.username.trim(),
+      password: conForm.password,
+      displayName: conForm.displayName.trim(),
+      email: conForm.email.trim(),
+      department: conForm.department || undefined,
+      section: conForm.section || undefined,
+      jobTitle: '外包人員',
+      phone: conForm.phone.trim() || undefined,
+      extension: conForm.extension.trim() || undefined,
+    });
+
+    toast.success('帳號申請已送出，請等待管理員審核');
+    setConForm({ username: '', password: '', confirmPassword: '', displayName: '', email: '', department: '', section: '', phone: '', extension: '' });
     setMode('login');
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-lg">
         <div className="flex flex-col items-center mb-8">
           <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mb-4 shadow-lg">
             <FileText className="w-8 h-8 text-primary-foreground" />
@@ -134,62 +181,155 @@ const Login = () => {
           <Card className="shadow-xl border-border/50">
             <CardHeader className="text-center">
               <CardTitle className="text-xl">申請帳號</CardTitle>
-              <CardDescription>填寫資料後，管理員審核通過即可登入</CardDescription>
+              <CardDescription>請選擇身分類型並填寫資料，管理員審核通過即可登入</CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleRegister} className="space-y-3">
-                <div className="space-y-2">
-                  <Label>帳號 *</Label>
-                  <Input value={regForm.username} onChange={e => setRegForm(p => ({ ...p, username: e.target.value }))} placeholder="請輸入帳號" required />
-                </div>
-                <div className="space-y-2">
-                  <Label>姓名 *</Label>
-                  <Input value={regForm.displayName} onChange={e => setRegForm(p => ({ ...p, displayName: e.target.value }))} placeholder="請輸入姓名" required />
-                </div>
-                <div className="space-y-2">
-                  <Label>電子信箱</Label>
-                  <Input type="email" value={regForm.email} onChange={e => setRegForm(p => ({ ...p, email: e.target.value }))} placeholder="選填" />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-2">
-                    <Label>密碼 *</Label>
-                    <Input type="password" value={regForm.password} onChange={e => setRegForm(p => ({ ...p, password: e.target.value }))} placeholder="至少 6 字元" required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>確認密碼 *</Label>
-                    <Input type="password" value={regForm.confirmPassword} onChange={e => setRegForm(p => ({ ...p, confirmPassword: e.target.value }))} placeholder="再輸入一次" required />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>組別</Label>
-                  <Select value={regForm.department} onValueChange={v => setRegForm(p => ({ ...p, department: v, section: '' }))}>
-                    <SelectTrigger><SelectValue placeholder="選擇組別（選填）" /></SelectTrigger>
-                    <SelectContent>
-                      {DEPARTMENTS.map(d => (
-                        <SelectItem key={d} value={d}>{d}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {regSections.length > 0 && (
-                  <div className="space-y-2">
-                    <Label>課別</Label>
-                    <Select value={regForm.section} onValueChange={v => setRegForm(p => ({ ...p, section: v }))}>
-                      <SelectTrigger><SelectValue placeholder="選擇課別（選填）" /></SelectTrigger>
-                      <SelectContent>
-                        {regSections.map(s => (
-                          <SelectItem key={s} value={s}>{s}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-                <div className="space-y-2">
-                  <Label>電話</Label>
-                  <Input value={regForm.phone} onChange={e => setRegForm(p => ({ ...p, phone: e.target.value }))} placeholder="選填" />
-                </div>
-                <Button type="submit" className="w-full">送出申請</Button>
-              </form>
+              <Tabs defaultValue="employee" className="space-y-4">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="employee">公司員工</TabsTrigger>
+                  <TabsTrigger value="contractor">外包人員</TabsTrigger>
+                </TabsList>
+
+                {/* 公司員工申請表 */}
+                <TabsContent value="employee">
+                  <form onSubmit={handleEmployeeRegister} className="space-y-3">
+                    <div className="space-y-2">
+                      <Label>帳號（姓名代號數字6碼）*</Label>
+                      <Input value={empForm.username} onChange={e => setEmpForm(p => ({ ...p, username: e.target.value }))} placeholder="例如：123456" maxLength={6} required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>姓名 *</Label>
+                      <Input value={empForm.displayName} onChange={e => setEmpForm(p => ({ ...p, displayName: e.target.value }))} placeholder="請輸入姓名" required />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-2">
+                        <Label>密碼（至少12位元）*</Label>
+                        <Input type="password" value={empForm.password} onChange={e => setEmpForm(p => ({ ...p, password: e.target.value }))} placeholder="至少 12 字元" required />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>確認密碼 *</Label>
+                        <Input type="password" value={empForm.confirmPassword} onChange={e => setEmpForm(p => ({ ...p, confirmPassword: e.target.value }))} placeholder="再輸入一次" required />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-2">
+                        <Label>組別</Label>
+                        <Select value={empForm.department} onValueChange={v => setEmpForm(p => ({ ...p, department: v, section: '' }))}>
+                          <SelectTrigger><SelectValue placeholder="選擇組別" /></SelectTrigger>
+                          <SelectContent>
+                            {DEPARTMENTS.map(d => (<SelectItem key={d} value={d}>{d}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>課別</Label>
+                        {empSections.length > 0 ? (
+                          <Select value={empForm.section} onValueChange={v => setEmpForm(p => ({ ...p, section: v }))}>
+                            <SelectTrigger><SelectValue placeholder="選擇課別" /></SelectTrigger>
+                            <SelectContent>
+                              {empSections.map(s => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input value="（此組別無課別）" disabled className="bg-muted" />
+                        )}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>職稱</Label>
+                      <Select value={empForm.jobTitle} onValueChange={v => setEmpForm(p => ({ ...p, jobTitle: v }))}>
+                        <SelectTrigger><SelectValue placeholder="選擇職稱" /></SelectTrigger>
+                        <SelectContent>
+                          {JOB_TITLES.map(t => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>電子信箱</Label>
+                      <Input type="email" value={empForm.email} onChange={e => setEmpForm(p => ({ ...p, email: e.target.value }))} placeholder="選填" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-2">
+                        <Label>電話</Label>
+                        <Input value={empForm.phone} onChange={e => setEmpForm(p => ({ ...p, phone: e.target.value }))} placeholder="選填" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>分機</Label>
+                        <Input value={empForm.extension} onChange={e => setEmpForm(p => ({ ...p, extension: e.target.value }))} placeholder="選填" />
+                      </div>
+                    </div>
+                    <Button type="submit" className="w-full">送出申請</Button>
+                  </form>
+                </TabsContent>
+
+                {/* 外包人員申請表 */}
+                <TabsContent value="contractor">
+                  <form onSubmit={handleContractorRegister} className="space-y-3">
+                    <div className="space-y-2">
+                      <Label>帳號（手機號碼）*</Label>
+                      <Input value={conForm.username} onChange={e => setConForm(p => ({ ...p, username: e.target.value }))} placeholder="例如：0912345678" maxLength={10} required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>姓名 *</Label>
+                      <Input value={conForm.displayName} onChange={e => setConForm(p => ({ ...p, displayName: e.target.value }))} placeholder="請輸入姓名" required />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-2">
+                        <Label>密碼（至少12位元）*</Label>
+                        <Input type="password" value={conForm.password} onChange={e => setConForm(p => ({ ...p, password: e.target.value }))} placeholder="至少 12 字元" required />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>確認密碼 *</Label>
+                        <Input type="password" value={conForm.confirmPassword} onChange={e => setConForm(p => ({ ...p, confirmPassword: e.target.value }))} placeholder="再輸入一次" required />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-2">
+                        <Label>組別</Label>
+                        <Select value={conForm.department} onValueChange={v => setConForm(p => ({ ...p, department: v, section: '' }))}>
+                          <SelectTrigger><SelectValue placeholder="選擇組別" /></SelectTrigger>
+                          <SelectContent>
+                            {DEPARTMENTS.map(d => (<SelectItem key={d} value={d}>{d}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>課別</Label>
+                        {conSections.length > 0 ? (
+                          <Select value={conForm.section} onValueChange={v => setConForm(p => ({ ...p, section: v }))}>
+                            <SelectTrigger><SelectValue placeholder="選擇課別" /></SelectTrigger>
+                            <SelectContent>
+                              {conSections.map(s => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input value="（此組別無課別）" disabled className="bg-muted" />
+                        )}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>職稱</Label>
+                      <Input value="外包人員" disabled className="bg-muted" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>電子信箱</Label>
+                      <Input type="email" value={conForm.email} onChange={e => setConForm(p => ({ ...p, email: e.target.value }))} placeholder="選填" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-2">
+                        <Label>電話</Label>
+                        <Input value={conForm.phone} onChange={e => setConForm(p => ({ ...p, phone: e.target.value }))} placeholder="選填" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>分機</Label>
+                        <Input value={conForm.extension} onChange={e => setConForm(p => ({ ...p, extension: e.target.value }))} placeholder="選填" />
+                      </div>
+                    </div>
+                    <Button type="submit" className="w-full">送出申請</Button>
+                  </form>
+                </TabsContent>
+              </Tabs>
+
               <div className="mt-4 text-center">
                 <Button variant="link" onClick={() => setMode('login')} className="text-sm">
                   <ArrowLeft className="w-3 h-3 mr-1" />返回登入

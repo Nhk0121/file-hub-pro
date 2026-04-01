@@ -51,6 +51,7 @@ const App = () => (
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/contractor" element={<ContractorApplication />} />
                     <Route path="/storage-config" element={<StorageConfig />} />
+                    <Route path="/phonebook" element={<PhoneBook />} />
                   </Route>
                   <Route path="*" element={<NotFound />} />
                 </Routes>
