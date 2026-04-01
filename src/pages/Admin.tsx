@@ -89,9 +89,12 @@ const Admin = () => {
       role: newUser.role,
       department: newUser.department || undefined,
       section: newUser.section || undefined,
+      jobTitle: newUser.jobTitle || undefined,
+      phone: newUser.phone || undefined,
+      extension: newUser.extension || undefined,
     }, newUser.password);
     toast.success(`已新增使用者「${newUser.username}」`);
-    setNewUser({ username: '', displayName: '', email: '', password: '', role: '使用者', department: '', section: '' });
+    setNewUser({ username: '', displayName: '', email: '', password: '', role: '使用者', department: '', section: '', jobTitle: '', phone: '', extension: '' });
     setAddUserOpen(false);
   };
 
