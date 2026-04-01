@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { User, Save } from 'lucide-react';
 import { toast } from 'sonner';
-import { DEPARTMENTS, getSectionsForDepartment } from '@/config/organization';
+import { DEPARTMENTS, getSectionsForDepartment, JOB_TITLES } from '@/config/organization';
 
 const Profile = () => {
   const { user, updateProfile } = useAuth();
@@ -17,12 +17,12 @@ const Profile = () => {
   const [employeeCode, setEmployeeCode] = useState(user?.employeeCode ?? '');
   const [department, setDepartment] = useState(user?.department ?? '');
   const [section, setSection] = useState(user?.section ?? '');
+  const [jobTitle, setJobTitle] = useState(user?.jobTitle ?? '');
   const [phone, setPhone] = useState(user?.phone ?? '');
   const [extension, setExtension] = useState(user?.extension ?? '');
 
   const sections = getSectionsForDepartment(department);
 
-  // 當組別變更時，清除課別（因為課別僅屬於特定組別）
   useEffect(() => {
     if (department !== user?.department) {
       setSection('');
@@ -35,6 +35,7 @@ const Profile = () => {
       employeeCode: employeeCode.trim(),
       department,
       section,
+      jobTitle,
       phone: phone.trim(),
       extension: extension.trim(),
     });
@@ -124,6 +125,22 @@ const Profile = () => {
                     <Input value="（此組別無課別）" disabled className="bg-muted" />
                   )}
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>職稱</Label>
+                {user.role === '外包人員' ? (
+                  <Input value="外包人員" disabled className="bg-muted" />
+                ) : (
+                  <Select value={jobTitle} onValueChange={setJobTitle}>
+                    <SelectTrigger><SelectValue placeholder="請選擇職稱" /></SelectTrigger>
+                    <SelectContent>
+                      {JOB_TITLES.map(t => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">

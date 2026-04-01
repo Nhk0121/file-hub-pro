@@ -18,7 +18,7 @@ import {
   Clock, CheckCircle, XCircle, ClipboardList,
 } from 'lucide-react';
 import type { FolderPermission, AuditLog, UserRole } from '@/types';
-import { DEPARTMENTS, getSectionsForDepartment } from '@/config/organization';
+import { DEPARTMENTS, getSectionsForDepartment, JOB_TITLES } from '@/config/organization';
 
 const actionIcons: Record<AuditLog['action'], React.ReactNode> = {
   '登入': <LogIn className="w-4 h-4 text-green-500" />,
@@ -47,8 +47,7 @@ const Admin = () => {
   const [newUser, setNewUser] = useState({
     username: '', displayName: '', email: '', password: '',
     role: '使用者' as UserRole,
-    department: '',
-    section: '',
+    department: '', section: '', jobTitle: '', phone: '', extension: '',
   });
 
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -90,9 +89,12 @@ const Admin = () => {
       role: newUser.role,
       department: newUser.department || undefined,
       section: newUser.section || undefined,
+      jobTitle: newUser.jobTitle || undefined,
+      phone: newUser.phone || undefined,
+      extension: newUser.extension || undefined,
     }, newUser.password);
     toast.success(`已新增使用者「${newUser.username}」`);
-    setNewUser({ username: '', displayName: '', email: '', password: '', role: '使用者', department: '', section: '' });
+    setNewUser({ username: '', displayName: '', email: '', password: '', role: '使用者', department: '', section: '', jobTitle: '', phone: '', extension: '' });
     setAddUserOpen(false);
   };
 
@@ -170,8 +172,8 @@ const Admin = () => {
                     <TableRow>
                       <TableHead>帳號</TableHead>
                       <TableHead>顯示名稱</TableHead>
-                      <TableHead>電子信箱</TableHead>
-                      <TableHead>組別</TableHead>
+                      <TableHead>組別/課別</TableHead>
+                      <TableHead>職稱</TableHead>
                       <TableHead>角色</TableHead>
                       <TableHead className="text-right">操作</TableHead>
                     </TableRow>
@@ -181,8 +183,8 @@ const Admin = () => {
                       <TableRow key={u.id}>
                         <TableCell className="font-medium">{u.username}</TableCell>
                         <TableCell>{u.displayName}</TableCell>
-                        <TableCell>{u.email}</TableCell>
-                        <TableCell className="text-sm">{u.department || '-'}</TableCell>
+                        <TableCell className="text-sm">{u.department || '-'}{u.section ? ` / ${u.section}` : ''}</TableCell>
+                        <TableCell className="text-sm">{u.jobTitle || '-'}</TableCell>
                         <TableCell>
                           <Select
                             value={u.role}
@@ -226,10 +228,12 @@ const Admin = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead>類型</TableHead>
                         <TableHead>帳號</TableHead>
                         <TableHead>姓名</TableHead>
-                        <TableHead>信箱</TableHead>
-                        <TableHead>組別</TableHead>
+                        <TableHead>組別/課別</TableHead>
+                        <TableHead>職稱</TableHead>
+                        <TableHead>電話/分機</TableHead>
                         <TableHead>狀態</TableHead>
                         <TableHead>申請時間</TableHead>
                         <TableHead className="text-right">操作</TableHead>
@@ -238,10 +242,16 @@ const Admin = () => {
                     <TableBody>
                       {registrations.map(reg => (
                         <TableRow key={reg.id}>
+                          <TableCell>
+                            <Badge variant={reg.applicantType === '外包人員' ? 'outline' : 'secondary'}>
+                              {reg.applicantType || '公司員工'}
+                            </Badge>
+                          </TableCell>
                           <TableCell className="font-medium">{reg.username}</TableCell>
                           <TableCell>{reg.displayName}</TableCell>
-                          <TableCell>{reg.email || '-'}</TableCell>
                           <TableCell className="text-sm">{reg.department || '-'}{reg.section ? ` / ${reg.section}` : ''}</TableCell>
+                          <TableCell className="text-sm">{reg.jobTitle || '-'}</TableCell>
+                          <TableCell className="text-sm">{reg.phone || '-'}{reg.extension ? ` #${reg.extension}` : ''}</TableCell>
                           <TableCell>
                             <div className="flex items-center gap-1">
                               {reg.status === '待審核' && <Clock className="w-4 h-4 text-yellow-500" />}
@@ -476,6 +486,16 @@ const Admin = () => {
                 </SelectContent>
               </Select>
             )}
+            <Select value={newUser.jobTitle} onValueChange={v => setNewUser(p => ({ ...p, jobTitle: v }))}>
+              <SelectTrigger><SelectValue placeholder="選擇職稱（選填）" /></SelectTrigger>
+              <SelectContent>
+                {JOB_TITLES.map(t => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
+              </SelectContent>
+            </Select>
+            <div className="grid grid-cols-2 gap-2">
+              <Input placeholder="電話" value={newUser.phone} onChange={e => setNewUser(p => ({ ...p, phone: e.target.value }))} />
+              <Input placeholder="分機" value={newUser.extension} onChange={e => setNewUser(p => ({ ...p, extension: e.target.value }))} />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddUserOpen(false)}>取消</Button>

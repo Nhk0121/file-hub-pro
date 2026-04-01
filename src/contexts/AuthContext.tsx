@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import type { User, UserRole, UserRegistration, RegistrationStatus } from '@/types';
+import type { User, UserRole, UserRegistration, RegistrationStatus, ApplicantType } from '@/types';
 
 interface AuthContextType {
   user: User | null;
@@ -41,8 +41,9 @@ const DEFAULT_USERS: StoredUser[] = [
     displayName: '一般使用者',
     email: 'user@example.com',
     role: '使用者',
+    applicantType: '公司員工',
     department: '02.設計組',
-    section: '資訊課',
+    section: '04.資訊課',
   },
 ];
 
@@ -166,10 +167,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         username: reg.username,
         displayName: reg.displayName,
         email: reg.email,
-        role: '使用者',
+        role: reg.applicantType === '外包人員' ? '外包人員' : '使用者',
+        applicantType: reg.applicantType,
         department: reg.department,
         section: reg.section,
+        jobTitle: reg.jobTitle,
         phone: reg.phone,
+        extension: reg.extension,
       };
       setStoredUsers(prev => {
         const updated = [...prev, { ...newUser, password: reg.password }];
