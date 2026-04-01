@@ -496,6 +496,7 @@ const Admin = () => {
               <Input placeholder="電話" value={newUser.phone} onChange={e => setNewUser(p => ({ ...p, phone: e.target.value }))} />
               <Input placeholder="分機" value={newUser.extension} onChange={e => setNewUser(p => ({ ...p, extension: e.target.value }))} />
             </div>
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddUserOpen(false)}>取消</Button>
             <Button onClick={handleAddUser}>建立</Button>
