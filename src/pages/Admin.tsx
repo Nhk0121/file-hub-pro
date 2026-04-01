@@ -226,10 +226,12 @@ const Admin = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead>類型</TableHead>
                         <TableHead>帳號</TableHead>
                         <TableHead>姓名</TableHead>
-                        <TableHead>信箱</TableHead>
-                        <TableHead>組別</TableHead>
+                        <TableHead>組別/課別</TableHead>
+                        <TableHead>職稱</TableHead>
+                        <TableHead>電話/分機</TableHead>
                         <TableHead>狀態</TableHead>
                         <TableHead>申請時間</TableHead>
                         <TableHead className="text-right">操作</TableHead>
@@ -238,10 +240,16 @@ const Admin = () => {
                     <TableBody>
                       {registrations.map(reg => (
                         <TableRow key={reg.id}>
+                          <TableCell>
+                            <Badge variant={reg.applicantType === '外包人員' ? 'outline' : 'secondary'}>
+                              {reg.applicantType || '公司員工'}
+                            </Badge>
+                          </TableCell>
                           <TableCell className="font-medium">{reg.username}</TableCell>
                           <TableCell>{reg.displayName}</TableCell>
-                          <TableCell>{reg.email || '-'}</TableCell>
                           <TableCell className="text-sm">{reg.department || '-'}{reg.section ? ` / ${reg.section}` : ''}</TableCell>
+                          <TableCell className="text-sm">{reg.jobTitle || '-'}</TableCell>
+                          <TableCell className="text-sm">{reg.phone || '-'}{reg.extension ? ` #${reg.extension}` : ''}</TableCell>
                           <TableCell>
                             <div className="flex items-center gap-1">
                               {reg.status === '待審核' && <Clock className="w-4 h-4 text-yellow-500" />}
