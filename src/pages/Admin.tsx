@@ -47,8 +47,7 @@ const Admin = () => {
   const [newUser, setNewUser] = useState({
     username: '', displayName: '', email: '', password: '',
     role: '使用者' as UserRole,
-    department: '',
-    section: '',
+    department: '', section: '', jobTitle: '', phone: '', extension: '',
   });
 
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
