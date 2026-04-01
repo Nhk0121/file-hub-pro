@@ -170,8 +170,8 @@ const Admin = () => {
                     <TableRow>
                       <TableHead>帳號</TableHead>
                       <TableHead>顯示名稱</TableHead>
-                      <TableHead>電子信箱</TableHead>
-                      <TableHead>組別</TableHead>
+                      <TableHead>組別/課別</TableHead>
+                      <TableHead>職稱</TableHead>
                       <TableHead>角色</TableHead>
                       <TableHead className="text-right">操作</TableHead>
                     </TableRow>
