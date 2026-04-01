@@ -181,8 +181,8 @@ const Admin = () => {
                       <TableRow key={u.id}>
                         <TableCell className="font-medium">{u.username}</TableCell>
                         <TableCell>{u.displayName}</TableCell>
-                        <TableCell>{u.email}</TableCell>
-                        <TableCell className="text-sm">{u.department || '-'}</TableCell>
+                        <TableCell className="text-sm">{u.department || '-'}{u.section ? ` / ${u.section}` : ''}</TableCell>
+                        <TableCell className="text-sm">{u.jobTitle || '-'}</TableCell>
                         <TableCell>
                           <Select
                             value={u.role}
