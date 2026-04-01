@@ -486,7 +486,16 @@ const Admin = () => {
                 </SelectContent>
               </Select>
             )}
-          </div>
+            <Select value={newUser.jobTitle} onValueChange={v => setNewUser(p => ({ ...p, jobTitle: v }))}>
+              <SelectTrigger><SelectValue placeholder="選擇職稱（選填）" /></SelectTrigger>
+              <SelectContent>
+                {JOB_TITLES.map(t => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
+              </SelectContent>
+            </Select>
+            <div className="grid grid-cols-2 gap-2">
+              <Input placeholder="電話" value={newUser.phone} onChange={e => setNewUser(p => ({ ...p, phone: e.target.value }))} />
+              <Input placeholder="分機" value={newUser.extension} onChange={e => setNewUser(p => ({ ...p, extension: e.target.value }))} />
+            </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddUserOpen(false)}>取消</Button>
             <Button onClick={handleAddUser}>建立</Button>
