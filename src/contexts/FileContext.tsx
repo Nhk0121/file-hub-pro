@@ -406,6 +406,7 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updateFileContent, getChildren, getBreadcrumbs, getFile,
       canCreateSubfolder, getFolderLevel, isSystemFolder,
       addSectionFolder, removeSectionFolder,
+      trashItems, moveToTrash, restoreFromTrash, permanentDelete, emptyTrash,
     }}>
       {children}
     </FileContext.Provider>
