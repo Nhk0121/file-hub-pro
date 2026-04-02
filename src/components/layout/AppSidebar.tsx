@@ -7,7 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import {
   FileText, FolderOpen, Home, LogOut, ChevronRight, ChevronDown, Settings, User,
-  UserPlus, Clock, Archive, HardDrive, Phone,
+  UserPlus, Clock, Archive, HardDrive, Phone, Trash2,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useMonthlyTheme } from '@/hooks/useMonthlyTheme';
@@ -125,6 +125,7 @@ const AppSidebar = () => {
 
         {navBtn('/profile', '個人資料', <User className="w-4 h-4" />)}
         {user?.role !== '外包人員' && navBtn('/phonebook', '電話簿', <Phone className="w-4 h-4" />)}
+        {navBtn('/recycle-bin', '回收桶', <Trash2 className="w-4 h-4" />)}
         {(user?.role === '管理員' || user?.role === '系統管理員') && navBtn('/contractor', '外包人員管理', <UserPlus className="w-4 h-4" />)}
 
         {(user?.role === '管理員' || user?.role === '系統管理員') && navBtn('/admin', '系統管理', <Settings className="w-4 h-4" />)}

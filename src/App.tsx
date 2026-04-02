@@ -18,6 +18,7 @@ import Profile from "./pages/Profile";
 import ContractorApplication from "./pages/ContractorApplication";
 import StorageConfig from "./pages/StorageConfig";
 import PhoneBook from "./pages/PhoneBook";
+import RecycleBin from "./pages/RecycleBin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -56,6 +57,7 @@ const App = () => (
                     <Route path="/contractor" element={<ContractorApplication />} />
                     <Route path="/storage-config" element={<StorageConfig />} />
                     <Route path="/phonebook" element={<PhoneBook />} />
+                    <Route path="/recycle-bin" element={<RecycleBin />} />
                   </Route>
                   <Route path="*" element={<NotFound />} />
                 </Routes>

@@ -8,13 +8,14 @@ import {
   ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
-  Folder, FileText, Image, File, Download, Trash2, Pencil, FileCode, Lock, Clock, Archive, UserPen, Eye,
+  Folder, FileText, Image, File, Download, Trash2, Pencil, FileCode, Lock, Clock, Archive, UserPen, Eye, AlertTriangle,
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -56,7 +57,7 @@ const formatDate = (iso: string) => {
 };
 
 const FileList = ({ viewMode, searchQuery }: FileListProps) => {
-  const { currentFolderId, setCurrentFolderId, getChildren, deleteItem, renameItem, isSystemFolder, files: allFiles } = useFiles();
+  const { currentFolderId, setCurrentFolderId, getChildren, deleteItem, renameItem, isSystemFolder, files: allFiles, moveToTrash } = useFiles();
   const { user } = useAuth();
   const { addLog } = useAudit();
   const { getFolderPermission, getUserPermanentDepts } = usePermissions();
@@ -161,12 +162,20 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
     toast.success('下載完成');
   };
 
+  const [deleteConfirmItem, setDeleteConfirmItem] = useState<FileItem | null>(null);
+
   const handleDelete = (item: FileItem) => {
     if (!canWrite) { toast.error('您沒有刪除權限'); return; }
     if (item.isSystem) { toast.error('系統資料夾無法刪除'); return; }
-    deleteItem(item.id);
-    if (user) addLog({ userId: user.id, userName: user.displayName, action: '刪除', targetName: item.name, targetId: item.id });
-    toast.success(`已刪除「${item.name}」`);
+    setDeleteConfirmItem(item);
+  };
+
+  const confirmDelete = () => {
+    if (!deleteConfirmItem) return;
+    moveToTrash(deleteConfirmItem.id, user?.displayName || '未知');
+    if (user) addLog({ userId: user.id, userName: user.displayName, action: '刪除', targetName: deleteConfirmItem.name, targetId: deleteConfirmItem.id, details: '移至回收桶' });
+    toast.success(`已將「${deleteConfirmItem.name}」移至回收桶`);
+    setDeleteConfirmItem(null);
   };
 
   const handleRename = () => {
@@ -307,6 +316,24 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
       </Dialog>
 
       <FilePreviewDialog file={previewFile} open={!!previewFile} onOpenChange={(open) => { if (!open) setPreviewFile(null); }} />
+
+      {/* 刪除確認對話框 */}
+      <Dialog open={!!deleteConfirmItem} onOpenChange={(open) => { if (!open) setDeleteConfirmItem(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />確認刪除
+            </DialogTitle>
+            <DialogDescription>
+              確定要將「{deleteConfirmItem?.name}」移至回收桶嗎？您可以在 30 天內從回收桶還原。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirmItem(null)}>取消</Button>
+            <Button variant="destructive" onClick={confirmDelete}>移至回收桶</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

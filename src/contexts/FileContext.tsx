@@ -3,6 +3,13 @@ import React, { createContext, useContext, useState, useCallback } from 'react';
 import type { FileItem } from '@/types';
 import { DEPARTMENTS, ZONES, buildDiskPath, getDepartmentSections } from '@/config/organization';
 
+interface TrashItem {
+  item: FileItem;
+  deletedAt: string;
+  deletedBy: string;
+  originalParentId: string | null;
+}
+
 interface FileContextType {
   files: FileItem[];
   currentFolderId: string | null;
@@ -20,6 +27,12 @@ interface FileContextType {
   isSystemFolder: (folderId: string) => boolean;
   addSectionFolder: (department: string, section: string) => void;
   removeSectionFolder: (department: string, section: string) => void;
+  // 回收桶
+  trashItems: TrashItem[];
+  moveToTrash: (id: string, userName: string) => void;
+  restoreFromTrash: (itemId: string) => void;
+  permanentDelete: (itemId: string) => void;
+  emptyTrash: () => void;
 }
 
 const FileContext = createContext<FileContextType | null>(null);
@@ -118,6 +131,111 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return initial;
   });
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+
+  // 回收桶
+  const TRASH_KEY = 'dms_trash_v1';
+  const [trashItems, setTrashItems] = useState<TrashItem[]>(() => {
+    try {
+      const saved = localStorage.getItem(TRASH_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as TrashItem[];
+        // 自動清除 30 天以上的項目
+        const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+        return parsed.filter(t => new Date(t.deletedAt).getTime() > cutoff);
+      }
+    } catch {}
+    return [];
+  });
+
+  const persistTrash = (items: TrashItem[]) => {
+    setTrashItems(items);
+    localStorage.setItem(TRASH_KEY, JSON.stringify(items));
+  };
+
+  const moveToTrash = useCallback((id: string, userName: string) => {
+    setFiles(prev => {
+      const target = prev.find(f => f.id === id);
+      if (!target || target.isSystem) return prev;
+      // Collect item and all children
+      const collected: FileItem[] = [];
+      const collect = (targetId: string) => {
+        const item = prev.find(f => f.id === targetId);
+        if (item) collected.push(item);
+        prev.filter(f => f.parentId === targetId).forEach(f => collect(f.id));
+      };
+      collect(id);
+      const collectedIds = new Set(collected.map(f => f.id));
+      const next = prev.filter(f => !collectedIds.has(f.id));
+      localStorage.setItem('dms_files_v2', JSON.stringify(next));
+
+      // Add to trash
+      setTrashItems(prevTrash => {
+        const newTrash = [
+          ...prevTrash,
+          ...collected.map(item => ({
+            item,
+            deletedAt: new Date().toISOString(),
+            deletedBy: userName,
+            originalParentId: item.id === id ? (item.parentId ?? null) : item.parentId,
+          } as TrashItem)),
+        ];
+        localStorage.setItem(TRASH_KEY, JSON.stringify(newTrash));
+        return newTrash;
+      });
+
+      return next;
+    });
+  }, []);
+
+  const restoreFromTrash = useCallback((itemId: string) => {
+    setTrashItems(prevTrash => {
+      // Find the root item and all its children in trash
+      const rootTrash = prevTrash.find(t => t.item.id === itemId);
+      if (!rootTrash) return prevTrash;
+
+      // Collect root + children
+      const toRestore: TrashItem[] = [rootTrash];
+      const collectChildren = (parentId: string) => {
+        prevTrash.filter(t => t.item.parentId === parentId).forEach(t => {
+          toRestore.push(t);
+          collectChildren(t.item.id);
+        });
+      };
+      collectChildren(itemId);
+
+      const restoreIds = new Set(toRestore.map(t => t.item.id));
+      const remaining = prevTrash.filter(t => !restoreIds.has(t.item.id));
+      localStorage.setItem(TRASH_KEY, JSON.stringify(remaining));
+
+      // Restore files
+      setFiles(prev => {
+        const restored = toRestore.map(t => t.item);
+        const next = [...prev, ...restored];
+        localStorage.setItem('dms_files_v2', JSON.stringify(next));
+        return next;
+      });
+
+      return remaining;
+    });
+  }, []);
+
+  const permanentDelete = useCallback((itemId: string) => {
+    setTrashItems(prev => {
+      const toDelete = new Set<string>();
+      const collect = (id: string) => {
+        toDelete.add(id);
+        prev.filter(t => t.item.parentId === id).forEach(t => collect(t.item.id));
+      };
+      collect(itemId);
+      const remaining = prev.filter(t => !toDelete.has(t.item.id));
+      localStorage.setItem(TRASH_KEY, JSON.stringify(remaining));
+      return remaining;
+    });
+  }, []);
+
+  const emptyTrash = useCallback(() => {
+    persistTrash([]);
+  }, []);
 
   const persist = (next: FileItem[]) => {
     setFiles(next);
@@ -288,6 +406,7 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updateFileContent, getChildren, getBreadcrumbs, getFile,
       canCreateSubfolder, getFolderLevel, isSystemFolder,
       addSectionFolder, removeSectionFolder,
+      trashItems, moveToTrash, restoreFromTrash, permanentDelete, emptyTrash,
     }}>
       {children}
     </FileContext.Provider>
