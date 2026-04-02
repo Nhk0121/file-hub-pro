@@ -71,7 +71,8 @@ const getStoredSettings = (): StorageSettings => {
   const saved = localStorage.getItem('dms_storage_settings');
   if (saved) {
     const parsed = JSON.parse(saved);
-    if (!parsed.departmentQuotas) {
+    // Migration: if quotas don't have zone field, rebuild
+    if (!parsed.departmentQuotas || !parsed.departmentQuotas[0]?.zone) {
       parsed.departmentQuotas = DEFAULT_SETTINGS.departmentQuotas;
     }
     return parsed;
