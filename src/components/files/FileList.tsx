@@ -264,6 +264,7 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
       </ContextMenuContent>
     </ContextMenu>
   );
+  };
 
   return (
     <>
