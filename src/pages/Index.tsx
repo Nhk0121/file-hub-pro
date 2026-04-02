@@ -5,7 +5,7 @@ import FileList from '@/components/files/FileList';
 import {
   Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
-import { HardDrive, FolderOpen, FileText, Upload } from 'lucide-react';
+import { FolderOpen, FileText } from 'lucide-react';
 import React from 'react';
 
 const Index = () => {
