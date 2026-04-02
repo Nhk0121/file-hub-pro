@@ -93,8 +93,8 @@ const Landing = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
             { value: '16', label: '組別單位' },
-            { value: '256bit', label: '加密等級' },
-            { value: '24/7', label: '系統可用性' },
+            { value: '9+', label: '核心功能模組' },
+            { value: '30天', label: '回收桶保留' },
             { value: '100%', label: '操作可追溯' },
           ].map((s, i) => (
             <div key={i} className="text-center p-6 rounded-xl glass">
