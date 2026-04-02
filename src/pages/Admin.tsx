@@ -284,7 +284,11 @@ const Admin = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {allUsers.map(u => (
+                    {allUsers.filter(u => {
+                      if (!userSearch) return true;
+                      const q = userSearch.toLowerCase();
+                      return u.username.toLowerCase().includes(q) || u.displayName.toLowerCase().includes(q) || (u.department || '').toLowerCase().includes(q) || (u.section || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
+                    }).map(u => (
                       <TableRow key={u.id}>
                         <TableCell>
                           <Badge variant={u.applicantType === '外包人員' ? 'outline' : 'secondary'}>
