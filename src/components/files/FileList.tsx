@@ -114,6 +114,22 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
     return false;
   })();
 
+  // 檢查當前是否在時效區下
+  const isInTimedZone = (() => {
+    let fid = currentFolderId;
+    while (fid) {
+      const folder = allFiles.find(f => f.id === fid);
+      if (!folder) break;
+      if (folder.folderLevel === 'zone' && folder.name === '時效區') return true;
+      fid = folder.parentId;
+    }
+    return false;
+  })();
+
+  const getDaysLeft = (createdAt: string) => {
+    return Math.max(0, 30 - Math.floor((Date.now() - new Date(createdAt).getTime()) / 86400000));
+  };
+
   let items = getChildren(currentFolderId);
 
   // 外包人員在根目錄時，隱藏永久區
