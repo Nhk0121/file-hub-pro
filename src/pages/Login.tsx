@@ -37,6 +37,7 @@ const Login = () => {
 
   const empSections = empForm.department ? getSectionsForDepartment(empForm.department) : [];
   const conSections = conForm.department ? getSectionsForDepartment(conForm.department) : [];
+  const theme = useMonthlyTheme();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
