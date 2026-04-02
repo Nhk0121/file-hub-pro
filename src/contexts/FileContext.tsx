@@ -130,6 +130,63 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('dms_files_v2', JSON.stringify(initial));
     return initial;
   });
+
+  // 時效區自動清除：30 天以上的非資料夾檔案自動移至回收桶
+  const autoCleanTimedZone = useCallback((currentFiles: FileItem[]) => {
+    const now = Date.now();
+    const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+    const timedZone = currentFiles.find(f => f.folderLevel === 'zone' && f.name === '時效區');
+    if (!timedZone) return currentFiles;
+
+    const isUnderTimedZone = (fileId: string | null): boolean => {
+      let fid = fileId;
+      while (fid) {
+        if (fid === timedZone.id) return true;
+        const parent = currentFiles.find(f => f.id === fid);
+        if (!parent) break;
+        fid = parent.parentId;
+      }
+      return false;
+    };
+
+    const expired: FileItem[] = [];
+    currentFiles.forEach(f => {
+      if (f.type === 'file' && !f.isSystem && isUnderTimedZone(f.parentId)) {
+        const age = now - new Date(f.createdAt).getTime();
+        if (age > THIRTY_DAYS) expired.push(f);
+      }
+    });
+
+    if (expired.length === 0) return currentFiles;
+
+    // Move expired to trash
+    const expiredIds = new Set(expired.map(f => f.id));
+    const trashKey = 'dms_trash_v1';
+    try {
+      const saved = localStorage.getItem(trashKey);
+      const existing: TrashItem[] = saved ? JSON.parse(saved) : [];
+      const newTrash = [
+        ...existing,
+        ...expired.map(item => ({
+          item,
+          deletedAt: new Date().toISOString(),
+          deletedBy: '系統（時效區自動清除）',
+          originalParentId: item.parentId,
+        })),
+      ];
+      localStorage.setItem(trashKey, JSON.stringify(newTrash));
+    } catch {}
+
+    const cleaned = currentFiles.filter(f => !expiredIds.has(f.id));
+    localStorage.setItem('dms_files_v2', JSON.stringify(cleaned));
+    return cleaned;
+  }, []);
+
+  // 初始化時執行自動清除
+  useState(() => {
+    setFiles(prev => autoCleanTimedZone(prev));
+  });
+
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
 
   // 回收桶
