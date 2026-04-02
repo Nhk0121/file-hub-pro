@@ -52,6 +52,9 @@ const Admin = () => {
 
   const [auditSearch, setAuditSearch] = useState('');
   const [auditActionFilter, setAuditActionFilter] = useState<string>('全部');
+  const [auditUserFilter, setAuditUserFilter] = useState<string>('全部');
+  const [auditDateFrom, setAuditDateFrom] = useState('');
+  const [auditDateTo, setAuditDateTo] = useState('');
   const [addUserOpen, setAddUserOpen] = useState(false);
   const [newUserType, setNewUserType] = useState<ApplicantType>('公司員工');
   const [newUser, setNewUser] = useState({
