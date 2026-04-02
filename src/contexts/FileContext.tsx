@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import type { FileItem } from '@/types';
-import { DEPARTMENTS, DEPARTMENT_SECTIONS, ZONES, buildDiskPath } from '@/config/organization';
+import { DEPARTMENTS, ZONES, buildDiskPath, getDepartmentSections } from '@/config/organization';
 
 interface FileContextType {
   files: FileItem[];

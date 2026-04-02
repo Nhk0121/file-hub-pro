@@ -5,14 +5,23 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Phone, Search, Lock } from 'lucide-react';
-import { DEPARTMENTS } from '@/config/organization';
+import { DEPARTMENTS, getSectionsForDepartment } from '@/config/organization';
 
 const PhoneBook = () => {
   const { user, allUsers } = useAuth();
   const [search, setSearch] = useState('');
   const [deptFilter, setDeptFilter] = useState('全部');
+  const [secFilter, setSecFilter] = useState('全部');
 
-  // 僅員工帳號可閱覽
+  // 組別變更時重置課別
+  const handleDeptChange = (val: string) => {
+    setDeptFilter(val);
+    setSecFilter('全部');
+  };
+
+  // 取得目前選中組別的課別列表
+  const availableSections = deptFilter !== '全部' ? getSectionsForDepartment(deptFilter) : [];
+
   if (user?.role === '外包人員') {
     return (
       <div className="flex items-center justify-center h-full">
@@ -26,7 +35,6 @@ const PhoneBook = () => {
     );
   }
 
-  // 僅顯示非外包人員
   const employees = allUsers.filter(u => u.role !== '外包人員');
 
   const filtered = employees.filter(u => {
@@ -38,7 +46,8 @@ const PhoneBook = () => {
       u.phone?.includes(search) ||
       u.extension?.includes(search);
     const matchDept = deptFilter === '全部' || u.department === deptFilter;
-    return matchSearch && matchDept;
+    const matchSec = secFilter === '全部' || u.section === secFilter;
+    return matchSearch && matchDept && matchSec;
   });
 
   return (
@@ -56,18 +65,27 @@ const PhoneBook = () => {
       <div className="flex-1 p-6 overflow-auto">
         <Card>
           <CardHeader>
-            <div className="flex items-center gap-3">
-              <div className="relative flex-1 max-w-sm">
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="relative flex-1 min-w-[200px] max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋姓名、組別、電話..." className="pl-9" />
+                <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋姓名、電話..." className="pl-9" />
               </div>
-              <Select value={deptFilter} onValueChange={setDeptFilter}>
+              <Select value={deptFilter} onValueChange={handleDeptChange}>
                 <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="全部">全部組別</SelectItem>
                   {DEPARTMENTS.map(d => (<SelectItem key={d} value={d}>{d}</SelectItem>))}
                 </SelectContent>
               </Select>
+              {availableSections.length > 0 && (
+                <Select value={secFilter} onValueChange={setSecFilter}>
+                  <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="全部">全部課別</SelectItem>
+                    {availableSections.map(s => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </CardHeader>
           <CardContent>
