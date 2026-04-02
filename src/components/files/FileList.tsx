@@ -253,9 +253,14 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
           <FileText className="w-4 h-4 mr-2" />開啟
         </ContextMenuItem>
         {item.type === 'file' && (
-          <ContextMenuItem onClick={() => handleDownload(item)}>
-            <Download className="w-4 h-4 mr-2" />下載
-          </ContextMenuItem>
+          <>
+            <ContextMenuItem onClick={() => { setPreviewFile(item); if (user) addLog({ userId: user.id, userName: user.displayName, action: '預覽', targetName: item.name, targetId: item.id }); }}>
+              <Eye className="w-4 h-4 mr-2" />預覽
+            </ContextMenuItem>
+            <ContextMenuItem onClick={() => handleDownload(item)}>
+              <Download className="w-4 h-4 mr-2" />下載
+            </ContextMenuItem>
+          </>
         )}
         {canWrite && !item.isSystem && (
           <>
