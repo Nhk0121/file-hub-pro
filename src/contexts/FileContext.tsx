@@ -58,7 +58,7 @@ function buildInitialFolders(): FileItem[] {
         diskPath: buildDiskPath(zone, dept),
       });
 
-      const sections = DEPARTMENT_SECTIONS[dept] ?? [];
+      const sections = getDepartmentSections()[dept] ?? [];
       sections.forEach(sec => {
         const secId = `sec_${zone}_${dept}_${sec}`;
         folders.push({
