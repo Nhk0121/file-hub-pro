@@ -48,7 +48,7 @@ const Admin = () => {
   const { user, allUsers, addUser, removeUser, updateUserRole, registrations, reviewRegistration, resetPassword } = useAuth();
   const { files, addSectionFolder, removeSectionFolder } = useFiles();
   const { logs, clearLogs, addLog } = useAudit();
-  const { setFolderPermission, getFolderRules, removeFolderPermission } = usePermissions();
+  const { setFolderPermission, getFolderRules, removeFolderPermission, permanentOverrides, setPermanentOverride, removePermanentOverride } = usePermissions();
 
   const [auditSearch, setAuditSearch] = useState('');
   const [auditActionFilter, setAuditActionFilter] = useState<string>('全部');
@@ -66,6 +66,13 @@ const Admin = () => {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [permUserId, setPermUserId] = useState('');
   const [permLevel, setPermLevel] = useState<FolderPermission>('完整權限');
+
+  // 使用者搜尋
+  const [userSearch, setUserSearch] = useState('');
+
+  // 永久區多組別權限
+  const [permSpecialUserId, setPermSpecialUserId] = useState('');
+  const [permSpecialDepts, setPermSpecialDepts] = useState<string[]>([]);
 
   // 組織管理
   const [orgSelectedDept, setOrgSelectedDept] = useState<string>('');
@@ -259,6 +266,10 @@ const Admin = () => {
                 <Button onClick={() => setAddUserOpen(true)}><UserPlus className="w-4 h-4 mr-2" />新增使用者</Button>
               </CardHeader>
               <CardContent>
+                <div className="relative mb-4 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input value={userSearch} onChange={e => setUserSearch(e.target.value)} placeholder="搜尋帳號、姓名、組別..." className="pl-9" />
+                </div>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -273,7 +284,11 @@ const Admin = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {allUsers.map(u => (
+                    {allUsers.filter(u => {
+                      if (!userSearch) return true;
+                      const q = userSearch.toLowerCase();
+                      return u.username.toLowerCase().includes(q) || u.displayName.toLowerCase().includes(q) || (u.department || '').toLowerCase().includes(q) || (u.section || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
+                    }).map(u => (
                       <TableRow key={u.id}>
                         <TableCell>
                           <Badge variant={u.applicantType === '外包人員' ? 'outline' : 'secondary'}>
@@ -545,6 +560,96 @@ const Admin = () => {
                               </TableCell>
                               <TableCell className="text-right">
                                 <Button variant="ghost" size="icon" className="text-destructive" onClick={() => removeFolderPermission(rule.id)}>
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* 永久區跨組別權限 */}
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><FolderLock className="w-5 h-5" />永久區跨組別完整權限</CardTitle>
+                  <CardDescription>授權特定使用者對永久區中非所屬組別的資料夾擁有完整權限（上傳、編輯、刪除）</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                    <div>
+                      <Label className="text-sm font-medium mb-1 block">選擇使用者</Label>
+                      <Select value={permSpecialUserId} onValueChange={v => {
+                        setPermSpecialUserId(v);
+                        const existing = permanentOverrides.find(o => o.userId === v);
+                        setPermSpecialDepts(existing?.departments ?? []);
+                      }}>
+                        <SelectTrigger><SelectValue placeholder="選擇使用者" /></SelectTrigger>
+                        <SelectContent>
+                          {allUsers.filter(u => u.role !== '系統管理員' && u.role !== '管理員').map(u => (
+                            <SelectItem key={u.id} value={u.id}>{u.displayName} ({u.username}) - {u.department || '未設組別'}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label className="text-sm font-medium mb-1 block">授權組別（可複選）</Label>
+                      <div className="flex flex-wrap gap-2 p-3 border rounded-md bg-background min-h-[40px]">
+                        {DEPARTMENTS.map(dept => (
+                          <label key={dept} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={permSpecialDepts.includes(dept)}
+                              onChange={e => {
+                                setPermSpecialDepts(prev =>
+                                  e.target.checked ? [...prev, dept] : prev.filter(d => d !== dept)
+                                );
+                              }}
+                              className="rounded border-input"
+                            />
+                            <span>{dept}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <Button onClick={() => {
+                    if (!permSpecialUserId) { toast.error('請選擇使用者'); return; }
+                    if (permSpecialDepts.length === 0) { toast.error('請至少選擇一個組別'); return; }
+                    setPermanentOverride(permSpecialUserId, permSpecialDepts);
+                    const u = allUsers.find(x => x.id === permSpecialUserId);
+                    toast.success(`已授權「${u?.displayName}」${permSpecialDepts.length} 個組別的永久區完整權限`);
+                  }}><Plus className="w-4 h-4 mr-2" />套用跨組別權限</Button>
+
+                  {permanentOverrides.length > 0 && (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>使用者</TableHead>
+                          <TableHead>所屬組別</TableHead>
+                          <TableHead>授權組別</TableHead>
+                          <TableHead className="text-right">操作</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {permanentOverrides.map(override => {
+                          const oUser = allUsers.find(u => u.id === override.userId);
+                          return (
+                            <TableRow key={override.id}>
+                              <TableCell className="font-medium">{oUser?.displayName ?? override.userId}</TableCell>
+                              <TableCell className="text-sm">{oUser?.department || '-'}</TableCell>
+                              <TableCell>
+                                <div className="flex flex-wrap gap-1">
+                                  {override.departments.map(d => (
+                                    <Badge key={d} variant="secondary" className="text-xs">{d}</Badge>
+                                  ))}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button variant="ghost" size="icon" className="text-destructive" onClick={() => removePermanentOverride(override.id)}>
                                   <Trash2 className="w-4 h-4" />
                                 </Button>
                               </TableCell>

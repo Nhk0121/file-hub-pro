@@ -53,6 +53,13 @@ export interface FolderPermissionRule {
   permission: FolderPermission;
 }
 
+// 永久區跨組別完整權限設定
+export interface PermanentZoneOverride {
+  id: string;
+  userId: string;
+  departments: string[]; // 被授權的組別名稱列表
+}
+
 // 稽核日誌
 export interface AuditLog {
   id: string;
