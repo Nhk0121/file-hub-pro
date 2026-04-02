@@ -114,6 +114,22 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
     return false;
   })();
 
+  // 檢查當前是否在時效區下
+  const isInTimedZone = (() => {
+    let fid = currentFolderId;
+    while (fid) {
+      const folder = allFiles.find(f => f.id === fid);
+      if (!folder) break;
+      if (folder.folderLevel === 'zone' && folder.name === '時效區') return true;
+      fid = folder.parentId;
+    }
+    return false;
+  })();
+
+  const getDaysLeft = (createdAt: string) => {
+    return Math.max(0, 30 - Math.floor((Date.now() - new Date(createdAt).getTime()) / 86400000));
+  };
+
   let items = getChildren(currentFolderId);
 
   // 外包人員在根目錄時，隱藏永久區
@@ -232,6 +248,11 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
               {item.type === 'folder' ? (item.isSystem ? '系統資料夾' : '資料夾') : formatSize(item.size)}
             </p>
             {item.isSystem && <Badge variant="outline" className="mt-1 text-[10px]">系統</Badge>}
+            {isInTimedZone && item.type === 'file' && (
+              <Badge variant={getDaysLeft(item.createdAt) <= 7 ? 'destructive' : 'secondary'} className="mt-1 text-[10px]">
+                剩 {getDaysLeft(item.createdAt)} 天
+              </Badge>
+            )}
           </div>
         ) : (
           <div
@@ -247,6 +268,11 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
                   <Badge variant="secondary" className="text-[10px] gap-1">
                     <UserPen className="w-3 h-3" />
                     {editLock.userName} 編輯中
+                  </Badge>
+                )}
+                {isInTimedZone && item.type === 'file' && (
+                  <Badge variant={getDaysLeft(item.createdAt) <= 7 ? 'destructive' : 'secondary'} className="text-[10px]">
+                    剩 {getDaysLeft(item.createdAt)} 天
                   </Badge>
                 )}
               </div>
