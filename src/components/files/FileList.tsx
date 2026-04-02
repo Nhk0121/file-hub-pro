@@ -193,14 +193,24 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
     );
   }
 
-  const renderItem = (item: FileItem) => (
+  const renderItem = (item: FileItem) => {
+    const editLock = item.type === 'file' ? getLock(item.id) : undefined;
+    const isBeingEdited = !!editLock;
+
+    return (
     <ContextMenu key={item.id}>
       <ContextMenuTrigger>
         {viewMode === 'grid' ? (
           <div
-            className="group flex flex-col items-center p-4 rounded-xl border border-border/50 bg-card hover:bg-accent/50 hover:border-primary/30 transition-all cursor-pointer"
+            className="group flex flex-col items-center p-4 rounded-xl border border-border/50 bg-card hover:bg-accent/50 hover:border-primary/30 transition-all cursor-pointer relative"
             onDoubleClick={() => handleOpen(item)}
           >
+            {isBeingEdited && (
+              <div className="absolute top-2 right-2 flex items-center gap-1 bg-primary/10 text-primary rounded-full px-2 py-0.5 text-[10px] font-medium">
+                <UserPen className="w-3 h-3" />
+                {editLock.userName}
+              </div>
+            )}
             {getFileIcon(item)}
             <p className="mt-2 text-sm font-medium text-center truncate w-full">{item.name}</p>
             <p className="text-xs text-muted-foreground">
@@ -218,6 +228,12 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
               <div className="flex items-center gap-2">
                 <p className="text-sm font-medium truncate">{item.name}</p>
                 {item.isSystem && <Badge variant="outline" className="text-[10px]">系統</Badge>}
+                {isBeingEdited && (
+                  <Badge variant="secondary" className="text-[10px] gap-1">
+                    <UserPen className="w-3 h-3" />
+                    {editLock.userName} 編輯中
+                  </Badge>
+                )}
               </div>
               <p className="text-xs text-muted-foreground">{item.createdBy}</p>
             </div>
