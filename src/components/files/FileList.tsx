@@ -59,6 +59,7 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
   const { user } = useAuth();
   const { addLog } = useAudit();
   const { getFolderPermission, getUserPermanentDepts } = usePermissions();
+  const { getLock } = useEditLock();
   const navigate = useNavigate();
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renamingItem, setRenamingItem] = useState<FileItem | null>(null);
