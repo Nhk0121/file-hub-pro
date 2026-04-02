@@ -7,7 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import {
   FileText, FolderOpen, Home, LogOut, ChevronRight, ChevronDown, Settings, User,
-  UserPlus, Clock, Archive, HardDrive, Phone,
+  UserPlus, Clock, Archive, HardDrive, Phone, Trash2,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useMonthlyTheme } from '@/hooks/useMonthlyTheme';
