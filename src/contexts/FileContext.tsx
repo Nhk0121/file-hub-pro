@@ -17,6 +17,8 @@ interface FileContextType {
   canCreateSubfolder: (parentId: string | null) => boolean;
   getFolderLevel: (folderId: string | null) => FileItem['folderLevel'] | undefined;
   isSystemFolder: (folderId: string) => boolean;
+  addSectionFolder: (department: string, section: string) => void;
+  removeSectionFolder: (department: string, section: string) => void;
 }
 
 const FileContext = createContext<FileContextType | null>(null);
