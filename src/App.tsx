@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { FileProvider } from "@/contexts/FileContext";
 import { AuditProvider } from "@/contexts/AuditContext";
 import { PermissionProvider } from "@/contexts/PermissionContext";
+import { EditLockProvider } from "@/contexts/EditLockContext";
 import AppLayout from "@/components/layout/AppLayout";
 import Index from "./pages/Index";
 import Editor from "./pages/Editor";
