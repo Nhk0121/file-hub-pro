@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import type { FileItem } from '@/types';
-import { DEPARTMENTS, DEPARTMENT_SECTIONS, ZONES, buildDiskPath } from '@/config/organization';
+import { DEPARTMENTS, ZONES, buildDiskPath, getDepartmentSections } from '@/config/organization';
 
 interface FileContextType {
   files: FileItem[];
@@ -58,7 +58,7 @@ function buildInitialFolders(): FileItem[] {
         diskPath: buildDiskPath(zone, dept),
       });
 
-      const sections = DEPARTMENT_SECTIONS[dept] ?? [];
+      const sections = getDepartmentSections()[dept] ?? [];
       sections.forEach(sec => {
         const secId = `sec_${zone}_${dept}_${sec}`;
         folders.push({
@@ -80,16 +80,20 @@ function buildInitialFolders(): FileItem[] {
   return folders;
 }
 
-const INITIAL_FILES = buildInitialFolders();
+// 每次都動態計算，不快取
+function getInitialFiles() {
+  return buildInitialFolders();
+}
 
 export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [files, setFiles] = useState<FileItem[]>(() => {
     const saved = localStorage.getItem('dms_files_v2');
+    const initial = getInitialFiles();
     if (saved) {
       const parsed = JSON.parse(saved) as FileItem[];
-      // 確保系統資料夾都存在
       const existingIds = new Set(parsed.map(f => f.id));
-      const missing = INITIAL_FILES.filter(f => !existingIds.has(f.id));
+      // 僅補齊 zone 與 department 資料夾，section 由管理員動態管理
+      const missing = initial.filter(f => f.folderLevel !== 'section' && !existingIds.has(f.id));
       if (missing.length > 0) {
         const merged = [...parsed, ...missing];
         localStorage.setItem('dms_files_v2', JSON.stringify(merged));
@@ -97,8 +101,8 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return parsed;
     }
-    localStorage.setItem('dms_files_v2', JSON.stringify(INITIAL_FILES));
-    return INITIAL_FILES;
+    localStorage.setItem('dms_files_v2', JSON.stringify(initial));
+    return initial;
   });
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
 
