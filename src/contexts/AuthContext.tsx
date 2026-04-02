@@ -50,7 +50,20 @@ const DEFAULT_USERS: StoredUser[] = [
 
 const getStoredUsers = (): StoredUser[] => {
   const saved = localStorage.getItem('dms_all_users');
-  return saved ? JSON.parse(saved) : DEFAULT_USERS;
+  const users: StoredUser[] = saved ? JSON.parse(saved) : DEFAULT_USERS;
+  // 強制確保 admin 帳號為系統管理員
+  let changed = false;
+  const fixed = users.map(u => {
+    if (u.username === 'admin' && u.role !== '系統管理員') {
+      changed = true;
+      return { ...u, role: '系統管理員' as const };
+    }
+    return u;
+  });
+  if (changed) {
+    localStorage.setItem('dms_all_users', JSON.stringify(fixed));
+  }
+  return fixed;
 };
 
 const getStoredRegistrations = (): UserRegistration[] => {
