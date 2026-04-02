@@ -132,12 +132,17 @@ const StorageConfig = () => {
     saveSettings({ ...settings, backupSchedule: { ...settings.backupSchedule, ...updates } });
   };
 
-  const updateQuota = (dept: string, quotaGB: number) => {
+  const updateQuota = (dept: string, zone: string, quotaGB: number) => {
     saveSettings({
       ...settings,
-      departmentQuotas: settings.departmentQuotas.map(q => q.department === dept ? { ...q, quotaGB } : q),
+      departmentQuotas: settings.departmentQuotas.map(q =>
+        q.department === dept && q.zone === zone ? { ...q, quotaGB } : q
+      ),
     });
   };
+
+  const permanentQuotas = settings.departmentQuotas.filter(q => q.zone === '永久區');
+  const timedQuotas = settings.departmentQuotas.filter(q => q.zone === '時效區');
 
   return (
     <div className="flex flex-col h-full bg-grid">
