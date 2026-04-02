@@ -44,6 +44,8 @@ const Editor = () => {
     setHasChanges(true);
   };
 
+  const lockInfo = fileId ? getLock(fileId) : undefined;
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -60,15 +62,33 @@ const Editor = () => {
             </p>
           </div>
         </div>
-        <Button onClick={handleSave} disabled={!hasChanges}>
+        <Button onClick={handleSave} disabled={!hasChanges || locked}>
           <Save className="w-4 h-4 mr-2" />
           儲存
         </Button>
       </div>
 
+      {/* Lock warning */}
+      {locked && lockInfo && (
+        <Alert variant="destructive" className="mx-6 mt-4">
+          <Lock className="h-4 w-4" />
+          <AlertDescription>
+            此文件正由 <strong>{lockInfo.userName}</strong> 編輯中，目前為唯讀模式。
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Editor */}
       <div className="flex-1 p-6 overflow-auto">
-        {isMarkdown ? (
+        {locked ? (
+          <div className="border rounded-lg bg-card p-6 min-h-[400px] opacity-70 pointer-events-none select-none">
+            {isMarkdown ? (
+              <pre className="whitespace-pre-wrap font-mono text-sm">{content}</pre>
+            ) : (
+              <div dangerouslySetInnerHTML={{ __html: content }} />
+            )}
+          </div>
+        ) : isMarkdown ? (
           <MarkdownEditor content={content} onChange={handleContentChange} />
         ) : (
           <RichTextEditor content={content} onChange={handleContentChange} />
