@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -40,36 +40,39 @@
     --input: 220 15% 89%;
     --ring: 215 80% 50%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
-    --sidebar-background: 220 25% 12%;
+    --sidebar-background: 220 25% 10%;
     --sidebar-foreground: 220 10% 85%;
     --sidebar-primary: 215 80% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 20% 18%;
+    --sidebar-accent: 220 20% 16%;
     --sidebar-accent-foreground: 220 10% 90%;
-    --sidebar-border: 220 20% 20%;
+    --sidebar-border: 220 20% 18%;
     --sidebar-ring: 215 80% 55%;
     --sidebar-muted: 220 15% 30%;
+
+    --glass-bg: 0 0% 100% / 0.7;
+    --glass-border: 220 15% 89% / 0.5;
   }
 
   .dark {
     --background: 220 25% 8%;
     --foreground: 220 10% 92%;
 
-    --card: 220 25% 12%;
+    --card: 220 25% 11%;
     --card-foreground: 220 10% 92%;
 
-    --popover: 220 25% 12%;
+    --popover: 220 25% 11%;
     --popover-foreground: 220 10% 92%;
 
     --primary: 215 80% 55%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 20% 18%;
+    --secondary: 220 20% 16%;
     --secondary-foreground: 220 10% 85%;
 
-    --muted: 220 20% 15%;
+    --muted: 220 20% 14%;
     --muted-foreground: 220 10% 55%;
 
     --accent: 215 50% 20%;
@@ -78,8 +81,8 @@
     --destructive: 0 62% 30%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 20% 18%;
-    --input: 220 20% 18%;
+    --border: 220 20% 16%;
+    --input: 220 20% 16%;
     --ring: 215 80% 55%;
 
     --sidebar-background: 220 30% 6%;
@@ -90,6 +93,9 @@
     --sidebar-accent-foreground: 220 10% 90%;
     --sidebar-border: 220 25% 12%;
     --sidebar-ring: 215 80% 55%;
+
+    --glass-bg: 220 25% 11% / 0.7;
+    --glass-border: 220 20% 16% / 0.5;
   }
 }
 
@@ -100,8 +106,56 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'Noto Sans TC', sans-serif;
+    font-family: 'Inter', 'Noto Sans TC', sans-serif;
   }
+}
+
+/* Glass morphism utility */
+.glass {
+  background: hsla(var(--glass-bg));
+  backdrop-filter: blur(12px);
+  border: 1px solid hsla(var(--glass-border));
+}
+
+/* Tech glow effects */
+.glow-primary {
+  box-shadow: 0 0 20px -5px hsl(var(--primary) / 0.3), 0 0 40px -10px hsl(var(--primary) / 0.15);
+}
+
+.glow-card {
+  box-shadow: 0 4px 20px -4px hsl(var(--foreground) / 0.08), 0 0 0 1px hsl(var(--border) / 0.5);
+  transition: box-shadow 0.3s ease, transform 0.2s ease;
+}
+
+.glow-card:hover {
+  box-shadow: 0 8px 30px -6px hsl(var(--primary) / 0.15), 0 0 0 1px hsl(var(--primary) / 0.2);
+  transform: translateY(-1px);
+}
+
+/* Animated gradient border */
+.gradient-border {
+  position: relative;
+}
+
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, hsl(var(--primary) / 0.5), hsl(var(--accent) / 0.3), hsl(var(--primary) / 0.5));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Subtle grid pattern for backgrounds */
+.bg-grid {
+  background-image: 
+    linear-gradient(hsl(var(--border) / 0.3) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--border) / 0.3) 1px, transparent 1px);
+  background-size: 40px 40px;
 }
 
 /* Tiptap editor styles */
@@ -151,4 +205,28 @@
 
 .tiptap img {
   @apply max-w-full h-auto rounded-lg my-2;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* Smooth transitions */
+* {
+  scroll-behavior: smooth;
 }

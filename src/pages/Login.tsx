@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileText, Lock, User, ArrowLeft } from 'lucide-react';
+import { FileText, Lock, User, ArrowLeft, Zap } from 'lucide-react';
+import { useMonthlyTheme } from '@/hooks/useMonthlyTheme';
 import { toast } from 'sonner';
 import { DEPARTMENTS, getSectionsForDepartment, JOB_TITLES } from '@/config/organization';
 import type { ApplicantType } from '@/types';
@@ -36,6 +37,7 @@ const Login = () => {
 
   const empSections = empForm.department ? getSectionsForDepartment(empForm.department) : [];
   const conSections = conForm.department ? getSectionsForDepartment(conForm.department) : [];
+  const theme = useMonthlyTheme();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,18 +129,26 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-lg">
+    <div className="min-h-screen flex items-center justify-center bg-background bg-grid p-4 relative overflow-hidden">
+      {/* Decorative elements */}
+      <div className="absolute top-0 left-0 w-96 h-96 bg-primary/5 rounded-full -translate-x-1/2 -translate-y-1/2 blur-3xl" />
+      <div className="absolute bottom-0 right-0 w-96 h-96 bg-primary/5 rounded-full translate-x-1/2 translate-y-1/2 blur-3xl" />
+      
+      <div className="w-full max-w-lg relative z-10">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mb-4 shadow-lg">
-            <FileText className="w-8 h-8 text-primary-foreground" />
+          <div className="w-20 h-20 bg-primary rounded-2xl flex items-center justify-center mb-4 glow-primary rotate-3 hover:rotate-0 transition-transform duration-300">
+            <FileText className="w-10 h-10 text-primary-foreground" />
           </div>
-          <h1 className="text-3xl font-bold text-foreground">文件管理系統</h1>
-          <p className="text-muted-foreground mt-2">Document Management System</p>
+          <h1 className="text-3xl font-bold text-foreground tracking-tight">桃園區處文件管理系統</h1>
+          <p className="text-muted-foreground mt-2 flex items-center gap-2">
+            <Zap className="w-3 h-3" />
+            Taoyuan District Document Management System
+            <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">{theme.name}主題</span>
+          </p>
         </div>
 
         {mode === 'login' ? (
-          <Card className="shadow-xl border-border/50">
+          <Card className="shadow-xl border-border/50 glow-card">
             <CardHeader className="text-center">
               <CardTitle className="text-xl">使用者登入</CardTitle>
               <CardDescription>請輸入您的帳號與密碼</CardDescription>
