@@ -122,7 +122,7 @@ const Admin = () => {
       toast.error('帳號已存在');
       return;
     }
-    const role: UserRole = newUserType === '外包人員' ? '外包人員' : newUser.role;
+    const role: UserRole = newUserType === '外包人員' ? '外包人員' : (newUser.role || '使用者');
     addUser({
       id: crypto.randomUUID(),
       username: newUser.username.trim(),

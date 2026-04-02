@@ -32,7 +32,7 @@ const DEFAULT_USERS: StoredUser[] = [
     password: 'admin123',
     displayName: '系統管理員',
     email: 'admin@example.com',
-    role: '管理員',
+    role: '系統管理員',
     department: '00.處長室',
   },
   {
