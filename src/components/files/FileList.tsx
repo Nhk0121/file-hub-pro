@@ -2,6 +2,7 @@ import { useFiles } from '@/contexts/FileContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAudit } from '@/contexts/AuditContext';
 import { usePermissions } from '@/contexts/PermissionContext';
+import { useEditLock } from '@/contexts/EditLockContext';
 import { useNavigate } from 'react-router-dom';
 import {
   ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger,
