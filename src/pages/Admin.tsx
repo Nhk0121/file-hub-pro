@@ -266,6 +266,10 @@ const Admin = () => {
                 <Button onClick={() => setAddUserOpen(true)}><UserPlus className="w-4 h-4 mr-2" />新增使用者</Button>
               </CardHeader>
               <CardContent>
+                <div className="relative mb-4 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input value={userSearch} onChange={e => setUserSearch(e.target.value)} placeholder="搜尋帳號、姓名、組別..." className="pl-9" />
+                </div>
                 <Table>
                   <TableHeader>
                     <TableRow>
