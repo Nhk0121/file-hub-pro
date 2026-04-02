@@ -10,6 +10,7 @@ import {
   UserPlus, Clock, Archive, HardDrive, Phone,
 } from 'lucide-react';
 import { useState } from 'react';
+import { useMonthlyTheme } from '@/hooks/useMonthlyTheme';
 import type { FileItem } from '@/types';
 
 const FolderTree = ({
