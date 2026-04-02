@@ -12,6 +12,7 @@ import Index from "./pages/Index";
 import Editor from "./pages/Editor";
 import Admin from "./pages/Admin";
 import Login from "./pages/Login";
+import Landing from "./pages/Landing";
 import Profile from "./pages/Profile";
 import ContractorApplication from "./pages/ContractorApplication";
 import StorageConfig from "./pages/StorageConfig";
