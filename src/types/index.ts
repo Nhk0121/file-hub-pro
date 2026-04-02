@@ -59,7 +59,7 @@ export interface AuditLog {
   timestamp: string;
   userId: string;
   userName: string;
-  action: '登入' | '登出' | '上傳' | '下載' | '刪除' | '建立資料夾' | '重新命名' | '編輯' | '權限變更' | '外包申請' | '帳號申請' | '審核帳號';
+  action: '登入' | '登出' | '上傳' | '下載' | '刪除' | '建立資料夾' | '重新命名' | '編輯' | '權限變更' | '外包申請' | '帳號申請' | '審核帳號' | '預覽' | '列印' | '密碼重置' | '角色變更' | '帳號刪除' | '資料夾權限變更' | '個資存取';
   targetName?: string;
   targetId?: string;
   details?: string;
