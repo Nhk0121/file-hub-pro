@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
-  Folder, FileText, Image, File, Download, Trash2, Pencil, FileCode, Lock, Clock, Archive,
+  Folder, FileText, Image, File, Download, Trash2, Pencil, FileCode, Lock, Clock, Archive, UserPen,
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
