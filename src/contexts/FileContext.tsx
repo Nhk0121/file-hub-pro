@@ -88,12 +88,24 @@ function getInitialFiles() {
 
 export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [files, setFiles] = useState<FileItem[]>(() => {
+    // 一次性清除所有課別資料夾（v3 遷移標記）
+    const migrated = localStorage.getItem('dms_sections_cleared_v3');
+    if (!migrated) {
+      localStorage.removeItem('dms_department_sections');
+      const saved = localStorage.getItem('dms_files_v2');
+      if (saved) {
+        const parsed = JSON.parse(saved) as FileItem[];
+        const cleaned = parsed.filter(f => f.folderLevel !== 'section');
+        localStorage.setItem('dms_files_v2', JSON.stringify(cleaned));
+      }
+      localStorage.setItem('dms_sections_cleared_v3', '1');
+    }
+
     const saved = localStorage.getItem('dms_files_v2');
     const initial = getInitialFiles();
     if (saved) {
       const parsed = JSON.parse(saved) as FileItem[];
       const existingIds = new Set(parsed.map(f => f.id));
-      // 僅補齊 zone 與 department 資料夾，section 由管理員動態管理
       const missing = initial.filter(f => f.folderLevel !== 'section' && !existingIds.has(f.id));
       if (missing.length > 0) {
         const merged = [...parsed, ...missing];
