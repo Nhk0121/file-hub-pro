@@ -148,7 +148,7 @@ const Login = () => {
         </div>
 
         {mode === 'login' ? (
-          <Card className="shadow-xl border-border/50">
+          <Card className="shadow-xl border-border/50 glow-card">
             <CardHeader className="text-center">
               <CardTitle className="text-xl">使用者登入</CardTitle>
               <CardDescription>請輸入您的帳號與密碼</CardDescription>

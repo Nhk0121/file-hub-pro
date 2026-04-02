@@ -102,12 +102,12 @@ const AppSidebar = () => {
   return (
     <div className="w-64 h-screen bg-sidebar-background text-sidebar-foreground flex flex-col border-r border-sidebar-border">
       <div className="p-4 flex items-center gap-3">
-        <div className="w-9 h-9 bg-sidebar-primary rounded-lg flex items-center justify-center">
+        <div className="w-9 h-9 bg-sidebar-primary rounded-lg flex items-center justify-center glow-primary">
           <FileText className="w-5 h-5 text-sidebar-primary-foreground" />
         </div>
         <div>
-          <h1 className="text-sm font-bold text-sidebar-foreground">文件管理系統</h1>
-          <p className="text-xs text-sidebar-muted">DMS v2.0</p>
+          <h1 className="text-sm font-bold text-sidebar-foreground">桃園區處 DMS</h1>
+          <p className="text-xs text-sidebar-muted">{theme.name}主題 · v2.0</p>
         </div>
       </div>
 
