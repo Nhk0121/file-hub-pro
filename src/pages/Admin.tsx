@@ -92,7 +92,7 @@ const Admin = () => {
     return Array.from(names).sort();
   }, [logs]);
 
-  if (user?.role !== '管理員') {
+  if (user?.role !== '管理員' && user?.role !== '系統管理員') {
     return (
       <div className="flex items-center justify-center h-full">
         <Card className="w-96">
