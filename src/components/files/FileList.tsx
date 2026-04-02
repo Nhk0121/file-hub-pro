@@ -316,6 +316,24 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
       </Dialog>
 
       <FilePreviewDialog file={previewFile} open={!!previewFile} onOpenChange={(open) => { if (!open) setPreviewFile(null); }} />
+
+      {/* 刪除確認對話框 */}
+      <Dialog open={!!deleteConfirmItem} onOpenChange={(open) => { if (!open) setDeleteConfirmItem(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />確認刪除
+            </DialogTitle>
+            <DialogDescription>
+              確定要將「{deleteConfirmItem?.name}」移至回收桶嗎？您可以在 30 天內從回收桶還原。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirmItem(null)}>取消</Button>
+            <Button variant="destructive" onClick={confirmDelete}>移至回收桶</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
