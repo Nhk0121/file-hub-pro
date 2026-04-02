@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFiles } from '@/contexts/FileContext';
 import { useAudit } from '@/contexts/AuditContext';
@@ -17,6 +17,7 @@ import {
   Users, Shield, ScrollText, Settings, Search, Trash2, Plus, FolderOpen,
   UserPlus, Lock, Download, FileEdit, LogIn, LogOut, Upload, FolderPlus, Pencil,
   Clock, CheckCircle, XCircle, ClipboardList, KeyRound, Building2,
+  Eye, Printer, UserMinus, UserCog, FolderLock, FileSearch,
 } from 'lucide-react';
 import type { FolderPermission, AuditLog, UserRole, ApplicantType } from '@/types';
 import { DEPARTMENTS, getSectionsForDepartment, JOB_TITLES, addSection, removeSection, getDepartmentSections } from '@/config/organization';
@@ -34,6 +35,13 @@ const actionIcons: Record<AuditLog['action'], React.ReactNode> = {
   '外包申請': <UserPlus className="w-4 h-4 text-primary" />,
   '帳號申請': <UserPlus className="w-4 h-4 text-blue-500" />,
   '審核帳號': <CheckCircle className="w-4 h-4 text-green-500" />,
+  '預覽': <Eye className="w-4 h-4 text-primary" />,
+  '列印': <Printer className="w-4 h-4 text-primary" />,
+  '密碼重置': <KeyRound className="w-4 h-4 text-yellow-500" />,
+  '角色變更': <UserCog className="w-4 h-4 text-yellow-500" />,
+  '帳號刪除': <UserMinus className="w-4 h-4 text-destructive" />,
+  '資料夾權限變更': <FolderLock className="w-4 h-4 text-yellow-500" />,
+  '個資存取': <FileSearch className="w-4 h-4 text-orange-500" />,
 };
 
 const Admin = () => {
