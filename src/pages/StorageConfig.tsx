@@ -70,12 +70,18 @@ const DEFAULT_SETTINGS: StorageSettings = {
 const getStoredSettings = (): StorageSettings => {
   const saved = localStorage.getItem('dms_storage_settings');
   if (saved) {
-    const parsed = JSON.parse(saved);
-    // Migration: if quotas don't have zone field, rebuild
-    if (!parsed.departmentQuotas || !parsed.departmentQuotas[0]?.zone) {
-      parsed.departmentQuotas = DEFAULT_SETTINGS.departmentQuotas;
+    try {
+      const parsed = JSON.parse(saved);
+      // Migration: if quotas don't have zone field or length mismatch, rebuild
+      const hasZone = Array.isArray(parsed.departmentQuotas) && parsed.departmentQuotas.length > 0 && parsed.departmentQuotas[0]?.zone;
+      if (!hasZone) {
+        parsed.departmentQuotas = DEFAULT_SETTINGS.departmentQuotas;
+        localStorage.setItem('dms_storage_settings', JSON.stringify(parsed));
+      }
+      return parsed;
+    } catch {
+      return DEFAULT_SETTINGS;
     }
-    return parsed;
   }
   return DEFAULT_SETTINGS;
 };
