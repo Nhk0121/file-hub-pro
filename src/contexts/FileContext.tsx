@@ -183,9 +183,9 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   // 初始化時執行自動清除
-  useState(() => {
+  useEffect(() => {
     setFiles(prev => autoCleanTimedZone(prev));
-  });
+  }, []);
 
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
 
