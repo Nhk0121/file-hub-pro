@@ -12,6 +12,7 @@ interface AuthContextType {
   updateUser: (userId: string, updates: Partial<User>) => void;
   updateUserRole: (userId: string, role: UserRole) => void;
   updateProfile: (updates: Partial<User>) => void;
+  resetPassword: (userId: string) => void;
   // 帳號申請
   registrations: UserRegistration[];
   submitRegistration: (reg: Omit<UserRegistration, 'id' | 'status' | 'createdAt'>) => void;
