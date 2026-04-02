@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFiles } from '@/contexts/FileContext';
 import { useAudit } from '@/contexts/AuditContext';
@@ -17,6 +17,7 @@ import {
   Users, Shield, ScrollText, Settings, Search, Trash2, Plus, FolderOpen,
   UserPlus, Lock, Download, FileEdit, LogIn, LogOut, Upload, FolderPlus, Pencil,
   Clock, CheckCircle, XCircle, ClipboardList, KeyRound, Building2,
+  Eye, Printer, UserMinus, UserCog, FolderLock, FileSearch,
 } from 'lucide-react';
 import type { FolderPermission, AuditLog, UserRole, ApplicantType } from '@/types';
 import { DEPARTMENTS, getSectionsForDepartment, JOB_TITLES, addSection, removeSection, getDepartmentSections } from '@/config/organization';
@@ -34,6 +35,13 @@ const actionIcons: Record<AuditLog['action'], React.ReactNode> = {
   '外包申請': <UserPlus className="w-4 h-4 text-primary" />,
   '帳號申請': <UserPlus className="w-4 h-4 text-blue-500" />,
   '審核帳號': <CheckCircle className="w-4 h-4 text-green-500" />,
+  '預覽': <Eye className="w-4 h-4 text-primary" />,
+  '列印': <Printer className="w-4 h-4 text-primary" />,
+  '密碼重置': <KeyRound className="w-4 h-4 text-yellow-500" />,
+  '角色變更': <UserCog className="w-4 h-4 text-yellow-500" />,
+  '帳號刪除': <UserMinus className="w-4 h-4 text-destructive" />,
+  '資料夾權限變更': <FolderLock className="w-4 h-4 text-yellow-500" />,
+  '個資存取': <FileSearch className="w-4 h-4 text-orange-500" />,
 };
 
 const Admin = () => {
@@ -44,6 +52,9 @@ const Admin = () => {
 
   const [auditSearch, setAuditSearch] = useState('');
   const [auditActionFilter, setAuditActionFilter] = useState<string>('全部');
+  const [auditUserFilter, setAuditUserFilter] = useState<string>('全部');
+  const [auditDateFrom, setAuditDateFrom] = useState('');
+  const [auditDateTo, setAuditDateTo] = useState('');
   const [addUserOpen, setAddUserOpen] = useState(false);
   const [newUserType, setNewUserType] = useState<ApplicantType>('公司員工');
   const [newUser, setNewUser] = useState({
@@ -65,6 +76,21 @@ const Admin = () => {
   const pendingCount = registrations.filter(r => r.status === '待審核').length;
 
   const newUserSections = newUser.department ? getSectionsForDepartment(newUser.department) : [];
+
+  const filteredLogs = useMemo(() => logs.filter(log => {
+    const matchSearch = !auditSearch || log.userName.includes(auditSearch) || log.targetName?.includes(auditSearch) || log.details?.includes(auditSearch);
+    const matchAction = auditActionFilter === '全部' || log.action === auditActionFilter;
+    const matchUser = auditUserFilter === '全部' || log.userName === auditUserFilter;
+    const logDate = log.timestamp.slice(0, 10);
+    const matchFrom = !auditDateFrom || logDate >= auditDateFrom;
+    const matchTo = !auditDateTo || logDate <= auditDateTo;
+    return matchSearch && matchAction && matchUser && matchFrom && matchTo;
+  }), [logs, auditSearch, auditActionFilter, auditUserFilter, auditDateFrom, auditDateTo]);
+
+  const auditUserNames = useMemo(() => {
+    const names = new Set(logs.map(l => l.userName));
+    return Array.from(names).sort();
+  }, [logs]);
 
   if (user?.role !== '管理員') {
     return (
@@ -171,11 +197,27 @@ const Admin = () => {
     toast.success(`已刪除課別「${section}」`);
   };
 
-  const filteredLogs = logs.filter(log => {
-    const matchSearch = !auditSearch || log.userName.includes(auditSearch) || log.targetName?.includes(auditSearch) || log.details?.includes(auditSearch);
-    const matchAction = auditActionFilter === '全部' || log.action === auditActionFilter;
-    return matchSearch && matchAction;
-  });
+
+  const handleExportCSV = () => {
+    const headers = ['時間', '使用者', '動作', '對象', '詳細資訊'];
+    const rows = filteredLogs.map(log => [
+      new Date(log.timestamp).toLocaleString('zh-TW'),
+      log.userName,
+      log.action,
+      log.targetName ?? '',
+      log.details ?? '',
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const bom = '\uFEFF';
+    const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `稽核日誌_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`已匯出 ${filteredLogs.length} 筆稽核紀錄`);
+  };
 
   const selectedFolderRules = selectedFolderId ? getFolderRules(selectedFolderId) : [];
 
@@ -522,36 +564,69 @@ const Admin = () => {
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                   <CardTitle>資安稽核日誌</CardTitle>
-                  <CardDescription>追蹤所有使用者操作記錄</CardDescription>
+                  <CardDescription>追蹤所有使用者操作記錄，共 {logs.length} 筆，篩選後 {filteredLogs.length} 筆</CardDescription>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => { clearLogs(); toast.success('已清除所有日誌'); }}>
-                  <Trash2 className="w-4 h-4 mr-2" />清除日誌
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={filteredLogs.length === 0}>
+                    <Download className="w-4 h-4 mr-2" />匯出 CSV
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => { clearLogs(); toast.success('已清除所有日誌'); }}>
+                    <Trash2 className="w-4 h-4 mr-2" />清除日誌
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="relative flex-1 max-w-sm">
+                <div className="flex flex-wrap items-end gap-3 mb-4">
+                  <div className="relative flex-1 min-w-[200px] max-w-sm">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input value={auditSearch} onChange={e => setAuditSearch(e.target.value)} placeholder="搜尋日誌..." className="pl-9" />
                   </div>
-                  <Select value={auditActionFilter} onValueChange={setAuditActionFilter}>
-                    <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="全部">全部動作</SelectItem>
-                      <SelectItem value="登入">登入</SelectItem>
-                      <SelectItem value="登出">登出</SelectItem>
-                      <SelectItem value="上傳">上傳</SelectItem>
-                      <SelectItem value="下載">下載</SelectItem>
-                      <SelectItem value="刪除">刪除</SelectItem>
-                      <SelectItem value="編輯">編輯</SelectItem>
-                      <SelectItem value="建立資料夾">建立資料夾</SelectItem>
-                      <SelectItem value="重新命名">重新命名</SelectItem>
-                      <SelectItem value="權限變更">權限變更</SelectItem>
-                      <SelectItem value="外包申請">外包申請</SelectItem>
-                      <SelectItem value="帳號申請">帳號申請</SelectItem>
-                      <SelectItem value="審核帳號">審核帳號</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div>
+                    <Label className="text-xs mb-1 block text-muted-foreground">事件類型</Label>
+                    <Select value={auditActionFilter} onValueChange={setAuditActionFilter}>
+                      <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="全部">全部動作</SelectItem>
+                        <SelectItem value="登入">登入</SelectItem>
+                        <SelectItem value="登出">登出</SelectItem>
+                        <SelectItem value="上傳">上傳</SelectItem>
+                        <SelectItem value="下載">下載</SelectItem>
+                        <SelectItem value="預覽">預覽</SelectItem>
+                        <SelectItem value="列印">列印</SelectItem>
+                        <SelectItem value="刪除">刪除</SelectItem>
+                        <SelectItem value="編輯">編輯</SelectItem>
+                        <SelectItem value="建立資料夾">建立資料夾</SelectItem>
+                        <SelectItem value="重新命名">重新命名</SelectItem>
+                        <SelectItem value="權限變更">權限變更</SelectItem>
+                        <SelectItem value="資料夾權限變更">資料夾權限變更</SelectItem>
+                        <SelectItem value="密碼重置">密碼重置</SelectItem>
+                        <SelectItem value="角色變更">角色變更</SelectItem>
+                        <SelectItem value="帳號刪除">帳號刪除</SelectItem>
+                        <SelectItem value="個資存取">個資存取</SelectItem>
+                        <SelectItem value="外包申請">外包申請</SelectItem>
+                        <SelectItem value="帳號申請">帳號申請</SelectItem>
+                        <SelectItem value="審核帳號">審核帳號</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs mb-1 block text-muted-foreground">使用者</Label>
+                    <Select value={auditUserFilter} onValueChange={setAuditUserFilter}>
+                      <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="全部">全部使用者</SelectItem>
+                        {auditUserNames.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs mb-1 block text-muted-foreground">起始日期</Label>
+                    <Input type="date" value={auditDateFrom} onChange={e => setAuditDateFrom(e.target.value)} className="w-40" />
+                  </div>
+                  <div>
+                    <Label className="text-xs mb-1 block text-muted-foreground">結束日期</Label>
+                    <Input type="date" value={auditDateTo} onChange={e => setAuditDateTo(e.target.value)} className="w-40" />
+                  </div>
                 </div>
 
                 {filteredLogs.length === 0 ? (
