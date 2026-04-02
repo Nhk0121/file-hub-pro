@@ -67,6 +67,13 @@ const Admin = () => {
   const [permUserId, setPermUserId] = useState('');
   const [permLevel, setPermLevel] = useState<FolderPermission>('完整權限');
 
+  // 使用者搜尋
+  const [userSearch, setUserSearch] = useState('');
+
+  // 永久區多組別權限
+  const [permSpecialUserId, setPermSpecialUserId] = useState('');
+  const [permSpecialDepts, setPermSpecialDepts] = useState<string[]>([]);
+
   // 組織管理
   const [orgSelectedDept, setOrgSelectedDept] = useState<string>('');
   const [newSectionName, setNewSectionName] = useState('');
