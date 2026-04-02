@@ -70,12 +70,18 @@ const DEFAULT_SETTINGS: StorageSettings = {
 const getStoredSettings = (): StorageSettings => {
   const saved = localStorage.getItem('dms_storage_settings');
   if (saved) {
-    const parsed = JSON.parse(saved);
-    // Migration: if quotas don't have zone field, rebuild
-    if (!parsed.departmentQuotas || !parsed.departmentQuotas[0]?.zone) {
-      parsed.departmentQuotas = DEFAULT_SETTINGS.departmentQuotas;
+    try {
+      const parsed = JSON.parse(saved);
+      // Migration: if quotas don't have zone field or length mismatch, rebuild
+      const hasZone = Array.isArray(parsed.departmentQuotas) && parsed.departmentQuotas.length > 0 && parsed.departmentQuotas[0]?.zone;
+      if (!hasZone) {
+        parsed.departmentQuotas = DEFAULT_SETTINGS.departmentQuotas;
+        localStorage.setItem('dms_storage_settings', JSON.stringify(parsed));
+      }
+      return parsed;
+    } catch {
+      return DEFAULT_SETTINGS;
     }
-    return parsed;
   }
   return DEFAULT_SETTINGS;
 };
@@ -86,7 +92,7 @@ const StorageConfig = () => {
   const [addDiskOpen, setAddDiskOpen] = useState(false);
   const [newDisk, setNewDisk] = useState({ label: '', path: '', diskType: '備份' as StorageDisk['diskType'] });
 
-  if (user?.role !== '管理員') {
+  if (user?.role !== '管理員' && user?.role !== '系統管理員') {
     return (
       <div className="flex items-center justify-center h-full">
         <Card className="w-96">
