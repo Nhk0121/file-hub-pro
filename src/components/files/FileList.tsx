@@ -305,6 +305,8 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <FilePreviewDialog file={previewFile} open={!!previewFile} onOpenChange={(open) => { if (!open) setPreviewFile(null); }} />
     </>
   );
 };
