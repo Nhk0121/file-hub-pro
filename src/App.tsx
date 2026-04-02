@@ -12,6 +12,7 @@ import Index from "./pages/Index";
 import Editor from "./pages/Editor";
 import Admin from "./pages/Admin";
 import Login from "./pages/Login";
+import Landing from "./pages/Landing";
 import Profile from "./pages/Profile";
 import ContractorApplication from "./pages/ContractorApplication";
 import StorageConfig from "./pages/StorageConfig";
@@ -22,7 +23,7 @@ const queryClient = new QueryClient();
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!isAuthenticated) return <Navigate to="/welcome" replace />;
   return <>{children}</>;
 };
 
@@ -37,6 +38,7 @@ const App = () => (
               <Sonner />
               <BrowserRouter>
                 <Routes>
+                  <Route path="/welcome" element={<Landing />} />
                   <Route path="/login" element={<Login />} />
                   <Route
                     element={
