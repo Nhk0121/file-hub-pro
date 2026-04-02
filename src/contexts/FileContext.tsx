@@ -3,6 +3,13 @@ import React, { createContext, useContext, useState, useCallback } from 'react';
 import type { FileItem } from '@/types';
 import { DEPARTMENTS, ZONES, buildDiskPath, getDepartmentSections } from '@/config/organization';
 
+interface TrashItem {
+  item: FileItem;
+  deletedAt: string;
+  deletedBy: string;
+  originalParentId: string | null;
+}
+
 interface FileContextType {
   files: FileItem[];
   currentFolderId: string | null;
@@ -20,6 +27,12 @@ interface FileContextType {
   isSystemFolder: (folderId: string) => boolean;
   addSectionFolder: (department: string, section: string) => void;
   removeSectionFolder: (department: string, section: string) => void;
+  // 回收桶
+  trashItems: TrashItem[];
+  moveToTrash: (id: string, userName: string) => void;
+  restoreFromTrash: (itemId: string) => void;
+  permanentDelete: (itemId: string) => void;
+  emptyTrash: () => void;
 }
 
 const FileContext = createContext<FileContextType | null>(null);
