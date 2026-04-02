@@ -77,6 +77,21 @@ const Admin = () => {
 
   const newUserSections = newUser.department ? getSectionsForDepartment(newUser.department) : [];
 
+  const filteredLogs = useMemo(() => logs.filter(log => {
+    const matchSearch = !auditSearch || log.userName.includes(auditSearch) || log.targetName?.includes(auditSearch) || log.details?.includes(auditSearch);
+    const matchAction = auditActionFilter === '全部' || log.action === auditActionFilter;
+    const matchUser = auditUserFilter === '全部' || log.userName === auditUserFilter;
+    const logDate = log.timestamp.slice(0, 10);
+    const matchFrom = !auditDateFrom || logDate >= auditDateFrom;
+    const matchTo = !auditDateTo || logDate <= auditDateTo;
+    return matchSearch && matchAction && matchUser && matchFrom && matchTo;
+  }), [logs, auditSearch, auditActionFilter, auditUserFilter, auditDateFrom, auditDateTo]);
+
+  const auditUserNames = useMemo(() => {
+    const names = new Set(logs.map(l => l.userName));
+    return Array.from(names).sort();
+  }, [logs]);
+
   if (user?.role !== '管理員') {
     return (
       <div className="flex items-center justify-center h-full">
