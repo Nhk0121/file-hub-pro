@@ -18,6 +18,7 @@ import Profile from "./pages/Profile";
 import ContractorApplication from "./pages/ContractorApplication";
 import StorageConfig from "./pages/StorageConfig";
 import PhoneBook from "./pages/PhoneBook";
+import RecycleBin from "./pages/RecycleBin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
