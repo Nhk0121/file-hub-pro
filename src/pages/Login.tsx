@@ -181,7 +181,7 @@ const Login = () => {
               <div className="mt-4 p-3 bg-muted rounded-lg">
                 <p className="text-xs text-muted-foreground text-center mb-2">測試帳號</p>
                 <div className="text-xs text-muted-foreground space-y-1">
-                  <p>管理員：admin / admin123</p>
+                  <p>系統管理員：admin / admin123</p>
                   <p>使用者：user / user123</p>
                 </div>
               </div>

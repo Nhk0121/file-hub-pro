@@ -1,4 +1,4 @@
-export type UserRole = '管理員' | '使用者' | '外包人員';
+export type UserRole = '系統管理員' | '管理員' | '使用者' | '外包人員';
 
 // 申請者類型
 export type ApplicantType = '公司員工' | '外包人員';

@@ -74,7 +74,7 @@ const Profile = () => {
               </div>
               <div className="flex items-center gap-4">
                 <Label className="w-20 text-right text-muted-foreground">角色</Label>
-                <Badge variant={user.role === '管理員' ? 'default' : user.role === '外包人員' ? 'outline' : 'secondary'}>
+                <Badge variant={user.role === '系統管理員' || user.role === '管理員' ? 'default' : user.role === '外包人員' ? 'outline' : 'secondary'}>
                   {user.role}
                 </Badge>
               </div>

@@ -15,7 +15,7 @@ import type { ContractorApplication as ContractorApp } from '@/types';
 const ContractorApplication = () => {
   const { user, allUsers, addUser } = useAuth();
   const { addLog } = useAudit();
-  const isAdmin = user?.role === '管理員';
+  const isAdmin = user?.role === '管理員' || user?.role === '系統管理員';
 
   const [applications, setApplications] = useState<ContractorApp[]>(() => {
     const saved = localStorage.getItem('dms_contractor_apps');

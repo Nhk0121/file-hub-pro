@@ -63,10 +63,33 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
   const [renamingItem, setRenamingItem] = useState<FileItem | null>(null);
   const [newName, setNewName] = useState('');
 
+  const isAdmin = user?.role === '管理員' || user?.role === '系統管理員';
+
+  // 永久區權限邏輯：非管理員的公司員工在永久區僅可下載預覽，除非為該組別人員
+  const permanentZoneInfo = (() => {
+    if (!user || isAdmin || user.role === '外包人員') return null;
+    let fid = currentFolderId;
+    let inPermanent = false;
+    let departmentFolder: string | null = null;
+    while (fid) {
+      const folder = allFiles.find(f => f.id === fid);
+      if (!folder) break;
+      if (folder.folderLevel === 'department') departmentFolder = folder.name;
+      if (folder.folderLevel === 'zone' && folder.name === '永久區') inPermanent = true;
+      fid = folder.parentId;
+    }
+    if (!inPermanent) return null;
+    // 判斷是否為該組別人員
+    const isSameDept = departmentFolder && user.department === departmentFolder;
+    return { inPermanent: true, isSameDept: !!isSameDept };
+  })();
+
+  const permanentReadOnly = permanentZoneInfo?.inPermanent && !permanentZoneInfo.isSameDept;
+
   const currentPermission = user && currentFolderId
-    ? (user.role === '管理員' ? '完整權限' : getFolderPermission(currentFolderId, user.id))
+    ? (isAdmin ? '完整權限' : getFolderPermission(currentFolderId, user.id))
     : '完整權限';
-  const canWrite = currentPermission === '完整權限';
+  const canWrite = permanentReadOnly ? false : currentPermission === '完整權限';
   const canAccess = currentPermission !== '無權限';
 
   // 外包人員限制：只能存取時效區

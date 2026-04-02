@@ -92,7 +92,7 @@ const Admin = () => {
     return Array.from(names).sort();
   }, [logs]);
 
-  if (user?.role !== '管理員') {
+  if (user?.role !== '管理員' && user?.role !== '系統管理員') {
     return (
       <div className="flex items-center justify-center h-full">
         <Card className="w-96">
@@ -122,7 +122,7 @@ const Admin = () => {
       toast.error('帳號已存在');
       return;
     }
-    const role: UserRole = newUserType === '外包人員' ? '外包人員' : newUser.role;
+    const role: UserRole = newUserType === '外包人員' ? '外包人員' : (newUser.role || '使用者');
     addUser({
       id: crypto.randomUUID(),
       username: newUser.username.trim(),
@@ -295,6 +295,7 @@ const Admin = () => {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
+                              <SelectItem value="系統管理員">系統管理員</SelectItem>
                               <SelectItem value="管理員">管理員</SelectItem>
                               <SelectItem value="使用者">使用者</SelectItem>
                               <SelectItem value="外包人員">外包人員</SelectItem>
@@ -493,7 +494,7 @@ const Admin = () => {
                     <Select value={permUserId} onValueChange={setPermUserId}>
                       <SelectTrigger><SelectValue placeholder="選擇使用者" /></SelectTrigger>
                       <SelectContent>
-                        {allUsers.filter(u => u.role !== '管理員').map(u => (
+                        {allUsers.filter(u => u.role !== '管理員' && u.role !== '系統管理員').map(u => (
                           <SelectItem key={u.id} value={u.id}>{u.displayName} ({u.username})</SelectItem>
                         ))}
                       </SelectContent>
