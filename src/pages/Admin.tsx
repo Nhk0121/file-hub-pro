@@ -48,7 +48,7 @@ const Admin = () => {
   const { user, allUsers, addUser, removeUser, updateUserRole, registrations, reviewRegistration, resetPassword } = useAuth();
   const { files, addSectionFolder, removeSectionFolder } = useFiles();
   const { logs, clearLogs, addLog } = useAudit();
-  const { setFolderPermission, getFolderRules, removeFolderPermission } = usePermissions();
+  const { setFolderPermission, getFolderRules, removeFolderPermission, permanentOverrides, setPermanentOverride, removePermanentOverride } = usePermissions();
 
   const [auditSearch, setAuditSearch] = useState('');
   const [auditActionFilter, setAuditActionFilter] = useState<string>('全部');
