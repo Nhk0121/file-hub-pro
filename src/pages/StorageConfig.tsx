@@ -36,6 +36,7 @@ export interface BackupSchedule {
 
 export interface DepartmentQuota {
   department: string;
+  zone: '永久區' | '時效區';
   quotaGB: number;
   usedGB: number;
 }
@@ -60,14 +61,18 @@ const DEFAULT_SETTINGS: StorageSettings = {
   backupSchedule: { enabled: false, frequency: '每日', time: '02:00', retentionDays: 30 },
   autoCreateFolders: true,
   syncEnabled: false,
-  departmentQuotas: DEPARTMENTS.map(dept => ({ department: dept, quotaGB: 10, usedGB: Math.round(Math.random() * 3 * 100) / 100 })),
+  departmentQuotas: [
+    ...DEPARTMENTS.map(dept => ({ department: dept, zone: '永久區' as const, quotaGB: 10, usedGB: Math.round(Math.random() * 3 * 100) / 100 })),
+    ...DEPARTMENTS.map(dept => ({ department: dept, zone: '時效區' as const, quotaGB: 5, usedGB: Math.round(Math.random() * 2 * 100) / 100 })),
+  ],
 };
 
 const getStoredSettings = (): StorageSettings => {
   const saved = localStorage.getItem('dms_storage_settings');
   if (saved) {
     const parsed = JSON.parse(saved);
-    if (!parsed.departmentQuotas) {
+    // Migration: if quotas don't have zone field, rebuild
+    if (!parsed.departmentQuotas || !parsed.departmentQuotas[0]?.zone) {
       parsed.departmentQuotas = DEFAULT_SETTINGS.departmentQuotas;
     }
     return parsed;
@@ -128,12 +133,17 @@ const StorageConfig = () => {
     saveSettings({ ...settings, backupSchedule: { ...settings.backupSchedule, ...updates } });
   };
 
-  const updateQuota = (dept: string, quotaGB: number) => {
+  const updateQuota = (dept: string, zone: string, quotaGB: number) => {
     saveSettings({
       ...settings,
-      departmentQuotas: settings.departmentQuotas.map(q => q.department === dept ? { ...q, quotaGB } : q),
+      departmentQuotas: settings.departmentQuotas.map(q =>
+        q.department === dept && q.zone === zone ? { ...q, quotaGB } : q
+      ),
     });
   };
+
+  const permanentQuotas = settings.departmentQuotas.filter(q => q.zone === '永久區');
+  const timedQuotas = settings.departmentQuotas.filter(q => q.zone === '時效區');
 
   return (
     <div className="flex flex-col h-full bg-grid">
@@ -156,8 +166,8 @@ const StorageConfig = () => {
         {/* 各組空間限制 */}
         <Card className="glow-card">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Database className="w-5 h-5 text-primary" />各組空間限制</CardTitle>
-            <CardDescription>設定各組別的儲存空間上限（GB），超過上限將無法上傳新檔案</CardDescription>
+            <CardTitle className="flex items-center gap-2"><Database className="w-5 h-5 text-primary" />各組空間限制 — 永久區</CardTitle>
+            <CardDescription>設定各組別在永久區的儲存空間上限（GB）</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -171,7 +181,7 @@ const StorageConfig = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {settings.departmentQuotas.map(q => {
+                {permanentQuotas.map(q => {
                   const pct = q.quotaGB > 0 ? Math.min(100, (q.usedGB / q.quotaGB) * 100) : 0;
                   return (
                     <TableRow key={q.department}>
@@ -181,18 +191,52 @@ const StorageConfig = () => {
                       <TableCell className="w-48">
                         <div className="flex items-center gap-2">
                           <Progress value={pct} className="flex-1 h-2" />
-                          <span className={`text-xs font-medium ${pct > 80 ? 'text-destructive' : pct > 60 ? 'text-warning' : 'text-muted-foreground'}`}>
-                            {pct.toFixed(0)}%
-                          </span>
+                          <span className={`text-xs font-medium ${pct > 80 ? 'text-destructive' : pct > 60 ? 'text-warning' : 'text-muted-foreground'}`}>{pct.toFixed(0)}%</span>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Input
-                          type="number" min={1} max={1000}
-                          value={q.quotaGB}
-                          onChange={e => updateQuota(q.department, parseInt(e.target.value) || 10)}
-                          className="w-24 h-8 text-sm"
-                        />
+                        <Input type="number" min={1} max={1000} value={q.quotaGB} onChange={e => updateQuota(q.department, '永久區', parseInt(e.target.value) || 10)} className="w-24 h-8 text-sm" />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card className="glow-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Clock className="w-5 h-5 text-primary" />各組空間限制 — 時效區</CardTitle>
+            <CardDescription>設定各組別在時效區的儲存空間上限（GB），時效區檔案超過 30 天將自動清除</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>組別</TableHead>
+                  <TableHead>已使用 (GB)</TableHead>
+                  <TableHead>上限 (GB)</TableHead>
+                  <TableHead>使用率</TableHead>
+                  <TableHead className="w-32">設定上限</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {timedQuotas.map(q => {
+                  const pct = q.quotaGB > 0 ? Math.min(100, (q.usedGB / q.quotaGB) * 100) : 0;
+                  return (
+                    <TableRow key={q.department}>
+                      <TableCell className="font-medium">{q.department}</TableCell>
+                      <TableCell>{q.usedGB.toFixed(2)}</TableCell>
+                      <TableCell>{q.quotaGB}</TableCell>
+                      <TableCell className="w-48">
+                        <div className="flex items-center gap-2">
+                          <Progress value={pct} className="flex-1 h-2" />
+                          <span className={`text-xs font-medium ${pct > 80 ? 'text-destructive' : pct > 60 ? 'text-warning' : 'text-muted-foreground'}`}>{pct.toFixed(0)}%</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Input type="number" min={1} max={1000} value={q.quotaGB} onChange={e => updateQuota(q.department, '時效區', parseInt(e.target.value) || 5)} className="w-24 h-8 text-sm" />
                       </TableCell>
                     </TableRow>
                   );
