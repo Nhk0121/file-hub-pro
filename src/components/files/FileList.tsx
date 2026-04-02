@@ -65,6 +65,7 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renamingItem, setRenamingItem] = useState<FileItem | null>(null);
   const [newName, setNewName] = useState('');
+  const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
 
   const isAdmin = user?.role === '管理員' || user?.role === '系統管理員';
 
