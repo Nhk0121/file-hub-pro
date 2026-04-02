@@ -56,7 +56,7 @@ const formatDate = (iso: string) => {
 };
 
 const FileList = ({ viewMode, searchQuery }: FileListProps) => {
-  const { currentFolderId, setCurrentFolderId, getChildren, deleteItem, renameItem, isSystemFolder, files: allFiles } = useFiles();
+  const { currentFolderId, setCurrentFolderId, getChildren, deleteItem, renameItem, isSystemFolder, files: allFiles, moveToTrash } = useFiles();
   const { user } = useAuth();
   const { addLog } = useAudit();
   const { getFolderPermission, getUserPermanentDepts } = usePermissions();
