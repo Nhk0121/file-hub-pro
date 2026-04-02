@@ -21,8 +21,8 @@ export const DEPARTMENTS = [
 
 export type DepartmentName = typeof DEPARTMENTS[number];
 
-// 各組別下的課別（可由管理員擴充）
-export const DEPARTMENT_SECTIONS: Record<string, string[]> = {
+// 預設課別（首次使用時的初始值）
+const DEFAULT_SECTIONS: Record<string, string[]> = {
   '00.處長室': [],
   '01.維護組': [],
   '02.設計組': ['00.經理室', '01.規劃課', '02.設計課', '03.查核課', '04.資訊課'],
@@ -40,6 +40,43 @@ export const DEPARTMENT_SECTIONS: Record<string, string[]> = {
   '14.福利會': [],
   '15.檔案下載': [],
 };
+
+// 動態讀取課別（支援管理員新增/刪除）
+function loadSections(): Record<string, string[]> {
+  const saved = localStorage.getItem('dms_department_sections');
+  if (saved) return JSON.parse(saved);
+  localStorage.setItem('dms_department_sections', JSON.stringify(DEFAULT_SECTIONS));
+  return { ...DEFAULT_SECTIONS };
+}
+
+// 取得目前的課別設定（每次呼叫都從 localStorage 讀取最新）
+export function getDepartmentSections(): Record<string, string[]> {
+  return loadSections();
+}
+
+// 舊的靜態變數保留為相容用途（但建議用 getDepartmentSections()）
+export const DEPARTMENT_SECTIONS: Record<string, string[]> = loadSections();
+
+// 新增課別
+export function addSection(department: string, section: string): Record<string, string[]> {
+  const sections = loadSections();
+  if (!sections[department]) sections[department] = [];
+  if (!sections[department].includes(section)) {
+    sections[department].push(section);
+    localStorage.setItem('dms_department_sections', JSON.stringify(sections));
+  }
+  return sections;
+}
+
+// 刪除課別
+export function removeSection(department: string, section: string): Record<string, string[]> {
+  const sections = loadSections();
+  if (sections[department]) {
+    sections[department] = sections[department].filter(s => s !== section);
+    localStorage.setItem('dms_department_sections', JSON.stringify(sections));
+  }
+  return sections;
+}
 
 // 職稱選項
 export const JOB_TITLES = [
@@ -61,13 +98,15 @@ export type ZoneName = typeof ZONES[number];
 
 // 取得指定組別的課別列表
 export function getSectionsForDepartment(dept: string): string[] {
-  return DEPARTMENT_SECTIONS[dept] ?? [];
+  const sections = loadSections();
+  return sections[dept] ?? [];
 }
 
 // 取得所有有課別的組別
 export function getDepartmentsWithSections(): string[] {
-  return Object.entries(DEPARTMENT_SECTIONS)
-    .filter(([, sections]) => sections.length > 0)
+  const sections = loadSections();
+  return Object.entries(sections)
+    .filter(([, secs]) => secs.length > 0)
     .map(([dept]) => dept);
 }
 

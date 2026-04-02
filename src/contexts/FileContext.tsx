@@ -17,6 +17,8 @@ interface FileContextType {
   canCreateSubfolder: (parentId: string | null) => boolean;
   getFolderLevel: (folderId: string | null) => FileItem['folderLevel'] | undefined;
   isSystemFolder: (folderId: string) => boolean;
+  addSectionFolder: (department: string, section: string) => void;
+  removeSectionFolder: (department: string, section: string) => void;
 }
 
 const FileContext = createContext<FileContextType | null>(null);
@@ -210,12 +212,65 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return files.find(f => f.id === folderId)?.isSystem ?? false;
   }, [files]);
 
+  // 新增課別資料夾（在所有 zone 下的對應 department 下建立）
+  const addSectionFolder = useCallback((department: string, section: string) => {
+    setFiles(prev => {
+      const now = new Date().toISOString();
+      const newFolders: FileItem[] = [];
+      ZONES.forEach(zone => {
+        const deptFolder = prev.find(f => f.folderLevel === 'department' && f.name === department && f.parentId?.startsWith('zone_'));
+        // find actual dept folder under this zone
+        const deptId = `dept_${zone}_${department}`;
+        const exists = prev.some(f => f.id === `sec_${zone}_${department}_${section}`);
+        if (!exists) {
+          newFolders.push({
+            id: `sec_${zone}_${department}_${section}`,
+            name: section,
+            type: 'folder',
+            parentId: deptId,
+            createdAt: now,
+            updatedAt: now,
+            createdBy: '系統',
+            isSystem: true,
+            folderLevel: 'section',
+            diskPath: buildDiskPath(zone, department, section),
+          });
+        }
+      });
+      if (newFolders.length === 0) return prev;
+      const next = [...prev, ...newFolders];
+      localStorage.setItem('dms_files_v2', JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  // 刪除課別資料夾（從所有 zone 下移除）
+  const removeSectionFolder = useCallback((department: string, section: string) => {
+    setFiles(prev => {
+      const toRemoveIds = new Set<string>();
+      ZONES.forEach(zone => {
+        const secId = `sec_${zone}_${department}_${section}`;
+        // 收集該資料夾及其所有子項
+        const collect = (id: string) => {
+          toRemoveIds.add(id);
+          prev.filter(f => f.parentId === id).forEach(f => collect(f.id));
+        };
+        if (prev.some(f => f.id === secId)) collect(secId);
+      });
+      if (toRemoveIds.size === 0) return prev;
+      const next = prev.filter(f => !toRemoveIds.has(f.id));
+      localStorage.setItem('dms_files_v2', JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   return (
     <FileContext.Provider value={{
       files, currentFolderId, setCurrentFolderId,
       addFile, addFolder, deleteItem, renameItem,
       updateFileContent, getChildren, getBreadcrumbs, getFile,
       canCreateSubfolder, getFolderLevel, isSystemFolder,
+      addSectionFolder, removeSectionFolder,
     }}>
       {children}
     </FileContext.Provider>

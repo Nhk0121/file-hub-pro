@@ -12,6 +12,7 @@ interface AuthContextType {
   updateUser: (userId: string, updates: Partial<User>) => void;
   updateUserRole: (userId: string, role: UserRole) => void;
   updateProfile: (updates: Partial<User>) => void;
+  resetPassword: (userId: string) => void;
   // 帳號申請
   registrations: UserRegistration[];
   submitRegistration: (reg: Omit<UserRegistration, 'id' | 'status' | 'createdAt'>) => void;
@@ -141,6 +142,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, [user]);
 
+  const resetPassword = useCallback((userId: string) => {
+    setStoredUsers(prev => {
+      const next = prev.map(u => u.id === userId ? { ...u, password: 'a0123456789+' } : u);
+      localStorage.setItem('dms_all_users', JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   const submitRegistration = useCallback((reg: Omit<UserRegistration, 'id' | 'status' | 'createdAt'>) => {
     const newReg: UserRegistration = {
       ...reg,
@@ -186,7 +195,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <AuthContext.Provider value={{
       user, isAuthenticated: !!user, allUsers,
-      login, logout, addUser, removeUser, updateUser, updateUserRole, updateProfile,
+      login, logout, addUser, removeUser, updateUser, updateUserRole, updateProfile, resetPassword,
       registrations, submitRegistration, reviewRegistration,
     }}>
       {children}

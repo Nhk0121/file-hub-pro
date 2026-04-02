@@ -123,7 +123,7 @@ const AppSidebar = () => {
 
         {navBtn('/profile', '個人資料', <User className="w-4 h-4" />)}
         {user?.role !== '外包人員' && navBtn('/phonebook', '電話簿', <Phone className="w-4 h-4" />)}
-        {navBtn('/contractor', '外包人員管理', <UserPlus className="w-4 h-4" />)}
+        {user?.role === '管理員' && navBtn('/contractor', '外包人員管理', <UserPlus className="w-4 h-4" />)}
 
         {user?.role === '管理員' && navBtn('/admin', '系統管理', <Settings className="w-4 h-4" />)}
         {user?.role === '管理員' && navBtn('/storage-config', '儲存空間設定', <HardDrive className="w-4 h-4" />)}
