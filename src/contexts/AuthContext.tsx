@@ -142,6 +142,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, [user]);
 
+  const resetPassword = useCallback((userId: string) => {
+    setStoredUsers(prev => {
+      const next = prev.map(u => u.id === userId ? { ...u, password: 'a0123456789+' } : u);
+      localStorage.setItem('dms_all_users', JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   const submitRegistration = useCallback((reg: Omit<UserRegistration, 'id' | 'status' | 'createdAt'>) => {
     const newReg: UserRegistration = {
       ...reg,
