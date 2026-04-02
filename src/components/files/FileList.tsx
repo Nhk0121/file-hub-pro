@@ -161,12 +161,20 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
     toast.success('下載完成');
   };
 
+  const [deleteConfirmItem, setDeleteConfirmItem] = useState<FileItem | null>(null);
+
   const handleDelete = (item: FileItem) => {
     if (!canWrite) { toast.error('您沒有刪除權限'); return; }
     if (item.isSystem) { toast.error('系統資料夾無法刪除'); return; }
-    deleteItem(item.id);
-    if (user) addLog({ userId: user.id, userName: user.displayName, action: '刪除', targetName: item.name, targetId: item.id });
-    toast.success(`已刪除「${item.name}」`);
+    setDeleteConfirmItem(item);
+  };
+
+  const confirmDelete = () => {
+    if (!deleteConfirmItem) return;
+    moveToTrash(deleteConfirmItem.id, user?.displayName || '未知');
+    if (user) addLog({ userId: user.id, userName: user.displayName, action: '刪除', targetName: deleteConfirmItem.name, targetId: deleteConfirmItem.id, details: '移至回收桶' });
+    toast.success(`已將「${deleteConfirmItem.name}」移至回收桶`);
+    setDeleteConfirmItem(null);
   };
 
   const handleRename = () => {
