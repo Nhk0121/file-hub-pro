@@ -74,7 +74,16 @@ const getStoredRegistrations = (): UserRegistration[] => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('dms_user');
-    return saved ? JSON.parse(saved) : null;
+    if (saved) {
+      const u = JSON.parse(saved);
+      // 強制修正 admin 角色
+      if (u.username === 'admin' && u.role !== '系統管理員') {
+        u.role = '系統管理員';
+        localStorage.setItem('dms_user', JSON.stringify(u));
+      }
+      return u;
+    }
+    return null;
   });
   const [storedUsers, setStoredUsers] = useState<StoredUser[]>(getStoredUsers);
   const [registrations, setRegistrations] = useState<UserRegistration[]>(getStoredRegistrations);
