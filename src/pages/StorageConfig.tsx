@@ -92,7 +92,7 @@ const StorageConfig = () => {
   const [addDiskOpen, setAddDiskOpen] = useState(false);
   const [newDisk, setNewDisk] = useState({ label: '', path: '', diskType: '備份' as StorageDisk['diskType'] });
 
-  if (user?.role !== '管理員') {
+  if (user?.role !== '管理員' && user?.role !== '系統管理員') {
     return (
       <div className="flex items-center justify-center h-full">
         <Card className="w-96">
