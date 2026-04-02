@@ -134,6 +134,10 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
       setCurrentFolderId(item.id);
     } else if (item.mimeType?.includes('markdown') || item.mimeType?.includes('html') || item.name.endsWith('.md')) {
       navigate(`/edit/${item.id}`);
+    } else {
+      // Preview for all other file types
+      setPreviewFile(item);
+      if (user) addLog({ userId: user.id, userName: user.displayName, action: '預覽', targetName: item.name, targetId: item.id });
     }
   };
 
