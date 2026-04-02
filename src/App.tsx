@@ -35,6 +35,7 @@ const App = () => (
         <AuditProvider>
           <PermissionProvider>
             <FileProvider>
+            <EditLockProvider>
               <Toaster />
               <Sonner />
               <BrowserRouter>
