@@ -75,6 +75,7 @@ const AppSidebar = () => {
   const { addLog } = useAudit();
   const navigate = useNavigate();
   const location = useLocation();
+  const theme = useMonthlyTheme();
 
   const handleFolderSelect = (id: string | null) => {
     setCurrentFolderId(id);
