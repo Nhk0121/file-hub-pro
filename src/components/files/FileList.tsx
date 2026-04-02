@@ -14,11 +14,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
-  Folder, FileText, Image, File, Download, Trash2, Pencil, FileCode, Lock, Clock, Archive, UserPen,
+  Folder, FileText, Image, File, Download, Trash2, Pencil, FileCode, Lock, Clock, Archive, UserPen, Eye,
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import type { FileItem } from '@/types';
+import FilePreviewDialog from '@/components/files/FilePreviewDialog';
 
 interface FileListProps {
   viewMode: 'grid' | 'list';
@@ -64,6 +65,7 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renamingItem, setRenamingItem] = useState<FileItem | null>(null);
   const [newName, setNewName] = useState('');
+  const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
 
   const isAdmin = user?.role === '管理員' || user?.role === '系統管理員';
 
@@ -132,6 +134,10 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
       setCurrentFolderId(item.id);
     } else if (item.mimeType?.includes('markdown') || item.mimeType?.includes('html') || item.name.endsWith('.md')) {
       navigate(`/edit/${item.id}`);
+    } else {
+      // Preview for all other file types
+      setPreviewFile(item);
+      if (user) addLog({ userId: user.id, userName: user.displayName, action: '預覽', targetName: item.name, targetId: item.id });
     }
   };
 
@@ -247,9 +253,14 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
           <FileText className="w-4 h-4 mr-2" />開啟
         </ContextMenuItem>
         {item.type === 'file' && (
-          <ContextMenuItem onClick={() => handleDownload(item)}>
-            <Download className="w-4 h-4 mr-2" />下載
-          </ContextMenuItem>
+          <>
+            <ContextMenuItem onClick={() => { setPreviewFile(item); if (user) addLog({ userId: user.id, userName: user.displayName, action: '預覽', targetName: item.name, targetId: item.id }); }}>
+              <Eye className="w-4 h-4 mr-2" />預覽
+            </ContextMenuItem>
+            <ContextMenuItem onClick={() => handleDownload(item)}>
+              <Download className="w-4 h-4 mr-2" />下載
+            </ContextMenuItem>
+          </>
         )}
         {canWrite && !item.isSystem && (
           <>
@@ -294,6 +305,8 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <FilePreviewDialog file={previewFile} open={!!previewFile} onOpenChange={(open) => { if (!open) setPreviewFile(null); }} />
     </>
   );
 };
