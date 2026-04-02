@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -15,10 +16,10 @@ import { toast } from 'sonner';
 import {
   Users, Shield, ScrollText, Settings, Search, Trash2, Plus, FolderOpen,
   UserPlus, Lock, Download, FileEdit, LogIn, LogOut, Upload, FolderPlus, Pencil,
-  Clock, CheckCircle, XCircle, ClipboardList,
+  Clock, CheckCircle, XCircle, ClipboardList, KeyRound, Building2,
 } from 'lucide-react';
-import type { FolderPermission, AuditLog, UserRole } from '@/types';
-import { DEPARTMENTS, getSectionsForDepartment, JOB_TITLES } from '@/config/organization';
+import type { FolderPermission, AuditLog, UserRole, ApplicantType } from '@/types';
+import { DEPARTMENTS, getSectionsForDepartment, JOB_TITLES, addSection, removeSection, getDepartmentSections } from '@/config/organization';
 
 const actionIcons: Record<AuditLog['action'], React.ReactNode> = {
   '登入': <LogIn className="w-4 h-4 text-green-500" />,
@@ -36,14 +37,15 @@ const actionIcons: Record<AuditLog['action'], React.ReactNode> = {
 };
 
 const Admin = () => {
-  const { user, allUsers, addUser, removeUser, updateUserRole, registrations, reviewRegistration } = useAuth();
-  const { files } = useFiles();
+  const { user, allUsers, addUser, removeUser, updateUserRole, registrations, reviewRegistration, resetPassword } = useAuth();
+  const { files, addSectionFolder, removeSectionFolder } = useFiles();
   const { logs, clearLogs, addLog } = useAudit();
   const { setFolderPermission, getFolderRules, removeFolderPermission } = usePermissions();
 
   const [auditSearch, setAuditSearch] = useState('');
   const [auditActionFilter, setAuditActionFilter] = useState<string>('全部');
   const [addUserOpen, setAddUserOpen] = useState(false);
+  const [newUserType, setNewUserType] = useState<ApplicantType>('公司員工');
   const [newUser, setNewUser] = useState({
     username: '', displayName: '', email: '', password: '',
     role: '使用者' as UserRole,
@@ -53,6 +55,11 @@ const Admin = () => {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [permUserId, setPermUserId] = useState('');
   const [permLevel, setPermLevel] = useState<FolderPermission>('完整權限');
+
+  // 組織管理
+  const [orgSelectedDept, setOrgSelectedDept] = useState<string>('');
+  const [newSectionName, setNewSectionName] = useState('');
+  const [orgSections, setOrgSections] = useState<Record<string, string[]>>(getDepartmentSections);
 
   const folders = files.filter(f => f.type === 'folder');
   const pendingCount = registrations.filter(r => r.status === '待審核').length;
@@ -73,23 +80,33 @@ const Admin = () => {
   }
 
   const handleAddUser = () => {
-    if (!newUser.username.trim() || !newUser.password.trim()) {
-      toast.error('請填寫帳號與密碼');
+    if (!newUser.username.trim() || !newUser.password.trim() || !newUser.displayName.trim()) {
+      toast.error('請填寫帳號、姓名與密碼');
+      return;
+    }
+    if (newUserType === '公司員工' && !/^\d{6}$/.test(newUser.username.trim())) {
+      toast.error('公司員工帳號須為6碼數字');
+      return;
+    }
+    if (newUser.password.length < 12) {
+      toast.error('密碼至少12位元');
       return;
     }
     if (allUsers.some(u => u.username === newUser.username.trim())) {
       toast.error('帳號已存在');
       return;
     }
+    const role: UserRole = newUserType === '外包人員' ? '外包人員' : newUser.role;
     addUser({
       id: crypto.randomUUID(),
       username: newUser.username.trim(),
-      displayName: newUser.displayName.trim() || newUser.username.trim(),
+      displayName: newUser.displayName.trim(),
       email: newUser.email.trim(),
-      role: newUser.role,
+      role,
+      applicantType: newUserType,
       department: newUser.department || undefined,
       section: newUser.section || undefined,
-      jobTitle: newUser.jobTitle || undefined,
+      jobTitle: newUserType === '外包人員' ? '外包人員' : (newUser.jobTitle || undefined),
       phone: newUser.phone || undefined,
       extension: newUser.extension || undefined,
     }, newUser.password);
@@ -102,6 +119,12 @@ const Admin = () => {
     if (userId === user.id) { toast.error('無法刪除自己的帳號'); return; }
     removeUser(userId);
     toast.success(`已刪除使用者「${username}」`);
+  };
+
+  const handleResetPassword = (userId: string, username: string) => {
+    if (userId === user.id) { toast.error('無法重置自己的密碼'); return; }
+    resetPassword(userId);
+    toast.success(`已將「${username}」的密碼重置為 a0123456789+`);
   };
 
   const handleSetPermission = () => {
@@ -122,6 +145,32 @@ const Admin = () => {
     toast.success(`帳號申請已${status === '已核准' ? '核准' : '拒絕'}`);
   };
 
+  const handleAddSection = () => {
+    if (!orgSelectedDept || !newSectionName.trim()) {
+      toast.error('請選擇組別並輸入課別名稱');
+      return;
+    }
+    const currentSections = getSectionsForDepartment(orgSelectedDept);
+    if (currentSections.includes(newSectionName.trim())) {
+      toast.error('該課別已存在');
+      return;
+    }
+    const updated = addSection(orgSelectedDept, newSectionName.trim());
+    // 同步建立資料夾
+    addSectionFolder(orgSelectedDept, newSectionName.trim());
+    setOrgSections({ ...updated });
+    toast.success(`已新增課別「${newSectionName.trim()}」至「${orgSelectedDept}」`);
+    setNewSectionName('');
+  };
+
+  const handleRemoveSection = (dept: string, section: string) => {
+    const updated = removeSection(dept, section);
+    // 同步刪除資料夾
+    removeSectionFolder(dept, section);
+    setOrgSections({ ...updated });
+    toast.success(`已刪除課別「${section}」`);
+  };
+
   const filteredLogs = logs.filter(log => {
     const matchSearch = !auditSearch || log.userName.includes(auditSearch) || log.targetName?.includes(auditSearch) || log.details?.includes(auditSearch);
     const matchAction = auditActionFilter === '全部' || log.action === auditActionFilter;
@@ -137,15 +186,16 @@ const Admin = () => {
           <Settings className="w-6 h-6 text-primary" />
           <div>
             <h1 className="text-2xl font-bold text-foreground">系統管理</h1>
-            <p className="text-sm text-muted-foreground">使用者管理、帳號審核、權限控制與稽核日誌</p>
+            <p className="text-sm text-muted-foreground">使用者管理、組織架構、帳號審核、權限控制與稽核日誌</p>
           </div>
         </div>
       </div>
 
       <div className="flex-1 p-6 overflow-auto">
         <Tabs defaultValue="users" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4 max-w-2xl">
+          <TabsList className="grid w-full grid-cols-5 max-w-3xl">
             <TabsTrigger value="users" className="flex items-center gap-2"><Users className="w-4 h-4" />使用者管理</TabsTrigger>
+            <TabsTrigger value="organization" className="flex items-center gap-2"><Building2 className="w-4 h-4" />組織管理</TabsTrigger>
             <TabsTrigger value="registrations" className="flex items-center gap-2 relative">
               <ClipboardList className="w-4 h-4" />帳號審核
               {pendingCount > 0 && (
@@ -162,7 +212,7 @@ const Admin = () => {
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                   <CardTitle>使用者管理</CardTitle>
-                  <CardDescription>管理系統中的所有使用者帳號</CardDescription>
+                  <CardDescription>管理系統中的所有使用者帳號，密碼重置一律為 a0123456789+</CardDescription>
                 </div>
                 <Button onClick={() => setAddUserOpen(true)}><UserPlus className="w-4 h-4 mr-2" />新增使用者</Button>
               </CardHeader>
@@ -170,10 +220,12 @@ const Admin = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>類型</TableHead>
                       <TableHead>帳號</TableHead>
-                      <TableHead>顯示名稱</TableHead>
+                      <TableHead>姓名</TableHead>
                       <TableHead>組別/課別</TableHead>
                       <TableHead>職稱</TableHead>
+                      <TableHead>電話/分機</TableHead>
                       <TableHead>角色</TableHead>
                       <TableHead className="text-right">操作</TableHead>
                     </TableRow>
@@ -181,10 +233,16 @@ const Admin = () => {
                   <TableBody>
                     {allUsers.map(u => (
                       <TableRow key={u.id}>
+                        <TableCell>
+                          <Badge variant={u.applicantType === '外包人員' ? 'outline' : 'secondary'}>
+                            {u.applicantType || '公司員工'}
+                          </Badge>
+                        </TableCell>
                         <TableCell className="font-medium">{u.username}</TableCell>
                         <TableCell>{u.displayName}</TableCell>
                         <TableCell className="text-sm">{u.department || '-'}{u.section ? ` / ${u.section}` : ''}</TableCell>
                         <TableCell className="text-sm">{u.jobTitle || '-'}</TableCell>
+                        <TableCell className="text-sm">{u.phone || '-'}{u.extension ? ` #${u.extension}` : ''}</TableCell>
                         <TableCell>
                           <Select
                             value={u.role}
@@ -201,7 +259,10 @@ const Admin = () => {
                             </SelectContent>
                           </Select>
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right space-x-1">
+                          <Button variant="ghost" size="icon" title="重置密碼" onClick={() => handleResetPassword(u.id, u.username)} disabled={u.id === user.id}>
+                            <KeyRound className="w-4 h-4" />
+                          </Button>
                           <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleRemoveUser(u.id, u.username)} disabled={u.id === user.id}>
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -212,6 +273,82 @@ const Admin = () => {
                 </Table>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* 組織管理 */}
+          <TabsContent value="organization">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>新增課別</CardTitle>
+                  <CardDescription>選擇組別後新增下層課別，將同步建立對應資料夾</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label className="mb-1 block">選擇組別</Label>
+                    <Select value={orgSelectedDept} onValueChange={v => setOrgSelectedDept(v)}>
+                      <SelectTrigger><SelectValue placeholder="選擇組別" /></SelectTrigger>
+                      <SelectContent>
+                        {DEPARTMENTS.map(d => (
+                          <SelectItem key={d} value={d}>{d}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="mb-1 block">課別名稱</Label>
+                    <Input
+                      value={newSectionName}
+                      onChange={e => setNewSectionName(e.target.value)}
+                      placeholder="例如：01.規劃課"
+                      onKeyDown={e => e.key === 'Enter' && handleAddSection()}
+                    />
+                  </div>
+                  <Button onClick={handleAddSection} className="w-full" disabled={!orgSelectedDept}>
+                    <Plus className="w-4 h-4 mr-2" />新增課別
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>目前組織架構</CardTitle>
+                  <CardDescription>{orgSelectedDept ? `${orgSelectedDept} 的課別` : '請選擇組別查看'}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {!orgSelectedDept ? (
+                    <p className="text-sm text-muted-foreground py-4 text-center">請先於左側選擇組別</p>
+                  ) : (orgSections[orgSelectedDept] ?? []).length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-4 text-center">該組別尚無課別</p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>課別名稱</TableHead>
+                          <TableHead>磁碟路徑</TableHead>
+                          <TableHead className="text-right">操作</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(orgSections[orgSelectedDept] ?? []).map(sec => (
+                          <TableRow key={sec}>
+                            <TableCell className="font-medium">{sec}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground font-mono">
+                              D:\DMS\時效區\{orgSelectedDept}\{sec}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleRemoveSection(orgSelectedDept, sec)}>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           {/* 帳號審核 */}
@@ -453,48 +590,91 @@ const Admin = () => {
 
       {/* 新增使用者 Dialog */}
       <Dialog open={addUserOpen} onOpenChange={setAddUserOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>新增使用者</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <Input placeholder="帳號 *" value={newUser.username} onChange={e => setNewUser(p => ({ ...p, username: e.target.value }))} />
-            <Input placeholder="顯示名稱" value={newUser.displayName} onChange={e => setNewUser(p => ({ ...p, displayName: e.target.value }))} />
-            <Input placeholder="電子信箱" value={newUser.email} onChange={e => setNewUser(p => ({ ...p, email: e.target.value }))} />
-            <Input placeholder="密碼 *" type="password" value={newUser.password} onChange={e => setNewUser(p => ({ ...p, password: e.target.value }))} />
-            <Select value={newUser.role} onValueChange={v => setNewUser(p => ({ ...p, role: v as UserRole }))}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="使用者">使用者</SelectItem>
-                <SelectItem value="管理員">管理員</SelectItem>
-                <SelectItem value="外包人員">外包人員</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={newUser.department} onValueChange={v => setNewUser(p => ({ ...p, department: v, section: '' }))}>
-              <SelectTrigger><SelectValue placeholder="選擇組別（選填）" /></SelectTrigger>
-              <SelectContent>
-                {DEPARTMENTS.map(d => (
-                  <SelectItem key={d} value={d}>{d}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {newUserSections.length > 0 && (
-              <Select value={newUser.section} onValueChange={v => setNewUser(p => ({ ...p, section: v }))}>
-                <SelectTrigger><SelectValue placeholder="選擇課別（選填）" /></SelectTrigger>
+            <div>
+              <Label className="mb-1 block">帳號類型</Label>
+              <Select value={newUserType} onValueChange={v => { setNewUserType(v as ApplicantType); setNewUser(p => ({ ...p, username: '', jobTitle: '' })); }}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {newUserSections.map(s => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
+                  <SelectItem value="公司員工">公司員工</SelectItem>
+                  <SelectItem value="外包人員">外包人員</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label className="mb-1 block">{newUserType === '公司員工' ? '帳號（姓名代號6碼數字）*' : '帳號（手機號碼）*'}</Label>
+              <Input
+                value={newUser.username}
+                onChange={e => setNewUser(p => ({ ...p, username: e.target.value }))}
+                placeholder={newUserType === '公司員工' ? '例如：123456' : '例如：0912345678'}
+              />
+            </div>
+            <div>
+              <Label className="mb-1 block">姓名 *</Label>
+              <Input value={newUser.displayName} onChange={e => setNewUser(p => ({ ...p, displayName: e.target.value }))} />
+            </div>
+            <div>
+              <Label className="mb-1 block">密碼 *（至少12位元）</Label>
+              <Input type="password" value={newUser.password} onChange={e => setNewUser(p => ({ ...p, password: e.target.value }))} />
+            </div>
+            {newUserType === '公司員工' && (
+              <div>
+                <Label className="mb-1 block">角色</Label>
+                <Select value={newUser.role} onValueChange={v => setNewUser(p => ({ ...p, role: v as UserRole }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="使用者">使用者</SelectItem>
+                    <SelectItem value="管理員">管理員</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             )}
-            <Select value={newUser.jobTitle} onValueChange={v => setNewUser(p => ({ ...p, jobTitle: v }))}>
-              <SelectTrigger><SelectValue placeholder="選擇職稱（選填）" /></SelectTrigger>
-              <SelectContent>
-                {JOB_TITLES.map(t => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
-              </SelectContent>
-            </Select>
+            <div>
+              <Label className="mb-1 block">組別</Label>
+              <Select value={newUser.department} onValueChange={v => setNewUser(p => ({ ...p, department: v, section: '' }))}>
+                <SelectTrigger><SelectValue placeholder="選擇組別" /></SelectTrigger>
+                <SelectContent>
+                  {DEPARTMENTS.map(d => (<SelectItem key={d} value={d}>{d}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+            {newUserSections.length > 0 && (
+              <div>
+                <Label className="mb-1 block">課別</Label>
+                <Select value={newUser.section} onValueChange={v => setNewUser(p => ({ ...p, section: v }))}>
+                  <SelectTrigger><SelectValue placeholder="選擇課別" /></SelectTrigger>
+                  <SelectContent>
+                    {newUserSections.map(s => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {newUserType === '公司員工' && (
+              <div>
+                <Label className="mb-1 block">職稱</Label>
+                <Select value={newUser.jobTitle} onValueChange={v => setNewUser(p => ({ ...p, jobTitle: v }))}>
+                  <SelectTrigger><SelectValue placeholder="選擇職稱" /></SelectTrigger>
+                  <SelectContent>
+                    {JOB_TITLES.map(t => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-2">
-              <Input placeholder="電話" value={newUser.phone} onChange={e => setNewUser(p => ({ ...p, phone: e.target.value }))} />
-              <Input placeholder="分機" value={newUser.extension} onChange={e => setNewUser(p => ({ ...p, extension: e.target.value }))} />
+              <div>
+                <Label className="mb-1 block">電話</Label>
+                <Input value={newUser.phone} onChange={e => setNewUser(p => ({ ...p, phone: e.target.value }))} />
+              </div>
+              <div>
+                <Label className="mb-1 block">分機</Label>
+                <Input value={newUser.extension} onChange={e => setNewUser(p => ({ ...p, extension: e.target.value }))} />
+              </div>
+            </div>
+            <div>
+              <Label className="mb-1 block">電子信箱</Label>
+              <Input value={newUser.email} onChange={e => setNewUser(p => ({ ...p, email: e.target.value }))} />
             </div>
           </div>
           <DialogFooter>
