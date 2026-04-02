@@ -1,19 +1,34 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFiles } from '@/contexts/FileContext';
+import { useEditLock } from '@/contexts/EditLockContext';
 import { useState, useEffect } from 'react';
 import RichTextEditor from '@/components/editor/RichTextEditor';
 import MarkdownEditor from '@/components/editor/MarkdownEditor';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, Lock } from 'lucide-react';
 import { toast } from 'sonner';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const Editor = () => {
   const { fileId } = useParams();
   const navigate = useNavigate();
   const { getFile, updateFileContent } = useFiles();
+  const { acquireLock, releaseLock, getLock, isLockedByOther } = useEditLock();
   const file = fileId ? getFile(fileId) : undefined;
   const [content, setContent] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
+  const [locked, setLocked] = useState(false);
+
+  // Acquire lock on mount, release on unmount
+  useEffect(() => {
+    if (fileId) {
+      const got = acquireLock(fileId);
+      setLocked(!got);
+    }
+    return () => {
+      if (fileId) releaseLock(fileId);
+    };
+  }, [fileId]);
 
   useEffect(() => {
     if (file) {
