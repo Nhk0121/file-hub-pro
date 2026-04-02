@@ -182,11 +182,41 @@ const Admin = () => {
     toast.success(`已刪除課別「${section}」`);
   };
 
-  const filteredLogs = logs.filter(log => {
+  const filteredLogs = useMemo(() => logs.filter(log => {
     const matchSearch = !auditSearch || log.userName.includes(auditSearch) || log.targetName?.includes(auditSearch) || log.details?.includes(auditSearch);
     const matchAction = auditActionFilter === '全部' || log.action === auditActionFilter;
-    return matchSearch && matchAction;
-  });
+    const matchUser = auditUserFilter === '全部' || log.userName === auditUserFilter;
+    const logDate = log.timestamp.slice(0, 10);
+    const matchFrom = !auditDateFrom || logDate >= auditDateFrom;
+    const matchTo = !auditDateTo || logDate <= auditDateTo;
+    return matchSearch && matchAction && matchUser && matchFrom && matchTo;
+  }), [logs, auditSearch, auditActionFilter, auditUserFilter, auditDateFrom, auditDateTo]);
+
+  const auditUserNames = useMemo(() => {
+    const names = new Set(logs.map(l => l.userName));
+    return Array.from(names).sort();
+  }, [logs]);
+
+  const handleExportCSV = () => {
+    const headers = ['時間', '使用者', '動作', '對象', '詳細資訊'];
+    const rows = filteredLogs.map(log => [
+      new Date(log.timestamp).toLocaleString('zh-TW'),
+      log.userName,
+      log.action,
+      log.targetName ?? '',
+      log.details ?? '',
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const bom = '\uFEFF';
+    const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `稽核日誌_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`已匯出 ${filteredLogs.length} 筆稽核紀錄`);
+  };
 
   const selectedFolderRules = selectedFolderId ? getFolderRules(selectedFolderId) : [];
 
