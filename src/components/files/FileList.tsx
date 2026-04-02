@@ -57,7 +57,7 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
   const { currentFolderId, setCurrentFolderId, getChildren, deleteItem, renameItem, isSystemFolder, files: allFiles } = useFiles();
   const { user } = useAuth();
   const { addLog } = useAudit();
-  const { getFolderPermission } = usePermissions();
+  const { getFolderPermission, getUserPermanentDepts } = usePermissions();
   const navigate = useNavigate();
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renamingItem, setRenamingItem] = useState<FileItem | null>(null);
@@ -66,7 +66,6 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
   const isAdmin = user?.role === '管理員' || user?.role === '系統管理員';
 
   // 永久區權限邏輯：非管理員的公司員工在永久區僅可下載預覽，除非為該組別人員或有跨組別授權
-  const { getFolderPermission, getUserPermanentDepts } = usePermissions();
   const permanentZoneInfo = (() => {
     if (!user || isAdmin || user.role === '外包人員') return null;
     let fid = currentFolderId;
