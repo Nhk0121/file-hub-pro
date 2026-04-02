@@ -270,6 +270,11 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
                     {editLock.userName} 編輯中
                   </Badge>
                 )}
+                {isInTimedZone && item.type === 'file' && (
+                  <Badge variant={getDaysLeft(item.createdAt) <= 7 ? 'destructive' : 'secondary'} className="text-[10px]">
+                    剩 {getDaysLeft(item.createdAt)} 天
+                  </Badge>
+                )}
               </div>
               <p className="text-xs text-muted-foreground">{item.createdBy}</p>
             </div>
