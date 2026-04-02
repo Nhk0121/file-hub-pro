@@ -248,6 +248,11 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
               {item.type === 'folder' ? (item.isSystem ? '系統資料夾' : '資料夾') : formatSize(item.size)}
             </p>
             {item.isSystem && <Badge variant="outline" className="mt-1 text-[10px]">系統</Badge>}
+            {isInTimedZone && item.type === 'file' && (
+              <Badge variant={getDaysLeft(item.createdAt) <= 7 ? 'destructive' : 'secondary'} className="mt-1 text-[10px]">
+                剩 {getDaysLeft(item.createdAt)} 天
+              </Badge>
+            )}
           </div>
         ) : (
           <div
