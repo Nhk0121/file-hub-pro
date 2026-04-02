@@ -61,7 +61,10 @@ const DEFAULT_SETTINGS: StorageSettings = {
   backupSchedule: { enabled: false, frequency: '每日', time: '02:00', retentionDays: 30 },
   autoCreateFolders: true,
   syncEnabled: false,
-  departmentQuotas: DEPARTMENTS.map(dept => ({ department: dept, quotaGB: 10, usedGB: Math.round(Math.random() * 3 * 100) / 100 })),
+  departmentQuotas: [
+    ...DEPARTMENTS.map(dept => ({ department: dept, zone: '永久區' as const, quotaGB: 10, usedGB: Math.round(Math.random() * 3 * 100) / 100 })),
+    ...DEPARTMENTS.map(dept => ({ department: dept, zone: '時效區' as const, quotaGB: 5, usedGB: Math.round(Math.random() * 2 * 100) / 100 })),
+  ],
 };
 
 const getStoredSettings = (): StorageSettings => {
