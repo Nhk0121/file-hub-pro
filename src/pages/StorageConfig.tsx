@@ -36,6 +36,7 @@ export interface BackupSchedule {
 
 export interface DepartmentQuota {
   department: string;
+  zone: '永久區' | '時效區';
   quotaGB: number;
   usedGB: number;
 }
