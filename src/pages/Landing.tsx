@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { FileText, Shield, Users, Clock, ArrowRight, Database, Zap, Lock } from 'lucide-react';
+import { FileText, Shield, Users, Clock, ArrowRight, Database, Zap, Lock, Eye, Trash2, Edit3, HardDrive } from 'lucide-react';
 import { useMonthlyTheme } from '@/hooks/useMonthlyTheme';
 
 const Landing = () => {
@@ -8,12 +8,15 @@ const Landing = () => {
   const theme = useMonthlyTheme();
 
   const features = [
-    { icon: <FileText className="w-6 h-6" />, title: '文件集中管理', desc: '時效區與永久區分層架構，組別課別系統化歸檔' },
-    { icon: <Shield className="w-6 h-6" />, title: '資安與權限控管', desc: '細分資料夾權限、稽核日誌留存、符合個資法規範' },
-    { icon: <Users className="w-6 h-6" />, title: '組織架構整合', desc: '對應實體組織編制，支援員工與外包人員分級管理' },
-    { icon: <Database className="w-6 h-6" />, title: '儲存空間管理', desc: '各組空間配額設定、多磁碟備份與排程同步機制' },
-    { icon: <Clock className="w-6 h-6" />, title: '完整稽核追蹤', desc: '所有操作皆留紀錄，支援篩選查詢與 CSV 匯出' },
-    { icon: <Lock className="w-6 h-6" />, title: '帳號安全機制', desc: '12位元密碼政策、每日資安宣導、帳號審核流程' },
+    { icon: <FileText className="w-6 h-6" />, title: '文件集中管理', desc: '時效區與永久區分層架構，組別課別系統化歸檔，支援 Markdown 與富文字線上編輯' },
+    { icon: <Shield className="w-6 h-6" />, title: '資安與個資保護', desc: '上傳自動個資偵測、執行檔管控、細分資料夾權限，符合個資法與資安規範' },
+    { icon: <Eye className="w-6 h-6" />, title: '線上預覽與編輯', desc: '圖片縮放旋轉、Markdown 即時預覽、多人編輯鎖定機制避免衝突覆寫' },
+    { icon: <Trash2 className="w-6 h-6" />, title: '資源回收桶', desc: '誤刪檔案可在 30 天內還原，刪除前二次確認，由系統管理員統一管理' },
+    { icon: <Clock className="w-6 h-6" />, title: '時效區自動清除', desc: '時效區檔案超過 30 天自動移至回收桶，顯示剩餘天數提醒使用者' },
+    { icon: <Database className="w-6 h-6" />, title: '完整稽核追蹤', desc: '所有操作皆留紀錄，支援篩選查詢與 CSV 匯出，符合稽核要求' },
+    { icon: <HardDrive className="w-6 h-6" />, title: '儲存空間管理', desc: '永久區與時效區獨立配額設定、多磁碟備份與排程同步機制' },
+    { icon: <Users className="w-6 h-6" />, title: '組織架構整合', desc: '16 組別對應實體編制，支援員工與外包人員分級管理、帳號審核流程' },
+    { icon: <Lock className="w-6 h-6" />, title: '帳號安全機制', desc: '12 位元密碼政策、每日資安宣導、系統管理員與管理員分級權限' },
   ];
 
   return (
@@ -90,8 +93,8 @@ const Landing = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
             { value: '16', label: '組別單位' },
-            { value: '256bit', label: '加密等級' },
-            { value: '24/7', label: '系統可用性' },
+            { value: '9+', label: '核心功能模組' },
+            { value: '30天', label: '回收桶保留' },
             { value: '100%', label: '操作可追溯' },
           ].map((s, i) => (
             <div key={i} className="text-center p-6 rounded-xl glass">
