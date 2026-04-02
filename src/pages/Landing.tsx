@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { FileText, Shield, Users, Clock, ArrowRight, Database, Zap, Lock } from 'lucide-react';
+import { FileText, Shield, Users, Clock, ArrowRight, Database, Zap, Lock, Eye, Trash2, Edit3, HardDrive } from 'lucide-react';
 import { useMonthlyTheme } from '@/hooks/useMonthlyTheme';
 
 const Landing = () => {
