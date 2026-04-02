@@ -14,11 +14,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
-  Folder, FileText, Image, File, Download, Trash2, Pencil, FileCode, Lock, Clock, Archive, UserPen,
+  Folder, FileText, Image, File, Download, Trash2, Pencil, FileCode, Lock, Clock, Archive, UserPen, Eye,
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import type { FileItem } from '@/types';
+import FilePreviewDialog from '@/components/files/FilePreviewDialog';
 
 interface FileListProps {
   viewMode: 'grid' | 'list';
