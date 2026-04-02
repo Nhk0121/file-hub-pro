@@ -295,6 +295,7 @@ const Admin = () => {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
+                              <SelectItem value="系統管理員">系統管理員</SelectItem>
                               <SelectItem value="管理員">管理員</SelectItem>
                               <SelectItem value="使用者">使用者</SelectItem>
                               <SelectItem value="外包人員">外包人員</SelectItem>
