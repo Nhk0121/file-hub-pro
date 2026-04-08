@@ -62,8 +62,8 @@ const DEFAULT_SETTINGS: StorageSettings = {
   autoCreateFolders: true,
   syncEnabled: false,
   departmentQuotas: [
-    ...DEPARTMENTS.map(dept => ({ department: dept, zone: '永久區' as const, quotaGB: 10, usedGB: Math.round(Math.random() * 3 * 100) / 100 })),
-    ...DEPARTMENTS.map(dept => ({ department: dept, zone: '時效區' as const, quotaGB: 5, usedGB: Math.round(Math.random() * 2 * 100) / 100 })),
+    ...DEPARTMENTS.map(dept => ({ department: dept, zone: '永久區' as const, quotaGB: 10, usedGB: 0 })),
+    ...DEPARTMENTS.map(dept => ({ department: dept, zone: '時效區' as const, quotaGB: 5, usedGB: 0 })),
   ],
 };
 
