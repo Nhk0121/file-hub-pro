@@ -1,113 +1,165 @@
-# 桃園區公所 文件管理系統 (TaoyuanDMS) - 前端
+# 桃園區公所 文件管理系統 (TaoyuanDMS)
 
-## 系統架構
+## 系統架構（單一站台）
 
 ```
-┌─────────────────────┐     ┌─────────────────────┐     ┌──────────────┐
-│  前端 (本專案)        │────▶│  後端 ASP.NET Core   │────▶│  MSSQL 資料庫  │
-│  React + Vite        │     │  Web API             │     │  TaoyuanDMS  │
-│  部署於 IIS 站台 A    │     │  部署於 IIS 站台 B    │     │              │
-└─────────────────────┘     └─────────────────────┘     └──────────────┘
+┌─────────────────────────────────────────┐
+│          Windows Server (IIS)           │
+│                                         │
+│  ┌───────────────────────────────────┐  │
+│  │  單一 IIS 站台 (Port 80/443)      │  │
+│  │                                   │  │
+│  │  /api/*  → ASP.NET Core 處理      │  │
+│  │  其他    → wwwroot/index.html     │  │
+│  │          (React 前端)             │  │
+│  └──────────────┬────────────────────┘  │
+│                 │                        │
+│  ┌──────────────▼────────────────────┐  │
+│  │  SQL Server (TaoyuanDMS 資料庫)    │  │
+│  └───────────────────────────────────┘  │
+└─────────────────────────────────────────┘
 ```
+
+前端（React + Vite）打包後的靜態檔案放在後端（ASP.NET Core）的 `wwwroot` 資料夾內，由同一個 IIS 站台提供服務。
 
 ---
 
-## 安裝步驟（從零開始）
-
-### 前置需求
+## 前置需求
 
 | 軟體 | 版本 | 說明 |
 |------|------|------|
-| Node.js | 18 以上 | 用來打包前端，安裝完即可刪除 |
 | Windows Server | 2016 以上 | 已安裝 IIS |
-| .NET 8 Runtime | 最新版 | 後端 API 執行環境 |
-| SQL Server | 2016 以上 | 資料庫（您已完成） |
+| SQL Server | 2016 以上 | 資料庫 |
+| .NET 8 Hosting Bundle | 最新版 | [下載](https://dotnet.microsoft.com/download/dotnet/8.0)（選 Hosting Bundle） |
+| IIS URL Rewrite | 最新版 | [下載](https://www.iis.net/downloads/microsoft/url-rewrite) |
+| Node.js | 18 以上 | 打包前端用，打包完可移除。[下載](https://nodejs.org/) |
 
 ---
 
-### 第一步：下載專案
+## 部署步驟
 
-從 GitHub 下載 ZIP 或使用 git clone：
+### 第一步：建立資料庫
+
+1. 開啟 SSMS，連線到 SQL Server
+2. 執行 `01_MSSQL_Schema.sql` 建立資料庫和資料表
+3. 設定管理員密碼：
+
+```sql
+USE [TaoyuanDMS];
+GO
+
+UPDATE [dbo].[Users]
+SET [PasswordHash] = N'$2a$12$FKZzopwTn5hfT5i2FZzGruBim3s7aE7OFHgC3BTSkobNHHTyhib56',
+    [UpdatedAt] = GETDATE()
+WHERE [Username] = N'admin';
+GO
+```
+
+4. 確認資料庫帳號有 `db_datareader` 和 `db_datawriter` 權限
+
+---
+
+### 第二步：部署後端
+
+1. 修改 `appsettings.json` 中的連線字串：
+
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=.;Database=TaoyuanDMS;User Id=您的帳號;Password=您的密碼;TrustServerCertificate=True;"
+  }
+}
+```
+
+2. 發佈後端：
 
 ```bash
-git clone https://github.com/你的帳號/你的專案名.git
-cd 你的專案名
+dotnet publish -c Release -o ./publish
 ```
+
+3. 將 `publish` 資料夾內容複製到伺服器，例如 `D:\inetpub\TaoyuanDMS\`
 
 ---
 
-### 第二步：設定後端 API 位址
+### 第三步：打包並部署前端
 
-打開 `.env.production` 檔案，修改為您的後端 API 實際位址：
+1. 確認 `.env.production` 設為：
 
 ```
-VITE_API_BASE_URL=https://你的伺服器IP/api
+VITE_API_BASE_URL=/api
 ```
 
-**範例：**
-- 如果後端跟前端在同一台伺服器：`https://localhost:5001/api`
-- 如果後端在另一台伺服器：`https://192.168.1.100/api`
-
----
-
-### 第三步：安裝套件並打包
-
-在專案根目錄開啟 **命令提示字元** 或 **PowerShell**，執行：
+2. 打包前端：
 
 ```bash
-# 1. 安裝所需套件（第一次需要，之後不用）
 npm install
-
-# 2. 打包產生部署檔案
 npm run build
 ```
 
-打包完成後，會產生一個 `dist` 資料夾，裡面就是要放到 IIS 的所有檔案。
+3. 將 `dist` 資料夾內的**所有檔案**複製到後端的 `wwwroot` 資料夾：
 
----
-
-### 第四步：部署到 IIS
-
-1. **建立 IIS 網站**
-   - 開啟 IIS 管理員
-   - 右鍵「網站」→「新增網站」
-   - 網站名稱：`TaoyuanDMS-Frontend`
-   - 實體路徑：指向您的 `dist` 資料夾位置（例如 `C:\inetpub\TaoyuanDMS\frontend`）
-   - 連接埠：設定您要的 Port（例如 80 或 8080）
-
-2. **複製檔案**
-   - 將 `dist` 資料夾內的**所有檔案**複製到 IIS 網站的實體路徑
-
-3. **確認 web.config 存在**
-   - `dist` 資料夾內應該已有 `web.config`（打包時自動包含）
-   - 這個檔案讓 IIS 支援 SPA 路由（頁面重新整理不會 404）
-
-4. **安裝 IIS URL Rewrite 模組**
-   - 如果尚未安裝，請下載安裝：https://www.iis.net/downloads/microsoft/url-rewrite
-   - 這是 `web.config` 裡的路由規則所必需的
-
-5. **測試**
-   - 開啟瀏覽器，輸入 `http://你的伺服器IP:埠號`
-   - 應該會看到歡迎頁面，點擊登入可前往登入頁
-
----
-
-### 第五步：設定後端 CORS（重要！）
-
-後端 ASP.NET Core 的 `Program.cs` 中需要允許前端網址，確認 CORS 設定：
-
-```csharp
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowFrontend", policy =>
-    {
-        policy.WithOrigins("http://你的前端網址:埠號")
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
-    });
-});
 ```
+D:\inetpub\TaoyuanDMS\wwwroot\
+├── index.html
+├── assets\
+│   ├── index-xxxxx.js
+│   └── index-xxxxx.css
+└── ...
+```
+
+> ⚠️ 複製的是 dist **裡面**的檔案，不是 dist 資料夾本身
+
+---
+
+### 第四步：設定 IIS
+
+1. **建立應用程式集區**
+   - 名稱：`TaoyuanDMS`
+   - .NET CLR 版本：**沒有受控碼**
+   - 管線模式：整合式
+
+2. **建立網站**
+   - 網站名稱：`TaoyuanDMS`
+   - 應用程式集區：`TaoyuanDMS`
+   - 實體路徑：`D:\inetpub\TaoyuanDMS`
+   - 連接埠：`80`（或自訂）
+
+3. **設定資料夾權限**
+   - 對 `D:\inetpub\TaoyuanDMS` 新增 `IIS_IUSRS` 和 `IUSR`，給予讀取和執行權限
+
+---
+
+### 第五步：測試
+
+1. 開啟瀏覽器，輸入 `http://localhost`
+2. 應該看到歡迎頁面
+3. 登入測試：
+   - 帳號：`admin`
+   - 密碼：`Admin@123`（請登入後立即修改）
+
+---
+
+## 日後更新
+
+### 更新前端
+1. 執行 `npm run build`
+2. 將 `dist` 內容覆蓋到伺服器的 `wwwroot` 資料夾
+
+### 更新後端
+1. 在 IIS **停止網站**
+2. 重新發佈並覆蓋伺服器檔案
+3. **啟動網站**
+
+---
+
+## 常見問題
+
+| 問題 | 解決方式 |
+|------|----------|
+| 500 錯誤 | 檢查 `appsettings.json` 連線字串是否正確 |
+| 502.5 錯誤 | 確認安裝的是 .NET 8 **Hosting Bundle**，安裝後執行 `iisreset` |
+| 登入失敗 | 確認資料庫帳號有權限、密碼雜湊值已更新 |
+| 頁面重新整理 404 | 確認已安裝 URL Rewrite 模組 |
 
 ---
 
@@ -115,47 +167,13 @@ builder.Services.AddCors(options =>
 
 | 路徑 | 頁面 | 說明 |
 |------|------|------|
-| `/welcome` | 歡迎頁 | 系統首頁，未登入時顯示 |
+| `/welcome` | 歡迎頁 | 系統首頁 |
 | `/login` | 登入頁 | 輸入帳號密碼登入 |
 | `/` | 首頁 | 檔案列表（需登入） |
 | `/edit/:fileId` | 編輯器 | 編輯文件（需登入） |
 | `/admin` | 管理頁 | 系統管理（需管理員） |
-| `/profile` | 個人資料 | 修改個人資訊（需登入） |
-| `/contractor` | 承包商申請 | 承包商申請表（需登入） |
-| `/storage-config` | 儲存設定 | 儲存空間管理（需登入） |
-| `/phonebook` | 通訊錄 | 電話簿（需登入） |
-| `/recycle-bin` | 資源回收筒 | 已刪除檔案（需登入） |
-
----
-
-## 預設管理員帳號
-
-- 帳號：`admin`
-- 密碼：`Admin@123`（請登入後立即修改）
-
----
-
-## 更新前端
-
-日後要更新前端時：
-
-1. 從 GitHub 拉取最新程式碼
-2. 執行 `npm install` 和 `npm run build`
-3. 將 `dist` 資料夾內容覆蓋到 IIS 網站路徑
-4. 在 IIS 管理員重新啟動網站
-
----
-
-## 常見問題
-
-### Q: 頁面重新整理出現 404？
-A: 確認 IIS 已安裝 URL Rewrite 模組，且 `web.config` 存在於網站根目錄。
-
-### Q: 登入後出現網路錯誤？
-A: 確認 `.env.production` 中的 API 位址正確，且後端 CORS 設定允許前端網址。
-
-### Q: npm install 失敗？
-A: 確認 Node.js 版本 18 以上（執行 `node -v` 確認）。
-
-### Q: 如何在沒有 Node.js 的伺服器部署？
-A: 可在您的個人電腦執行 `npm run build`，再將 `dist` 資料夾複製到伺服器即可。伺服器不需要安裝 Node.js。
+| `/profile` | 個人資料 | 修改個人資訊 |
+| `/contractor` | 承包商申請 | 承包商申請表 |
+| `/storage-config` | 儲存設定 | 儲存空間管理 |
+| `/phonebook` | 通訊錄 | 電話簿 |
+| `/recycle-bin` | 資源回收筒 | 已刪除檔案 |
