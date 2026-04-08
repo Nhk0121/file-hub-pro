@@ -112,7 +112,7 @@ export function getDepartmentsWithSections(): string[] {
 
 // 產生磁碟路徑（未來移機用）
 export function buildDiskPath(zone: string, department?: string, section?: string): string {
-  let path = `D:\\DMS\\${zone}`;
+  let path = `E:\\DMS\\${zone}`;
   if (department) path += `\\${department}`;
   if (section) path += `\\${section}`;
   return path;
