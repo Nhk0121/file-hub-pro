@@ -51,10 +51,10 @@ export interface StorageSettings {
 }
 
 const DEFAULT_SETTINGS: StorageSettings = {
-  primaryPath: 'D:\\DMS',
+  primaryPath: 'E:\\DMS',
   disks: [
     {
-      id: '1', label: '主要磁碟', path: 'D:\\DMS', diskType: '主要',
+      id: '1', label: '主要磁碟', path: 'E:\\DMS', diskType: '主要',
       enabled: true, createdAt: new Date().toISOString(),
     },
   ],
