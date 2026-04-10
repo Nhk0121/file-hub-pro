@@ -23,11 +23,35 @@ interface FileToolbarProps {
   onSearchChange: (q: string) => void;
 }
 
+// 取得目前資料夾所屬的組別名稱
+function getDepartmentFromFolder(folderId: string | null, allFiles: FileItem[]): string | null {
+  let fid = folderId;
+  while (fid) {
+    const folder = allFiles.find(f => f.id === fid);
+    if (!folder) break;
+    if (folder.folderLevel === 'department') return folder.name;
+    fid = folder.parentId;
+  }
+  return null;
+}
+
+// 檢查是否在 zone 層級底下
+function isInsideZone(folderId: string | null, allFiles: FileItem[]): boolean {
+  let fid = folderId;
+  while (fid) {
+    const folder = allFiles.find(f => f.id === fid);
+    if (!folder) break;
+    if (folder.folderLevel === 'zone') return true;
+    fid = folder.parentId;
+  }
+  return false;
+}
+
 const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }: FileToolbarProps) => {
-  const { currentFolderId, addFolder, addFile, canCreateSubfolder } = useFiles();
+  const { currentFolderId, addFolder, addFile, canCreateSubfolder, files: allFiles } = useFiles();
   const { user } = useAuth();
   const { addLog } = useAudit();
-  const { getFolderPermission } = usePermissions();
+  const { getFolderPermission, getUserPermanentDepts } = usePermissions();
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
   const [docDialogOpen, setDocDialogOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
@@ -41,9 +65,25 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
 
   const isAdmin = user?.role === '管理員' || user?.role === '系統管理員';
 
+  // 跨組別上傳管控：非管理員只能在自己所屬組別底下上傳
+  const departmentOfFolder = getDepartmentFromFolder(currentFolderId, allFiles);
+  const insideZone = isInsideZone(currentFolderId, allFiles);
+
+  const canUploadToDept = (() => {
+    if (isAdmin) return true;
+    if (!insideZone || !departmentOfFolder) return true; // 不在組別目錄下，允許（zone層級由其他邏輯控管）
+    if (!user) return false;
+    // 自己的組別
+    if (user.department === departmentOfFolder) return true;
+    // 永久區跨組別授權
+    const overrideDepts = getUserPermanentDepts(user.id);
+    if (overrideDepts.includes(departmentOfFolder)) return true;
+    return false;
+  })();
+
   const canWrite = !currentFolderId || !user || isAdmin
     ? true
-    : getFolderPermission(currentFolderId, user.id) === '完整權限';
+    : (getFolderPermission(currentFolderId, user.id) === '完整權限' && canUploadToDept);
 
   const canAddFolder = canWrite && canCreateSubfolder(currentFolderId);
 
@@ -203,6 +243,10 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+        )}
+
+        {!canWrite && insideZone && departmentOfFolder && !isAdmin && (
+          <span className="text-xs text-destructive">您無法在「{departmentOfFolder}」上傳檔案</span>
         )}
       </div>
 

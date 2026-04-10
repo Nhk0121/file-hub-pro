@@ -19,7 +19,7 @@ import {
   Clock, CheckCircle, XCircle, ClipboardList, KeyRound, Building2,
   Eye, Printer, UserMinus, UserCog, FolderLock, FileSearch,
 } from 'lucide-react';
-import type { FolderPermission, AuditLog, UserRole, ApplicantType } from '@/types';
+import type { FolderPermission, AuditLog, UserRole, ApplicantType, User } from '@/types';
 import { DEPARTMENTS, getSectionsForDepartment, JOB_TITLES, addSection, removeSection, getDepartmentSections } from '@/config/organization';
 
 const actionIcons: Record<AuditLog['action'], React.ReactNode> = {
@@ -45,7 +45,7 @@ const actionIcons: Record<AuditLog['action'], React.ReactNode> = {
 };
 
 const Admin = () => {
-  const { user, allUsers, addUser, removeUser, updateUserRole, registrations, reviewRegistration, resetPassword } = useAuth();
+  const { user, allUsers, addUser, removeUser, updateUser, updateUserRole, registrations, reviewRegistration, resetPassword } = useAuth();
   const { files, addSectionFolder, removeSectionFolder } = useFiles();
   const { logs, clearLogs, addLog } = useAudit();
   const { setFolderPermission, getFolderRules, removeFolderPermission, permanentOverrides, setPermanentOverride, removePermanentOverride } = usePermissions();
@@ -70,6 +70,13 @@ const Admin = () => {
   // 使用者搜尋
   const [userSearch, setUserSearch] = useState('');
 
+  // 編輯使用者
+  const [editUserOpen, setEditUserOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editForm, setEditForm] = useState({
+    displayName: '', email: '', department: '', section: '', jobTitle: '', phone: '', extension: '',
+  });
+
   // 永久區多組別權限
   const [permSpecialUserId, setPermSpecialUserId] = useState('');
   const [permSpecialDepts, setPermSpecialDepts] = useState<string[]>([]);
@@ -83,6 +90,7 @@ const Admin = () => {
   const pendingCount = registrations.filter(r => r.status === '待審核').length;
 
   const newUserSections = newUser.department ? getSectionsForDepartment(newUser.department) : [];
+  const editUserSections = editForm.department ? getSectionsForDepartment(editForm.department) : [];
 
   const filteredLogs = useMemo(() => logs.filter(log => {
     const matchSearch = !auditSearch || log.userName.includes(auditSearch) || log.targetName?.includes(auditSearch) || log.details?.includes(auditSearch);
@@ -151,13 +159,50 @@ const Admin = () => {
   const handleRemoveUser = (userId: string, username: string) => {
     if (userId === user.id) { toast.error('無法刪除自己的帳號'); return; }
     removeUser(userId);
+    addLog({ userId: user.id, userName: user.displayName, action: '帳號刪除', targetName: username });
     toast.success(`已刪除使用者「${username}」`);
   };
 
   const handleResetPassword = (userId: string, username: string) => {
     if (userId === user.id) { toast.error('無法重置自己的密碼'); return; }
     resetPassword(userId);
+    addLog({ userId: user.id, userName: user.displayName, action: '密碼重置', targetName: username });
     toast.success(`已將「${username}」的密碼重置為 a0123456789+`);
+  };
+
+  const handleOpenEditUser = (u: User) => {
+    setEditingUser(u);
+    setEditForm({
+      displayName: u.displayName || '',
+      email: u.email || '',
+      department: u.department || '',
+      section: u.section || '',
+      jobTitle: u.jobTitle || '',
+      phone: u.phone || '',
+      extension: u.extension || '',
+    });
+    setEditUserOpen(true);
+  };
+
+  const handleSaveEditUser = () => {
+    if (!editingUser) return;
+    if (!editForm.displayName.trim()) {
+      toast.error('姓名不得為空');
+      return;
+    }
+    updateUser(editingUser.id, {
+      displayName: editForm.displayName.trim(),
+      email: editForm.email.trim(),
+      department: editForm.department || undefined,
+      section: editForm.section || undefined,
+      jobTitle: editForm.jobTitle || undefined,
+      phone: editForm.phone || undefined,
+      extension: editForm.extension || undefined,
+    });
+    addLog({ userId: user.id, userName: user.displayName, action: '編輯', targetName: editingUser.username, details: '編輯使用者資料' });
+    toast.success(`已更新使用者「${editingUser.username}」的資料`);
+    setEditUserOpen(false);
+    setEditingUser(null);
   };
 
   const handleSetPermission = () => {
@@ -303,7 +348,10 @@ const Admin = () => {
                         <TableCell>
                           <Select
                             value={u.role}
-                            onValueChange={v => updateUserRole(u.id, v as UserRole)}
+                            onValueChange={v => {
+                              updateUserRole(u.id, v as UserRole);
+                              addLog({ userId: user.id, userName: user.displayName, action: '角色變更', targetName: u.username, details: `→ ${v}` });
+                            }}
                             disabled={u.id === user.id}
                           >
                             <SelectTrigger className="w-28 h-8">
@@ -318,6 +366,9 @@ const Admin = () => {
                           </Select>
                         </TableCell>
                         <TableCell className="text-right space-x-1">
+                          <Button variant="ghost" size="icon" title="編輯" onClick={() => handleOpenEditUser(u)} disabled={u.id === user.id}>
+                            <Pencil className="w-4 h-4" />
+                          </Button>
                           <Button variant="ghost" size="icon" title="重置密碼" onClick={() => handleResetPassword(u.id, u.username)} disabled={u.id === user.id}>
                             <KeyRound className="w-4 h-4" />
                           </Button>
@@ -861,6 +912,68 @@ const Admin = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddUserOpen(false)}>取消</Button>
             <Button onClick={handleAddUser}>建立</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 編輯使用者 Dialog */}
+      <Dialog open={editUserOpen} onOpenChange={setEditUserOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>編輯使用者 — {editingUser?.username}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="mb-1 block">姓名 *</Label>
+              <Input value={editForm.displayName} onChange={e => setEditForm(p => ({ ...p, displayName: e.target.value }))} />
+            </div>
+            <div>
+              <Label className="mb-1 block">組別</Label>
+              <Select value={editForm.department} onValueChange={v => setEditForm(p => ({ ...p, department: v, section: '' }))}>
+                <SelectTrigger><SelectValue placeholder="選擇組別" /></SelectTrigger>
+                <SelectContent>
+                  {DEPARTMENTS.map(d => (<SelectItem key={d} value={d}>{d}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+            {editUserSections.length > 0 && (
+              <div>
+                <Label className="mb-1 block">課別</Label>
+                <Select value={editForm.section} onValueChange={v => setEditForm(p => ({ ...p, section: v }))}>
+                  <SelectTrigger><SelectValue placeholder="選擇課別" /></SelectTrigger>
+                  <SelectContent>
+                    {editUserSections.map(s => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {editingUser?.applicantType !== '外包人員' && (
+              <div>
+                <Label className="mb-1 block">職稱</Label>
+                <Select value={editForm.jobTitle} onValueChange={v => setEditForm(p => ({ ...p, jobTitle: v }))}>
+                  <SelectTrigger><SelectValue placeholder="選擇職稱" /></SelectTrigger>
+                  <SelectContent>
+                    {JOB_TITLES.map(t => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="mb-1 block">電話</Label>
+                <Input value={editForm.phone} onChange={e => setEditForm(p => ({ ...p, phone: e.target.value }))} />
+              </div>
+              <div>
+                <Label className="mb-1 block">分機</Label>
+                <Input value={editForm.extension} onChange={e => setEditForm(p => ({ ...p, extension: e.target.value }))} />
+              </div>
+            </div>
+            <div>
+              <Label className="mb-1 block">電子信箱</Label>
+              <Input value={editForm.email} onChange={e => setEditForm(p => ({ ...p, email: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditUserOpen(false)}>取消</Button>
+            <Button onClick={handleSaveEditUser}>儲存</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
