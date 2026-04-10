@@ -146,13 +146,23 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
     return a.name.localeCompare(b.name, 'zh-TW');
   });
 
+  const isEditableFile = (item: FileItem) => {
+    if (item.type !== 'file') return false;
+    const name = item.name.toLowerCase();
+    const mime = item.mimeType || '';
+    // Markdown, HTML, TXT, CSV, JSON, XML, LOG, INI, YAML 等文字類檔案可編輯
+    if (mime.includes('markdown') || mime.includes('html') || name.endsWith('.md')) return true;
+    if (mime.startsWith('text/') || /\.(txt|csv|json|xml|log|ini|cfg|yaml|yml)$/i.test(name)) return true;
+    return false;
+  };
+
   const handleOpen = (item: FileItem) => {
     if (item.type === 'folder') {
       setCurrentFolderId(item.id);
-    } else if (item.mimeType?.includes('markdown') || item.mimeType?.includes('html') || item.name.endsWith('.md')) {
+    } else if (isEditableFile(item)) {
       navigate(`/edit/${item.id}`);
     } else {
-      // Preview for all other file types
+      // Preview for all other file types (DOCX, XLSX, PDF, images, etc.)
       setPreviewFile(item);
       if (user) addLog({ userId: user.id, userName: user.displayName, action: '預覽', targetName: item.name, targetId: item.id });
     }
