@@ -1,59 +1,119 @@
-import apiClient from './apiClient';
+import authService from './authService';
 import type { User, UserRole, UserRegistration } from '@/types';
 
+const REGISTRATIONS_KEY = 'dms_registrations';
+
+function getRegistrations(): UserRegistration[] {
+  const saved = localStorage.getItem(REGISTRATIONS_KEY);
+  return saved ? JSON.parse(saved) : [];
+}
+
+function saveRegistrations(regs: UserRegistration[]) {
+  localStorage.setItem(REGISTRATIONS_KEY, JSON.stringify(regs));
+}
+
 const userService = {
-  /** 取得所有使用者 */
   getAll: async (): Promise<User[]> => {
-    const { data } = await apiClient.get<User[]>('/users');
-    return data;
+    return authService._getAllUsers();
   },
 
-  /** 新增使用者 */
-  create: async (user: Omit<User, 'id'> & { password: string }): Promise<User> => {
-    const { data } = await apiClient.post<User>('/users', user);
-    return data;
+  create: async (userData: Omit<User, 'id'> & { password: string }): Promise<User> => {
+    const users = authService._getAllUsers();
+    const passwords = authService._getPasswords();
+    const { password, ...rest } = userData as any;
+    const newUser: User = { id: crypto.randomUUID(), ...rest };
+    users.push(newUser);
+    passwords[newUser.id] = password;
+    authService._saveUsers(users);
+    authService._savePasswords(passwords);
+    return newUser;
   },
 
-  /** 更新使用者 */
   update: async (userId: string, updates: Partial<User>): Promise<User> => {
-    const { data } = await apiClient.put<User>(`/users/${userId}`, updates);
-    return data;
+    const users = authService._getAllUsers();
+    const idx = users.findIndex(u => u.id === userId);
+    if (idx < 0) throw new Error('使用者不存在');
+    users[idx] = { ...users[idx], ...updates };
+    authService._saveUsers(users);
+    return users[idx];
   },
 
-  /** 刪除使用者 */
   remove: async (userId: string): Promise<void> => {
-    await apiClient.delete(`/users/${userId}`);
+    let users = authService._getAllUsers();
+    const passwords = authService._getPasswords();
+    users = users.filter(u => u.id !== userId);
+    delete passwords[userId];
+    authService._saveUsers(users);
+    authService._savePasswords(passwords);
   },
 
-  /** 更新角色 */
   updateRole: async (userId: string, role: UserRole): Promise<void> => {
-    await apiClient.put(`/users/${userId}/role`, { role });
+    const users = authService._getAllUsers();
+    const idx = users.findIndex(u => u.id === userId);
+    if (idx < 0) throw new Error('使用者不存在');
+    users[idx].role = role;
+    authService._saveUsers(users);
   },
 
-  /** 重置密碼 */
   resetPassword: async (userId: string): Promise<void> => {
-    await apiClient.post(`/users/${userId}/reset-password`);
+    const passwords = authService._getPasswords();
+    passwords[userId] = 'a0123456789+';
+    authService._savePasswords(passwords);
   },
 
-  /** 取得帳號申請列表 */
   getRegistrations: async (): Promise<UserRegistration[]> => {
-    const { data } = await apiClient.get<UserRegistration[]>('/registrations');
-    return data;
+    return getRegistrations();
   },
 
-  /** 提交帳號申請 */
   submitRegistration: async (reg: Omit<UserRegistration, 'id' | 'status' | 'createdAt'>): Promise<void> => {
-    await apiClient.post('/registrations', reg);
+    const regs = getRegistrations();
+    regs.unshift({
+      ...reg,
+      id: crypto.randomUUID(),
+      status: '待審核',
+      createdAt: new Date().toISOString(),
+    });
+    saveRegistrations(regs);
   },
 
-  /** 審核帳號申請 */
   reviewRegistration: async (
     regId: string,
     status: '已核准' | '已拒絕',
     reviewerName: string,
     rejectReason?: string
   ): Promise<void> => {
-    await apiClient.put(`/registrations/${regId}/review`, { status, reviewerName, rejectReason });
+    const regs = getRegistrations();
+    const reg = regs.find(r => r.id === regId);
+    if (!reg) throw new Error('申請不存在');
+    reg.status = status;
+    reg.reviewedBy = reviewerName;
+    reg.reviewedAt = new Date().toISOString();
+    if (rejectReason) reg.rejectReason = rejectReason;
+
+    // 核准時自動建立帳號
+    if (status === '已核准') {
+      const users = authService._getAllUsers();
+      const passwords = authService._getPasswords();
+      const newUser: User = {
+        id: crypto.randomUUID(),
+        username: reg.username,
+        displayName: reg.displayName,
+        email: reg.email,
+        role: reg.applicantType === '外包人員' ? '外包人員' : '使用者',
+        applicantType: reg.applicantType,
+        department: reg.department,
+        section: reg.section,
+        jobTitle: reg.jobTitle,
+        phone: reg.phone,
+        extension: reg.extension,
+      };
+      users.push(newUser);
+      passwords[newUser.id] = reg.password;
+      authService._saveUsers(users);
+      authService._savePasswords(passwords);
+    }
+
+    saveRegistrations(regs);
   },
 };
 
