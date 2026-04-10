@@ -47,6 +47,18 @@ function isInsideZone(folderId: string | null, allFiles: FileItem[]): boolean {
   return false;
 }
 
+// 取得目前資料夾所屬的區域名稱（時效區 or 永久區）
+function getZoneNameFromFolder(folderId: string | null, allFiles: FileItem[]): string | null {
+  let fid = folderId;
+  while (fid) {
+    const folder = allFiles.find(f => f.id === fid);
+    if (!folder) break;
+    if (folder.folderLevel === 'zone') return folder.name;
+    fid = folder.parentId;
+  }
+  return null;
+}
+
 const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }: FileToolbarProps) => {
   const { currentFolderId, addFolder, addFile, canCreateSubfolder, files: allFiles } = useFiles();
   const { user } = useAuth();
@@ -65,17 +77,20 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
 
   const isAdmin = user?.role === '管理員' || user?.role === '系統管理員';
 
-  // 跨組別上傳管控：非管理員只能在自己所屬組別底下上傳
+  // 跨組別上傳管控：僅永久區限制，時效區不限制
   const departmentOfFolder = getDepartmentFromFolder(currentFolderId, allFiles);
   const insideZone = isInsideZone(currentFolderId, allFiles);
+  const zoneName = getZoneNameFromFolder(currentFolderId, allFiles);
+  const isInPermanentZone = zoneName === '永久區';
 
   const canUploadToDept = (() => {
     if (isAdmin) return true;
-    if (!insideZone || !departmentOfFolder) return true; // 不在組別目錄下，允許（zone層級由其他邏輯控管）
+    if (!insideZone || !departmentOfFolder) return true;
+    // 時效區不限制跨組別上傳
+    if (!isInPermanentZone) return true;
     if (!user) return false;
-    // 自己的組別
+    // 永久區：僅自己的組別或有授權
     if (user.department === departmentOfFolder) return true;
-    // 永久區跨組別授權
     const overrideDepts = getUserPermanentDepts(user.id);
     if (overrideDepts.includes(departmentOfFolder)) return true;
     return false;
@@ -245,8 +260,8 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
           </DropdownMenu>
         )}
 
-        {!canWrite && insideZone && departmentOfFolder && !isAdmin && (
-          <span className="text-xs text-destructive">您無法在「{departmentOfFolder}」上傳檔案</span>
+        {!canWrite && insideZone && isInPermanentZone && departmentOfFolder && !isAdmin && (
+          <span className="text-xs text-destructive">您無法在永久區「{departmentOfFolder}」上傳檔案</span>
         )}
       </div>
 
