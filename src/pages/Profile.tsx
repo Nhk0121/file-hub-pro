@@ -6,20 +6,25 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { User, Save } from 'lucide-react';
+import { User, Save, KeyRound } from 'lucide-react';
 import { toast } from 'sonner';
 import { DEPARTMENTS, getSectionsForDepartment, JOB_TITLES } from '@/config/organization';
+import authService from '@/services/authService';
 
 const Profile = () => {
   const { user, updateProfile } = useAuth();
 
   const [displayName, setDisplayName] = useState(user?.displayName ?? '');
-  const [employeeCode, setEmployeeCode] = useState(user?.employeeCode ?? '');
   const [department, setDepartment] = useState(user?.department ?? '');
   const [section, setSection] = useState(user?.section ?? '');
   const [jobTitle, setJobTitle] = useState(user?.jobTitle ?? '');
   const [phone, setPhone] = useState(user?.phone ?? '');
   const [extension, setExtension] = useState(user?.extension ?? '');
+
+  // 密碼修改
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const sections = getSectionsForDepartment(department);
 
@@ -32,7 +37,6 @@ const Profile = () => {
   const handleSave = () => {
     updateProfile({
       displayName: displayName.trim() || user?.displayName,
-      employeeCode: employeeCode.trim(),
       department,
       section,
       jobTitle,
@@ -40,6 +44,30 @@ const Profile = () => {
       extension: extension.trim(),
     });
     toast.success('個人資料已更新');
+  };
+
+  const handleChangePassword = async () => {
+    if (!newPassword.trim()) {
+      toast.error('請輸入新密碼');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('新密碼與確認密碼不一致');
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error('新密碼至少需要 6 個字元');
+      return;
+    }
+    try {
+      await authService.changePassword(oldPassword, newPassword);
+      toast.success('密碼已變更成功');
+      setOldPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      toast.error(err.message || '密碼變更失敗');
+    }
   };
 
   if (!user) return null;
@@ -69,6 +97,10 @@ const Profile = () => {
                 <span className="font-medium">{user.username}</span>
               </div>
               <div className="flex items-center gap-4">
+                <Label className="w-20 text-right text-muted-foreground">代號</Label>
+                <span className="font-medium">{user.employeeCode || '（未設定）'}</span>
+              </div>
+              <div className="flex items-center gap-4">
                 <Label className="w-20 text-right text-muted-foreground">電子信箱</Label>
                 <span>{user.email}</span>
               </div>
@@ -87,15 +119,9 @@ const Profile = () => {
               <CardDescription>請填寫您的個人資訊</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>姓名</Label>
-                  <Input value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="請輸入姓名" />
-                </div>
-                <div className="space-y-2">
-                  <Label>代號</Label>
-                  <Input value={employeeCode} onChange={e => setEmployeeCode(e.target.value)} placeholder="請輸入代號" />
-                </div>
+              <div className="space-y-2">
+                <Label>姓名</Label>
+                <Input value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="請輸入姓名" />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -157,6 +183,34 @@ const Profile = () => {
               <Button onClick={handleSave} className="w-full mt-2">
                 <Save className="w-4 h-4 mr-2" />
                 儲存變更
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <KeyRound className="w-5 h-5" />
+                變更密碼
+              </CardTitle>
+              <CardDescription>修改您的登入密碼</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>目前密碼</Label>
+                <Input type="password" value={oldPassword} onChange={e => setOldPassword(e.target.value)} placeholder="請輸入目前密碼" />
+              </div>
+              <div className="space-y-2">
+                <Label>新密碼</Label>
+                <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="至少 6 個字元" />
+              </div>
+              <div className="space-y-2">
+                <Label>確認新密碼</Label>
+                <Input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="再次輸入新密碼" />
+              </div>
+              <Button onClick={handleChangePassword} className="w-full mt-2" variant="outline">
+                <KeyRound className="w-4 h-4 mr-2" />
+                變更密碼
               </Button>
             </CardContent>
           </Card>
