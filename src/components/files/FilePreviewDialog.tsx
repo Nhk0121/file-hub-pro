@@ -1,9 +1,10 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Download, X, ZoomIn, ZoomOut, RotateCw } from 'lucide-react';
+import { Download, X, ZoomIn, ZoomOut, RotateCw, Pencil, FileWarning } from 'lucide-react';
 import type { FileItem } from '@/types';
 import ReactMarkdown from 'react-markdown';
 
@@ -14,16 +15,24 @@ interface FilePreviewDialogProps {
 }
 
 const FilePreviewDialog = ({ file, open, onOpenChange }: FilePreviewDialogProps) => {
+  const navigate = useNavigate();
   const [zoom, setZoom] = useState(100);
   const [rotation, setRotation] = useState(0);
 
   if (!file || !file.content) return null;
 
-  const isImage = file.mimeType?.startsWith('image/') || /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(file.name);
-  const isPdf = file.mimeType === 'application/pdf' || file.name.endsWith('.pdf');
-  const isMarkdown = file.mimeType?.includes('markdown') || file.name.endsWith('.md');
-  const isText = file.mimeType?.startsWith('text/') || /\.(txt|csv|json|xml|log|ini|cfg|yaml|yml)$/i.test(file.name);
-  const isCode = /\.(js|ts|tsx|jsx|css|html|py|java|c|cpp|h|sh|bat|sql|php|rb)$/i.test(file.name);
+  const name = file.name.toLowerCase();
+  const isImage = file.mimeType?.startsWith('image/') || /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(name);
+  const isPdf = file.mimeType === 'application/pdf' || name.endsWith('.pdf');
+  const isMarkdown = file.mimeType?.includes('markdown') || name.endsWith('.md');
+  const isText = file.mimeType?.startsWith('text/') || /\.(txt|csv|json|xml|log|ini|cfg|yaml|yml)$/i.test(name);
+  const isCode = /\.(js|ts|tsx|jsx|css|html|py|java|c|cpp|h|sh|bat|sql|php|rb)$/i.test(name);
+  const isWord = /\.(doc|docx)$/i.test(name);
+  const isExcel = /\.(xls|xlsx)$/i.test(name);
+  const isBinaryDoc = isPdf || isWord || isExcel;
+
+  // 可線上編輯的文字檔
+  const isEditable = isMarkdown || isText || isCode || (file.mimeType?.includes('html') && !isBinaryDoc);
 
   const handleDownload = () => {
     let blob: Blob;
@@ -42,6 +51,11 @@ const FilePreviewDialog = ({ file, open, onOpenChange }: FilePreviewDialogProps)
     URL.revokeObjectURL(url);
   };
 
+  const handleEdit = () => {
+    onOpenChange(false);
+    navigate(`/edit/${file.id}`);
+  };
+
   const renderPreview = () => {
     if (isImage) {
       return (
@@ -50,22 +64,24 @@ const FilePreviewDialog = ({ file, open, onOpenChange }: FilePreviewDialogProps)
             src={file.content!}
             alt={file.name}
             className="max-w-full transition-transform duration-200"
-            style={{
-              transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
-            }}
+            style={{ transform: `scale(${zoom / 100}) rotate(${rotation}deg)` }}
           />
         </div>
       );
     }
 
-    if (isPdf) {
+    if (isBinaryDoc) {
+      const typeLabel = isPdf ? 'PDF' : isWord ? 'Word' : 'Excel';
       return (
         <div className="flex items-center justify-center min-h-[400px] bg-muted/20 rounded-lg p-8">
           <div className="text-center text-muted-foreground">
-            <p className="text-lg font-medium mb-2">PDF 預覽</p>
-            <p className="text-sm mb-4">瀏覽器內嵌預覽需要後端支援，目前可下載檢視。</p>
+            <FileWarning className="w-16 h-16 mx-auto mb-4 opacity-40" />
+            <p className="text-lg font-medium mb-2">{typeLabel} 文件</p>
+            <p className="text-sm mb-4">
+              {typeLabel} 為二進位格式，目前僅支援下載後以桌面應用程式編輯。
+            </p>
             <Button onClick={handleDownload} variant="outline">
-              <Download className="w-4 h-4 mr-2" />下載 PDF
+              <Download className="w-4 h-4 mr-2" />下載 {typeLabel} 檔案
             </Button>
           </div>
         </div>
@@ -116,6 +132,12 @@ const FilePreviewDialog = ({ file, open, onOpenChange }: FilePreviewDialogProps)
           <div className="flex items-center justify-between pr-6">
             <DialogTitle className="truncate">{file.name}</DialogTitle>
             <div className="flex items-center gap-1">
+              {isEditable && (
+                <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={handleEdit} title="線上編輯">
+                  <Pencil className="w-4 h-4" />
+                  編輯
+                </Button>
+              )}
               {isImage && (
                 <>
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setZoom(z => Math.max(25, z - 25))} title="縮小">
