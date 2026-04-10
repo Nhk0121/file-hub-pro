@@ -1,6 +1,8 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFiles } from '@/contexts/FileContext';
 import { useEditLock } from '@/contexts/EditLockContext';
+import { useAudit } from '@/contexts/AuditContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import RichTextEditor from '@/components/editor/RichTextEditor';
 import MarkdownEditor from '@/components/editor/MarkdownEditor';
@@ -13,7 +15,9 @@ const Editor = () => {
   const { fileId } = useParams();
   const navigate = useNavigate();
   const { getFile, updateFileContent } = useFiles();
-  const { acquireLock, releaseLock, getLock, isLockedByOther } = useEditLock();
+  const { acquireLock, releaseLock, getLock } = useEditLock();
+  const { addLog } = useAudit();
+  const { user } = useAuth();
   const file = fileId ? getFile(fileId) : undefined;
   const [content, setContent] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
@@ -51,6 +55,9 @@ const Editor = () => {
   const handleSave = () => {
     updateFileContent(file.id, content);
     setHasChanges(false);
+    if (user) {
+      addLog({ userId: user.id, userName: user.displayName, action: '編輯', targetName: file.name, targetId: file.id });
+    }
     toast.success('文件已儲存');
   };
 

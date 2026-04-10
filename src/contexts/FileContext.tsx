@@ -1,37 +1,46 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { FileItem } from '@/types';
 import { DEPARTMENTS, ZONES, buildDiskPath, getDepartmentSections } from '@/config/organization';
-import fileService, { type TrashItemDTO } from '@/services/fileService';
+
+const FILES_KEY = 'dms_files';
+const TRASH_KEY = 'dms_trash';
+
+export interface TrashItemDTO {
+  item: FileItem;
+  deletedAt: string;
+  deletedBy: string;
+  originalParentId: string | null;
+}
 
 interface FileContextType {
   files: FileItem[];
   currentFolderId: string | null;
   setCurrentFolderId: (id: string | null) => void;
-  addFile: (file: FileItem) => Promise<void>;
-  addFolder: (name: string, parentId: string | null) => Promise<void>;
-  deleteItem: (id: string) => Promise<void>;
-  renameItem: (id: string, newName: string) => Promise<void>;
-  updateFileContent: (id: string, content: string) => Promise<void>;
+  addFile: (file: FileItem) => void;
+  addFolder: (name: string, parentId: string | null) => void;
+  deleteItem: (id: string) => void;
+  renameItem: (id: string, newName: string) => void;
+  updateFileContent: (id: string, content: string) => void;
   getChildren: (parentId: string | null) => FileItem[];
   getBreadcrumbs: (folderId: string | null) => Array<{ id: string | null; name: string }>;
   getFile: (id: string) => FileItem | undefined;
   canCreateSubfolder: (parentId: string | null) => boolean;
   getFolderLevel: (folderId: string | null) => FileItem['folderLevel'] | undefined;
   isSystemFolder: (folderId: string) => boolean;
-  addSectionFolder: (department: string, section: string) => Promise<void>;
-  removeSectionFolder: (department: string, section: string) => Promise<void>;
+  addSectionFolder: (department: string, section: string) => void;
+  removeSectionFolder: (department: string, section: string) => void;
   trashItems: TrashItemDTO[];
-  moveToTrash: (id: string, userName: string) => Promise<void>;
-  restoreFromTrash: (itemId: string) => Promise<void>;
-  permanentDelete: (itemId: string) => Promise<void>;
-  emptyTrash: () => Promise<void>;
+  moveToTrash: (id: string, userName: string) => void;
+  restoreFromTrash: (itemId: string) => void;
+  permanentDelete: (itemId: string) => void;
+  emptyTrash: () => void;
   loading: boolean;
-  refreshFiles: () => Promise<void>;
+  refreshFiles: () => void;
 }
 
 const FileContext = createContext<FileContextType | null>(null);
 
-// 建立系統初始資料夾結構（作為 fallback）
+// 建立系統初始資料夾結構
 function buildInitialFolders(): FileItem[] {
   const folders: FileItem[] = [];
   const now = new Date().toISOString();
@@ -66,132 +75,176 @@ function buildInitialFolders(): FileItem[] {
   return folders;
 }
 
+function loadFiles(): FileItem[] {
+  const saved = localStorage.getItem(FILES_KEY);
+  if (saved) {
+    try { return JSON.parse(saved); } catch { /* fall through */ }
+  }
+  const initial = buildInitialFolders();
+  localStorage.setItem(FILES_KEY, JSON.stringify(initial));
+  return initial;
+}
+
+function saveFiles(files: FileItem[]) {
+  localStorage.setItem(FILES_KEY, JSON.stringify(files));
+}
+
+function loadTrash(): TrashItemDTO[] {
+  const saved = localStorage.getItem(TRASH_KEY);
+  if (saved) {
+    try { return JSON.parse(saved); } catch { /* fall through */ }
+  }
+  return [];
+}
+
+function saveTrash(items: TrashItemDTO[]) {
+  localStorage.setItem(TRASH_KEY, JSON.stringify(items));
+}
+
+// 確保系統資料夾存在（不會重建已刪除的課別，但會補齊 zone 和 department）
+function ensureSystemFolders(existing: FileItem[]): FileItem[] {
+  const now = new Date().toISOString();
+  const result = [...existing];
+  const ids = new Set(result.map(f => f.id));
+
+  ZONES.forEach(zone => {
+    const zoneId = `zone_${zone}`;
+    if (!ids.has(zoneId)) {
+      result.push({
+        id: zoneId, name: zone, type: 'folder', parentId: null,
+        createdAt: now, updatedAt: now, createdBy: '系統',
+        isSystem: true, folderLevel: 'zone', diskPath: buildDiskPath(zone),
+      });
+      ids.add(zoneId);
+    }
+
+    DEPARTMENTS.forEach(dept => {
+      const deptId = `dept_${zone}_${dept}`;
+      if (!ids.has(deptId)) {
+        result.push({
+          id: deptId, name: dept, type: 'folder', parentId: zoneId,
+          createdAt: now, updatedAt: now, createdBy: '系統',
+          isSystem: true, folderLevel: 'department', diskPath: buildDiskPath(zone, dept),
+        });
+        ids.add(deptId);
+      }
+
+      // 課別由管理員動態管理，依 localStorage 記錄補齊
+      const sections = getDepartmentSections()[dept] ?? [];
+      sections.forEach(sec => {
+        const secId = `sec_${zone}_${dept}_${sec}`;
+        if (!ids.has(secId)) {
+          result.push({
+            id: secId, name: sec, type: 'folder', parentId: deptId,
+            createdAt: now, updatedAt: now, createdBy: '系統',
+            isSystem: true, folderLevel: 'section', diskPath: buildDiskPath(zone, dept, sec),
+          });
+          ids.add(secId);
+        }
+      });
+    });
+  });
+
+  return result;
+}
+
 export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [files, setFiles] = useState<FileItem[]>(() => buildInitialFolders());
+  const [files, setFiles] = useState<FileItem[]>(() => {
+    const loaded = loadFiles();
+    return ensureSystemFolders(loaded);
+  });
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
-  const [trashItems, setTrashItems] = useState<TrashItemDTO[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [trashItems, setTrashItems] = useState<TrashItemDTO[]>(() => loadTrash());
+  const [loading] = useState(false);
 
-  const refreshFiles = useCallback(async () => {
-    try {
-      setLoading(true);
-      const data = await fileService.getAll();
-      setFiles(data.length > 0 ? data : buildInitialFolders());
-    } catch (err) {
-      console.error('Failed to load files:', err);
-    } finally {
-      setLoading(false);
-    }
+  // 持久化
+  useEffect(() => { saveFiles(files); }, [files]);
+  useEffect(() => { saveTrash(trashItems); }, [trashItems]);
+
+  const refreshFiles = useCallback(() => {
+    const loaded = loadFiles();
+    setFiles(ensureSystemFolders(loaded));
+    setTrashItems(loadTrash());
   }, []);
 
-  const refreshTrash = useCallback(async () => {
-    try {
-      const data = await fileService.getTrash();
-      setTrashItems(data);
-    } catch (err) {
-      console.error('Failed to load trash:', err);
-    }
-  }, []);
-
-  // 初始載入
-  useEffect(() => {
-    const token = localStorage.getItem('dms_token');
-    if (token) {
-      refreshFiles();
-      refreshTrash();
-    }
-  }, [refreshFiles, refreshTrash]);
-
-  const addFile = useCallback(async (file: FileItem) => {
-    // 樂觀更新
+  const addFile = useCallback((file: FileItem) => {
     setFiles(prev => [...prev, file]);
-    // 如果有實際檔案上傳，呼叫端應改用 fileService.upload
   }, []);
 
-  const addFolder = useCallback(async (name: string, parentId: string | null) => {
-    try {
-      const folder = await fileService.createFolder(name, parentId);
-      setFiles(prev => [...prev, folder]);
-    } catch (err) {
-      console.error('Failed to create folder:', err);
-      throw err;
-    }
+  const addFolder = useCallback((name: string, parentId: string | null) => {
+    const now = new Date().toISOString();
+    const folder: FileItem = {
+      id: crypto.randomUUID(),
+      name, type: 'folder', parentId,
+      createdAt: now, updatedAt: now,
+      createdBy: '使用者',
+    };
+    setFiles(prev => [...prev, folder]);
   }, []);
 
-  const deleteItem = useCallback(async (id: string) => {
-    const target = files.find(f => f.id === id);
-    if (target?.isSystem) return;
-    try {
-      await fileService.deleteItem(id);
-      await refreshFiles();
-    } catch (err) {
-      console.error('Failed to delete item:', err);
-      throw err;
-    }
-  }, [files, refreshFiles]);
-
-  const renameItem = useCallback(async (id: string, newName: string) => {
-    const target = files.find(f => f.id === id);
-    if (target?.isSystem) return;
-    try {
-      const updated = await fileService.rename(id, newName);
-      setFiles(prev => prev.map(f => f.id === id ? updated : f));
-    } catch (err) {
-      console.error('Failed to rename:', err);
-      throw err;
-    }
-  }, [files]);
-
-  const updateFileContent = useCallback(async (id: string, content: string) => {
-    try {
-      const updated = await fileService.updateContent(id, content);
-      setFiles(prev => prev.map(f => f.id === id ? updated : f));
-    } catch (err) {
-      console.error('Failed to update content:', err);
-      throw err;
-    }
+  const deleteItem = useCallback((id: string) => {
+    setFiles(prev => {
+      const target = prev.find(f => f.id === id);
+      if (target?.isSystem) return prev;
+      return prev.filter(f => f.id !== id);
+    });
   }, []);
 
-  const moveToTrash = useCallback(async (id: string, _userName: string) => {
-    const target = files.find(f => f.id === id);
-    if (!target || target.isSystem) return;
-    try {
-      await fileService.moveToTrash(id);
-      await Promise.all([refreshFiles(), refreshTrash()]);
-    } catch (err) {
-      console.error('Failed to move to trash:', err);
-      throw err;
-    }
-  }, [files, refreshFiles, refreshTrash]);
+  const renameItem = useCallback((id: string, newName: string) => {
+    setFiles(prev => prev.map(f => {
+      if (f.id !== id || f.isSystem) return f;
+      return { ...f, name: newName, updatedAt: new Date().toISOString() };
+    }));
+  }, []);
 
-  const restoreFromTrash = useCallback(async (itemId: string) => {
-    try {
-      await fileService.restoreFromTrash(itemId);
-      await Promise.all([refreshFiles(), refreshTrash()]);
-    } catch (err) {
-      console.error('Failed to restore:', err);
-      throw err;
-    }
-  }, [refreshFiles, refreshTrash]);
+  const updateFileContent = useCallback((id: string, content: string) => {
+    setFiles(prev => prev.map(f => {
+      if (f.id !== id) return f;
+      return { ...f, content, updatedAt: new Date().toISOString() };
+    }));
+  }, []);
 
-  const permanentDelete = useCallback(async (itemId: string) => {
-    try {
-      await fileService.permanentDeleteTrash(itemId);
-      await refreshTrash();
-    } catch (err) {
-      console.error('Failed to permanent delete:', err);
-      throw err;
-    }
-  }, [refreshTrash]);
+  const moveToTrash = useCallback((id: string, userName: string) => {
+    setFiles(prev => {
+      const target = prev.find(f => f.id === id);
+      if (!target || target.isSystem) return prev;
 
-  const emptyTrash = useCallback(async () => {
-    try {
-      await fileService.emptyTrash();
-      setTrashItems([]);
-    } catch (err) {
-      console.error('Failed to empty trash:', err);
-      throw err;
-    }
+      // 遞迴收集子項目
+      const idsToRemove = new Set<string>();
+      const collectChildren = (parentId: string) => {
+        idsToRemove.add(parentId);
+        prev.filter(f => f.parentId === parentId).forEach(child => collectChildren(child.id));
+      };
+      collectChildren(id);
+
+      const removedItems = prev.filter(f => idsToRemove.has(f.id));
+      const trashEntry: TrashItemDTO = {
+        item: target,
+        deletedAt: new Date().toISOString(),
+        deletedBy: userName,
+        originalParentId: target.parentId,
+      };
+      setTrashItems(prevTrash => [trashEntry, ...prevTrash]);
+
+      return prev.filter(f => !idsToRemove.has(f.id));
+    });
+  }, []);
+
+  const restoreFromTrash = useCallback((itemId: string) => {
+    setTrashItems(prev => {
+      const entry = prev.find(t => t.item.id === itemId);
+      if (!entry) return prev;
+      setFiles(f => [...f, entry.item]);
+      return prev.filter(t => t.item.id !== itemId);
+    });
+  }, []);
+
+  const permanentDelete = useCallback((itemId: string) => {
+    setTrashItems(prev => prev.filter(t => t.item.id !== itemId));
+  }, []);
+
+  const emptyTrash = useCallback(() => {
+    setTrashItems([]);
   }, []);
 
   const getChildren = useCallback((parentId: string | null) => {
@@ -234,25 +287,32 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return files.find(f => f.id === folderId)?.isSystem ?? false;
   }, [files]);
 
-  const addSectionFolder = useCallback(async (department: string, section: string) => {
-    try {
-      await fileService.addSection(department, section);
-      await refreshFiles();
-    } catch (err) {
-      console.error('Failed to add section:', err);
-      throw err;
-    }
-  }, [refreshFiles]);
+  const addSectionFolder = useCallback((department: string, section: string) => {
+    const now = new Date().toISOString();
+    setFiles(prev => {
+      const newFiles = [...prev];
+      // 在時效區和永久區各建立課別資料夾
+      ZONES.forEach(zone => {
+        const deptId = `dept_${zone}_${department}`;
+        const secId = `sec_${zone}_${department}_${section}`;
+        if (!newFiles.find(f => f.id === secId)) {
+          newFiles.push({
+            id: secId, name: section, type: 'folder', parentId: deptId,
+            createdAt: now, updatedAt: now, createdBy: '系統',
+            isSystem: true, folderLevel: 'section', diskPath: buildDiskPath(zone, department, section),
+          });
+        }
+      });
+      return newFiles;
+    });
+  }, []);
 
-  const removeSectionFolder = useCallback(async (department: string, section: string) => {
-    try {
-      await fileService.removeSection(department, section);
-      await refreshFiles();
-    } catch (err) {
-      console.error('Failed to remove section:', err);
-      throw err;
-    }
-  }, [refreshFiles]);
+  const removeSectionFolder = useCallback((department: string, section: string) => {
+    setFiles(prev => {
+      const secIds = ZONES.map(zone => `sec_${zone}_${department}_${section}`);
+      return prev.filter(f => !secIds.includes(f.id));
+    });
+  }, []);
 
   return (
     <FileContext.Provider value={{
