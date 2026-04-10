@@ -23,7 +23,6 @@ const Editor = () => {
   const [hasChanges, setHasChanges] = useState(false);
   const [locked, setLocked] = useState(false);
 
-  // Acquire lock on mount, release on unmount
   useEffect(() => {
     if (fileId) {
       const got = acquireLock(fileId);
@@ -50,7 +49,13 @@ const Editor = () => {
     );
   }
 
-  const isMarkdown = file.mimeType?.includes('markdown') || file.name.endsWith('.md');
+  const name = file.name.toLowerCase();
+  const mime = file.mimeType || '';
+  const isMarkdown = mime.includes('markdown') || name.endsWith('.md');
+  const isHtml = mime.includes('html') || name.endsWith('.html') || name.endsWith('.htm');
+  const isPlainText = !isMarkdown && !isHtml; // TXT, CSV, JSON, XML, LOG etc.
+
+  const editorTypeLabel = isMarkdown ? 'Markdown 編輯器' : isHtml ? '富文字編輯器' : '純文字編輯器';
 
   const handleSave = () => {
     updateFileContent(file.id, content);
@@ -70,7 +75,6 @@ const Editor = () => {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
       <div className="flex items-center justify-between px-6 py-3 border-b bg-card">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
@@ -79,7 +83,7 @@ const Editor = () => {
           <div>
             <h2 className="text-lg font-semibold">{file.name}</h2>
             <p className="text-xs text-muted-foreground">
-              {isMarkdown ? 'Markdown 編輯器' : '富文字編輯器'}
+              {editorTypeLabel}
               {hasChanges && ' • 未儲存的變更'}
             </p>
           </div>
@@ -90,7 +94,6 @@ const Editor = () => {
         </Button>
       </div>
 
-      {/* Lock warning */}
       {locked && lockInfo && (
         <Alert variant="destructive" className="mx-6 mt-4">
           <Lock className="h-4 w-4" />
@@ -100,20 +103,23 @@ const Editor = () => {
         </Alert>
       )}
 
-      {/* Editor */}
       <div className="flex-1 p-6 overflow-auto">
         {locked ? (
           <div className="border rounded-lg bg-card p-6 min-h-[400px] opacity-70 pointer-events-none select-none">
-            {isMarkdown ? (
-              <pre className="whitespace-pre-wrap font-mono text-sm">{content}</pre>
-            ) : (
-              <div dangerouslySetInnerHTML={{ __html: content }} />
-            )}
+            <pre className="whitespace-pre-wrap font-mono text-sm">{content}</pre>
           </div>
         ) : isMarkdown ? (
           <MarkdownEditor content={content} onChange={handleContentChange} />
-        ) : (
+        ) : isHtml ? (
           <RichTextEditor content={content} onChange={handleContentChange} />
+        ) : (
+          /* 純文字編輯器：TXT, CSV, JSON, XML, LOG 等 */
+          <textarea
+            value={content}
+            onChange={e => handleContentChange(e.target.value)}
+            className="w-full min-h-[400px] p-4 bg-card border rounded-lg font-mono text-sm resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+            placeholder="在此編輯文件內容..."
+          />
         )}
       </div>
     </div>
