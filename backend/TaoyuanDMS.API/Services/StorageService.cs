@@ -13,7 +13,7 @@ public class StorageService
     public async Task<List<DepartmentQuotaDto>> GetQuotasAsync()
     {
         using var conn = _db.CreateConnection();
-        var quotas = await conn.QueryAsync<DepartmentQuotaDto>("SELECT * FROM StorageQuotas");
+        var quotas = await conn.QueryAsync<DepartmentQuotaDto>("SELECT * FROM DepartmentQuotas");
         return quotas.ToList();
     }
 
@@ -21,7 +21,7 @@ public class StorageService
     {
         using var conn = _db.CreateConnection();
         await conn.ExecuteAsync(@"
-            MERGE StorageQuotas AS target
+            MERGE DepartmentQuotas AS target
             USING (VALUES (@Department, @Zone, @QuotaMB)) AS source (Department, Zone, QuotaMB)
             ON target.Department = source.Department AND target.Zone = source.Zone
             WHEN MATCHED THEN UPDATE SET QuotaMB = source.QuotaMB

@@ -167,16 +167,43 @@ CREATE TABLE [dbo].[EditLocks] (
 GO
 
 -- =============================================
--- 9. 儲存空間配額表
+-- 9. 組別空間配額表
 -- =============================================
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'StorageQuotas')
-CREATE TABLE [dbo].[StorageQuotas] (
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'DepartmentQuotas')
+CREATE TABLE [dbo].[DepartmentQuotas] (
     [Id]          NVARCHAR(36)   NOT NULL PRIMARY KEY DEFAULT NEWID(),
     [Department]  NVARCHAR(50)   NOT NULL,
     [Zone]        NVARCHAR(20)   NOT NULL,
     [QuotaMB]     INT            NOT NULL DEFAULT 10240,
     [UsedMB]      INT            NOT NULL DEFAULT 0,
-    CONSTRAINT UQ_StorageQuota UNIQUE ([Department], [Zone])
+    CONSTRAINT UQ_DepartmentQuota UNIQUE ([Department], [Zone])
+);
+GO
+
+-- 預置 16 組 × 2 區配額資料
+INSERT INTO [dbo].[DepartmentQuotas] ([Id], [Department], [Zone], [QuotaMB], [UsedMB])
+SELECT NEWID(), src.Dept, src.Zone, src.QuotaMB, 0
+FROM (VALUES
+    (N'00.處長室',N'永久區',10240),(N'00.處長室',N'時效區',5120),
+    (N'01.維護組',N'永久區',10240),(N'01.維護組',N'時效區',5120),
+    (N'02.設計組',N'永久區',10240),(N'02.設計組',N'時效區',5120),
+    (N'03.業務組',N'永久區',10240),(N'03.業務組',N'時效區',5120),
+    (N'04.電費組',N'永久區',10240),(N'04.電費組',N'時效區',5120),
+    (N'05.調度組',N'永久區',10240),(N'05.調度組',N'時效區',5120),
+    (N'06.總務組',N'永久區',10240),(N'06.總務組',N'時效區',5120),
+    (N'07.會計組',N'永久區',10240),(N'07.會計組',N'時效區',5120),
+    (N'08.人資組',N'永久區',10240),(N'08.人資組',N'時效區',5120),
+    (N'09.政風組',N'永久區',10240),(N'09.政風組',N'時效區',5120),
+    (N'10.工務段',N'永久區',10240),(N'10.工務段',N'時效區',5120),
+    (N'11.工安組',N'永久區',10240),(N'11.工安組',N'時效區',5120),
+    (N'12.電控組',N'永久區',10240),(N'12.電控組',N'時效區',5120),
+    (N'13.電力工會',N'永久區',10240),(N'13.電力工會',N'時效區',5120),
+    (N'14.福利會',N'永久區',10240),(N'14.福利會',N'時效區',5120),
+    (N'15.檔案下載',N'永久區',10240),(N'15.檔案下載',N'時效區',5120)
+) AS src (Dept, Zone, QuotaMB)
+WHERE NOT EXISTS (
+    SELECT 1 FROM [dbo].[DepartmentQuotas] dq
+    WHERE dq.Department = src.Dept AND dq.Zone = src.Zone
 );
 GO
 
