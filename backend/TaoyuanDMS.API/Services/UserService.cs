@@ -19,6 +19,16 @@ public class UserService
     public async Task<UserDto> CreateAsync(CreateUserRequest req)
     {
         using var conn = _db.CreateConnection();
+
+        // 檢查帳號是否已存在於 Users 或待審核的 UserRegistrations
+        var existsInUsers = await conn.ExecuteScalarAsync<int>(
+            "SELECT COUNT(1) FROM Users WHERE Username = @Username AND IsActive = 1", new { req.Username });
+        if (existsInUsers > 0) throw new Exception("帳號已存在，無法重複建立");
+
+        var existsInRegs = await conn.ExecuteScalarAsync<int>(
+            "SELECT COUNT(1) FROM UserRegistrations WHERE Username = @Username AND Status = '待審核'", new { req.Username });
+        if (existsInRegs > 0) throw new Exception("此帳號已有待審核的申請");
+
         var id = Guid.NewGuid().ToString();
         var hash = BCrypt.Net.BCrypt.HashPassword(req.Password);
 
@@ -89,6 +99,17 @@ public class UserService
     public async Task SubmitRegistrationAsync(SubmitRegistrationRequest req)
     {
         using var conn = _db.CreateConnection();
+
+        // 檢查帳號是否已存在於正式使用者
+        var existsInUsers = await conn.ExecuteScalarAsync<int>(
+            "SELECT COUNT(1) FROM Users WHERE Username = @Username AND IsActive = 1", new { req.Username });
+        if (existsInUsers > 0) throw new Exception("帳號已存在，無法重複申請");
+
+        // 檢查是否已有待審核的申請
+        var existsInRegs = await conn.ExecuteScalarAsync<int>(
+            "SELECT COUNT(1) FROM UserRegistrations WHERE Username = @Username AND Status = '待審核'", new { req.Username });
+        if (existsInRegs > 0) throw new Exception("此帳號已有待審核的申請，請勿重複提交");
+
         await conn.ExecuteAsync(@"
             INSERT INTO UserRegistrations (ApplicantType, Username, Password, DisplayName, Email, Department, Section, JobTitle, Phone, Extension)
             VALUES (@ApplicantType, @Username, @Password, @DisplayName, @Email, @Department, @Section, @JobTitle, @Phone, @Extension)", req);
