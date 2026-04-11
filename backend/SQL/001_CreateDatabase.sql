@@ -167,16 +167,16 @@ CREATE TABLE [dbo].[EditLocks] (
 GO
 
 -- =============================================
--- 9. 儲存空間配額表
+-- 9. 組別空間配額表
 -- =============================================
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'StorageQuotas')
-CREATE TABLE [dbo].[StorageQuotas] (
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'DepartmentQuotas')
+CREATE TABLE [dbo].[DepartmentQuotas] (
     [Id]          NVARCHAR(36)   NOT NULL PRIMARY KEY DEFAULT NEWID(),
     [Department]  NVARCHAR(50)   NOT NULL,
     [Zone]        NVARCHAR(20)   NOT NULL,
     [QuotaMB]     INT            NOT NULL DEFAULT 10240,
     [UsedMB]      INT            NOT NULL DEFAULT 0,
-    CONSTRAINT UQ_StorageQuota UNIQUE ([Department], [Zone])
+    CONSTRAINT UQ_DepartmentQuota UNIQUE ([Department], [Zone])
 );
 GO
 
