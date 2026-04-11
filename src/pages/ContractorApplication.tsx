@@ -48,6 +48,11 @@ const ContractorApplication = () => {
       toast.error('帳號已存在，請使用其他帳號');
       return;
     }
+    // 檢查是否已有相同帳號的待審核申請
+    if (applications.some(a => a.status === '待審核' && form.username.trim() === (a as any).username)) {
+      toast.error('此帳號已有待審核的申請，請勿重複提交');
+      return;
+    }
 
     const app: ContractorApp = {
       id: crypto.randomUUID(),
