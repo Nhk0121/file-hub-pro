@@ -1,6 +1,7 @@
 -- =============================================
--- TaoyuanDMS 資料庫建立腳本
--- 適用於 MSSQL (SQL Server 2019+)
+-- TaoyuanDMS 資料庫建立腳本（正式版）
+-- 適用於 MSSQL (SQL Server 2016+)
+-- 與後端 ASP.NET Core API 完全對應
 -- =============================================
 
 USE [master];
@@ -26,8 +27,8 @@ CREATE TABLE [dbo].[Users] (
     [PasswordHash]  NVARCHAR(200)  NOT NULL,
     [DisplayName]   NVARCHAR(100)  NOT NULL,
     [Email]         NVARCHAR(200)  NULL,
-    [Role]          NVARCHAR(20)   NOT NULL DEFAULT N'使用者',  -- 系統管理員/管理員/使用者/外包人員
-    [ApplicantType] NVARCHAR(20)   NULL,                        -- 公司員工/外包人員
+    [Role]          NVARCHAR(20)   NOT NULL DEFAULT N'使用者',
+    [ApplicantType] NVARCHAR(20)   NULL,
     [EmployeeCode]  NVARCHAR(20)   NULL,
     [Department]    NVARCHAR(50)   NULL,
     [Section]       NVARCHAR(50)   NULL,
@@ -40,7 +41,7 @@ CREATE TABLE [dbo].[Users] (
 );
 GO
 
--- 預設系統管理員（密碼: admin123，BCrypt hash）
+-- 預設系統管理員（密碼請部署後立即修改）
 IF NOT EXISTS (SELECT 1 FROM [dbo].[Users] WHERE [Username] = 'admin')
 INSERT INTO [dbo].[Users] ([Id], [Username], [PasswordHash], [DisplayName], [Role], [ApplicantType])
 VALUES ('admin-default', 'admin', '$2a$11$placeholder_hash_replace_me', N'系統管理員', N'系統管理員', N'公司員工');
@@ -54,7 +55,7 @@ CREATE TABLE [dbo].[UserRegistrations] (
     [Id]            NVARCHAR(36)   NOT NULL PRIMARY KEY DEFAULT NEWID(),
     [ApplicantType] NVARCHAR(20)   NOT NULL,
     [Username]      NVARCHAR(50)   NOT NULL,
-    [Password]      NVARCHAR(200)  NOT NULL,  -- 暫存明碼，核准後轉 hash
+    [Password]      NVARCHAR(200)  NOT NULL,
     [DisplayName]   NVARCHAR(100)  NOT NULL,
     [Email]         NVARCHAR(200)  NULL,
     [Department]    NVARCHAR(50)   NULL,
@@ -62,7 +63,7 @@ CREATE TABLE [dbo].[UserRegistrations] (
     [JobTitle]      NVARCHAR(50)   NULL,
     [Phone]         NVARCHAR(30)   NULL,
     [Extension]     NVARCHAR(10)   NULL,
-    [Status]        NVARCHAR(10)   NOT NULL DEFAULT N'待審核', -- 待審核/已核准/已拒絕
+    [Status]        NVARCHAR(10)   NOT NULL DEFAULT N'待審核',
     [ReviewedBy]    NVARCHAR(100)  NULL,
     [ReviewedAt]    DATETIME2      NULL,
     [RejectReason]  NVARCHAR(500)  NULL,
@@ -77,13 +78,13 @@ IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Files')
 CREATE TABLE [dbo].[Files] (
     [Id]            NVARCHAR(36)   NOT NULL PRIMARY KEY DEFAULT NEWID(),
     [Name]          NVARCHAR(255)  NOT NULL,
-    [Type]          NVARCHAR(10)   NOT NULL,  -- file / folder
+    [Type]          NVARCHAR(10)   NOT NULL,
     [MimeType]      NVARCHAR(100)  NULL,
     [Size]          BIGINT         NULL,
     [ParentId]      NVARCHAR(36)   NULL REFERENCES [dbo].[Files]([Id]),
-    [Content]       NVARCHAR(MAX)  NULL,      -- 文字檔內容（TXT/MD/HTML）
+    [Content]       NVARCHAR(MAX)  NULL,
     [IsSystem]      BIT            NOT NULL DEFAULT 0,
-    [FolderLevel]   NVARCHAR(20)   NULL,      -- zone / department / section
+    [FolderLevel]   NVARCHAR(20)   NULL,
     [DiskPath]      NVARCHAR(500)  NULL,
     [CreatedBy]     NVARCHAR(100)  NOT NULL,
     [CreatedAt]     DATETIME2      NOT NULL DEFAULT GETUTCDATE(),
@@ -99,14 +100,14 @@ GO
 -- =============================================
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'TrashItems')
 CREATE TABLE [dbo].[TrashItems] (
-    [Id]              NVARCHAR(36)   NOT NULL PRIMARY KEY DEFAULT NEWID(),
-    [FileId]          NVARCHAR(36)   NOT NULL,
-    [FileName]        NVARCHAR(255)  NOT NULL,
-    [FileType]        NVARCHAR(10)   NOT NULL,
-    [FileData]        NVARCHAR(MAX)  NULL,  -- 序列化的 FileItem JSON
-    [OriginalParentId] NVARCHAR(36)  NULL,
-    [DeletedBy]       NVARCHAR(100)  NOT NULL,
-    [DeletedAt]       DATETIME2      NOT NULL DEFAULT GETUTCDATE()
+    [Id]               NVARCHAR(36)   NOT NULL PRIMARY KEY DEFAULT NEWID(),
+    [FileId]           NVARCHAR(36)   NOT NULL,
+    [FileName]         NVARCHAR(255)  NOT NULL,
+    [FileType]         NVARCHAR(10)   NOT NULL,
+    [FileData]         NVARCHAR(MAX)  NULL,
+    [OriginalParentId] NVARCHAR(36)   NULL,
+    [DeletedBy]        NVARCHAR(100)  NOT NULL,
+    [DeletedAt]        DATETIME2      NOT NULL DEFAULT GETUTCDATE()
 );
 GO
 
@@ -138,7 +139,7 @@ CREATE TABLE [dbo].[FolderPermissions] (
     [Id]          NVARCHAR(36)   NOT NULL PRIMARY KEY DEFAULT NEWID(),
     [FolderId]    NVARCHAR(36)   NOT NULL,
     [UserId]      NVARCHAR(36)   NOT NULL,
-    [Permission]  NVARCHAR(20)   NOT NULL, -- 完整權限/僅下載/無權限
+    [Permission]  NVARCHAR(20)   NOT NULL,
     CONSTRAINT UQ_FolderPerm UNIQUE ([FolderId], [UserId])
 );
 GO
@@ -150,7 +151,7 @@ IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'PermanentZoneOverrides')
 CREATE TABLE [dbo].[PermanentZoneOverrides] (
     [Id]          NVARCHAR(36)   NOT NULL PRIMARY KEY DEFAULT NEWID(),
     [UserId]      NVARCHAR(36)   NOT NULL,
-    [Departments] NVARCHAR(MAX)  NOT NULL  -- JSON array of department names
+    [Departments] NVARCHAR(MAX)  NOT NULL
 );
 GO
 
@@ -167,7 +168,7 @@ CREATE TABLE [dbo].[EditLocks] (
 GO
 
 -- =============================================
--- 9. 組別空間配額表
+-- 9. 組別空間配額表（含 16 組預置資料）
 -- =============================================
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'DepartmentQuotas')
 CREATE TABLE [dbo].[DepartmentQuotas] (
