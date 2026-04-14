@@ -25,7 +25,11 @@ public class AuthService
             "SELECT * FROM Users WHERE Username = @Username AND IsActive = 1",
             new { Username = username });
 
-        if (user == null || !BCrypt.Net.BCrypt.Verify(password, (string)user.PasswordHash))
+        if (user == null)
+            throw new UnauthorizedAccessException("帳號或密碼錯誤");
+
+        string? passwordHash = (string?)user.PasswordHash;
+        if (string.IsNullOrEmpty(passwordHash) || !BCrypt.Net.BCrypt.Verify(password, passwordHash))
             throw new UnauthorizedAccessException("帳號或密碼錯誤");
 
         var token = GenerateJwtToken(user);
