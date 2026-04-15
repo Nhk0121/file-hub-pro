@@ -41,10 +41,10 @@ CREATE TABLE [dbo].[Users] (
 );
 GO
 
--- 預設系統管理員（密碼請部署後立即修改）
+-- 預設系統管理員（密碼：Admin@123，部署後請立即修改！）
 IF NOT EXISTS (SELECT 1 FROM [dbo].[Users] WHERE [Username] = 'admin')
 INSERT INTO [dbo].[Users] ([Id], [Username], [PasswordHash], [DisplayName], [Role], [ApplicantType])
-VALUES ('admin-default', 'admin', '$2a$11$placeholder_hash_replace_me', N'系統管理員', N'系統管理員', N'公司員工');
+VALUES ('admin-default', 'admin', '$2a$12$FKZzopwTn5hfT5i2FZzGruBim3s7aE7OFHgC3BTSkobNHHTyhib56', N'系統管理員', N'系統管理員', N'公司員工');
 GO
 
 -- =============================================
