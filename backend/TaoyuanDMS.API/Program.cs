@@ -43,12 +43,18 @@ builder.Services.AddScoped<EditLockService>();
 builder.Services.AddScoped<StorageService>();
 builder.Services.AddScoped<SectionService>();
 
-// CORS
+// CORS — 雙站台架構，需指定前端來源
+var allowedOrigins = builder.Configuration["Cors:AllowedOrigins"]?.Split(',') 
+    ?? new[] { "https://localhost:7443" };
+
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
+        policy.WithOrigins(allowedOrigins)
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials();
     });
 });
 
