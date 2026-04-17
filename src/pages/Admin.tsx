@@ -560,7 +560,7 @@ const Admin = () => {
                     <Select value={permUserId} onValueChange={setPermUserId}>
                       <SelectTrigger><SelectValue placeholder="選擇使用者" /></SelectTrigger>
                       <SelectContent>
-                        {allUsers.filter(u => u.role !== '管理員' && u.role !== '系統管理員').map(u => (
+                        {(Array.isArray(allUsers) ? allUsers : []).filter(u => u.role !== '管理員' && u.role !== '系統管理員').map(u => (
                           <SelectItem key={u.id} value={u.id}>{u.displayName} ({u.username})</SelectItem>
                         ))}
                       </SelectContent>
@@ -640,7 +640,7 @@ const Admin = () => {
                       }}>
                         <SelectTrigger><SelectValue placeholder="選擇使用者" /></SelectTrigger>
                         <SelectContent>
-                          {allUsers.filter(u => u.role !== '系統管理員' && u.role !== '管理員').map(u => (
+                          {(Array.isArray(allUsers) ? allUsers : []).filter(u => u.role !== '系統管理員' && u.role !== '管理員').map(u => (
                             <SelectItem key={u.id} value={u.id}>{u.displayName} ({u.username}) - {u.department || '未設組別'}</SelectItem>
                           ))}
                         </SelectContent>
