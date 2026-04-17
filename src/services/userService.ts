@@ -4,7 +4,7 @@ import type { User, UserRole, UserRegistration } from '@/types';
 const userService = {
   getAll: async (): Promise<User[]> => {
     const { data } = await apiClient.get<User[]>('/users');
-    return data;
+    return Array.isArray(data) ? data : [];
   },
 
   create: async (userData: Omit<User, 'id'> & { password: string }): Promise<User> => {
@@ -31,7 +31,7 @@ const userService = {
 
   getRegistrations: async (): Promise<UserRegistration[]> => {
     const { data } = await apiClient.get<UserRegistration[]>('/users/registrations');
-    return data;
+    return Array.isArray(data) ? data : [];
   },
 
   submitRegistration: async (reg: Omit<UserRegistration, 'id' | 'status' | 'createdAt'>): Promise<void> => {

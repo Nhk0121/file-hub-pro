@@ -12,7 +12,7 @@ const fileService = {
   /** 取得所有檔案與資料夾 */
   getAll: async (): Promise<FileItem[]> => {
     const { data } = await apiClient.get<FileItem[]>('/files');
-    return data;
+    return Array.isArray(data) ? data : [];
   },
 
   /** 取得特定資料夾下的子項目 */
@@ -20,7 +20,7 @@ const fileService = {
     const { data } = await apiClient.get<FileItem[]>('/files', {
       params: { parentId: parentId ?? '' },
     });
-    return data;
+    return Array.isArray(data) ? data : [];
   },
 
   /** 取得單一檔案資訊 */
@@ -79,7 +79,7 @@ const fileService = {
   /** 取得回收桶項目 */
   getTrash: async (): Promise<TrashItemDTO[]> => {
     const { data } = await apiClient.get<TrashItemDTO[]>('/trash');
-    return data;
+    return Array.isArray(data) ? data : [];
   },
 
   /** 還原回收桶項目 */

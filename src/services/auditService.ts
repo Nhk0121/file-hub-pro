@@ -5,7 +5,11 @@ const auditService = {
   /** 取得稽核日誌 */
   getAll: async (params?: { page?: number; pageSize?: number }): Promise<AuditLog[]> => {
     const { data } = await apiClient.get<AuditLog[]>('/audit', { params });
-    return data;
+    if (Array.isArray(data)) return data;
+    // 後端如改為分頁物件 { items, total } 也能容錯
+    const anyData = data as any;
+    if (anyData && Array.isArray(anyData.items)) return anyData.items;
+    return [];
   },
 
   /** 新增稽核日誌 */
