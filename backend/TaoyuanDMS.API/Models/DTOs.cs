@@ -143,6 +143,46 @@ public class DepartmentQuotaDto
 
 public record UpdateQuotaRequest(string Department, string Zone, int QuotaMB);
 
+public class StorageSettingsDto
+{
+    public string PrimaryPath { get; set; } = "";
+    public bool AutoCreateFolders { get; set; }
+    public bool BackupEnabled { get; set; }
+    public string BackupFrequency { get; set; } = "每日";
+    public string BackupTime { get; set; } = "02:00";
+    public int BackupRetentionDays { get; set; } = 30;
+    public string UpdatedAt { get; set; } = "";
+}
+
+public record UpdateStorageSettingsRequest(
+    string PrimaryPath,
+    bool AutoCreateFolders,
+    bool BackupEnabled,
+    string BackupFrequency,
+    string BackupTime,
+    int BackupRetentionDays);
+
+public class BackupDiskDto
+{
+    public string Id { get; set; } = "";
+    public string Label { get; set; } = "";
+    public string Path { get; set; } = "";
+    public bool Enabled { get; set; }
+    public string CreatedAt { get; set; } = "";
+    public string? LastSyncAt { get; set; }
+}
+
+public record CreateBackupDiskRequest(string Label, string Path);
+public record UpdateBackupDiskRequest(string? Label, string? Path, bool? Enabled);
+
+public class InitializeFoldersResultDto
+{
+    public int Created { get; set; }
+    public int Skipped { get; set; }
+    public List<string> Paths { get; set; } = new();
+    public List<string> Errors { get; set; } = new();
+}
+
 // ===== Registration =====
 public class RegistrationDto
 {

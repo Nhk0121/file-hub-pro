@@ -220,5 +220,41 @@ CREATE TABLE [dbo].[DepartmentSections] (
 );
 GO
 
+-- =============================================
+-- 11. 系統設定表（單列、Key-Value）
+-- =============================================
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'StorageSettings')
+CREATE TABLE [dbo].[StorageSettings] (
+    [Id]                  INT            NOT NULL PRIMARY KEY DEFAULT 1,
+    [PrimaryPath]         NVARCHAR(500)  NOT NULL DEFAULT N'E:\DMS',
+    [AutoCreateFolders]   BIT            NOT NULL DEFAULT 1,
+    [BackupEnabled]       BIT            NOT NULL DEFAULT 0,
+    [BackupFrequency]     NVARCHAR(20)   NOT NULL DEFAULT N'每日',
+    [BackupTime]          NVARCHAR(10)   NOT NULL DEFAULT N'02:00',
+    [BackupRetentionDays] INT            NOT NULL DEFAULT 30,
+    [UpdatedAt]           DATETIME2      NOT NULL DEFAULT GETUTCDATE(),
+    CONSTRAINT CK_StorageSettings_SingleRow CHECK ([Id] = 1)
+);
+GO
+
+-- 預置單列設定（若尚未存在）
+IF NOT EXISTS (SELECT 1 FROM [dbo].[StorageSettings] WHERE [Id] = 1)
+    INSERT INTO [dbo].[StorageSettings] ([Id]) VALUES (1);
+GO
+
+-- =============================================
+-- 12. 備份磁碟表
+-- =============================================
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'BackupDisks')
+CREATE TABLE [dbo].[BackupDisks] (
+    [Id]          NVARCHAR(36)   NOT NULL PRIMARY KEY DEFAULT NEWID(),
+    [Label]       NVARCHAR(100)  NOT NULL,
+    [Path]        NVARCHAR(500)  NOT NULL,
+    [Enabled]     BIT            NOT NULL DEFAULT 1,
+    [CreatedAt]   DATETIME2      NOT NULL DEFAULT GETUTCDATE(),
+    [LastSyncAt]  DATETIME2      NULL
+);
+GO
+
 PRINT N'TaoyuanDMS 資料庫建表完成！';
 GO
