@@ -86,13 +86,13 @@ const Admin = () => {
   const [newSectionName, setNewSectionName] = useState('');
   const [orgSections, setOrgSections] = useState<Record<string, string[]>>(getDepartmentSections);
 
-  const folders = files.filter(f => f.type === 'folder');
-  const pendingCount = registrations.filter(r => r.status === '待審核').length;
+  const folders = (Array.isArray(files) ? files : []).filter(f => f.type === 'folder');
+  const pendingCount = (Array.isArray(registrations) ? registrations : []).filter(r => r.status === '待審核').length;
 
   const newUserSections = newUser.department ? getSectionsForDepartment(newUser.department) : [];
   const editUserSections = editForm.department ? getSectionsForDepartment(editForm.department) : [];
 
-  const filteredLogs = useMemo(() => logs.filter(log => {
+  const filteredLogs = useMemo(() => (Array.isArray(logs) ? logs : []).filter(log => {
     const matchSearch = !auditSearch || log.userName.includes(auditSearch) || log.targetName?.includes(auditSearch) || log.details?.includes(auditSearch);
     const matchAction = auditActionFilter === '全部' || log.action === auditActionFilter;
     const matchUser = auditUserFilter === '全部' || log.userName === auditUserFilter;
@@ -103,7 +103,7 @@ const Admin = () => {
   }), [logs, auditSearch, auditActionFilter, auditUserFilter, auditDateFrom, auditDateTo]);
 
   const auditUserNames = useMemo(() => {
-    const names = new Set(logs.map(l => l.userName));
+    const names = new Set((Array.isArray(logs) ? logs : []).map(l => l.userName));
     return Array.from(names).sort();
   }, [logs]);
 
@@ -329,7 +329,7 @@ const Admin = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {allUsers.filter(u => {
+                    {(Array.isArray(allUsers) ? allUsers : []).filter(u => {
                       if (!userSearch) return true;
                       const q = userSearch.toLowerCase();
                       return u.username.toLowerCase().includes(q) || u.displayName.toLowerCase().includes(q) || (u.department || '').toLowerCase().includes(q) || (u.section || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
