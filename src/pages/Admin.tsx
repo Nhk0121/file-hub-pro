@@ -439,34 +439,36 @@ const Admin = () => {
                   ) : (orgSections[orgSelectedDept] ?? []).length === 0 ? (
                     <p className="text-sm text-muted-foreground py-4 text-center">該組別尚無課別</p>
                   ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>課別名稱</TableHead>
-                          <TableHead>磁碟路徑</TableHead>
-                          <TableHead className="text-right">操作</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {(orgSections[orgSelectedDept] ?? []).map(sec => (
-                          <TableRow key={sec}>
-                            <TableCell className="font-medium align-top">{sec}</TableCell>
-                            <TableCell className="text-xs text-muted-foreground font-mono">
-                              <div>{primaryPath}\永久區\{orgSelectedDept}\{sec}</div>
-                              <div>{primaryPath}\時效區\{orgSelectedDept}\{sec}</div>
-                            </TableCell>
-                            <TableCell className="text-right align-top">
-                              <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleRemoveSection(orgSelectedDept, sec)}>
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </TableCell>
+                    <>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>課別名稱</TableHead>
+                            <TableHead>磁碟路徑</TableHead>
+                            <TableHead className="text-right">操作</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                    <p className="mt-3 text-xs text-muted-foreground">
-                      路徑來源：儲存空間設定 → 主要儲存路徑。修改該設定後此處會同步更新。
-                    </p>
+                        </TableHeader>
+                        <TableBody>
+                          {(orgSections[orgSelectedDept] ?? []).map(sec => (
+                            <TableRow key={sec}>
+                              <TableCell className="font-medium align-top">{sec}</TableCell>
+                              <TableCell className="text-xs text-muted-foreground font-mono">
+                                <div>{primaryPath}\永久區\{orgSelectedDept}\{sec}</div>
+                                <div>{primaryPath}\時效區\{orgSelectedDept}\{sec}</div>
+                              </TableCell>
+                              <TableCell className="text-right align-top">
+                                <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleRemoveSection(orgSelectedDept, sec)}>
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                      <p className="mt-3 text-xs text-muted-foreground">
+                        路徑來源：儲存空間設定 → 主要儲存路徑。修改該設定後此處會同步更新。
+                      </p>
+                    </>
                   )}
                 </CardContent>
               </Card>
