@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import storageService from '@/services/storageService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFiles } from '@/contexts/FileContext';
 import { useAudit } from '@/contexts/AuditContext';
@@ -85,6 +86,14 @@ const Admin = () => {
   const [orgSelectedDept, setOrgSelectedDept] = useState<string>('');
   const [newSectionName, setNewSectionName] = useState('');
   const [orgSections, setOrgSections] = useState<Record<string, string[]>>(getDepartmentSections);
+  const [primaryPath, setPrimaryPath] = useState<string>('E:\\DMS');
+
+  // 載入儲存空間設定的主要路徑（與儲存空間設定頁面同步）
+  useEffect(() => {
+    storageService.getSettings()
+      .then(s => setPrimaryPath(s.primaryPath || 'E:\\DMS'))
+      .catch(() => {/* 未連線時保留預設值 */});
+  }, []);
 
   const folders = (Array.isArray(files) ? files : []).filter(f => f.type === 'folder');
   const pendingCount = (Array.isArray(registrations) ? registrations : []).filter(r => r.status === '待審核').length;
@@ -441,11 +450,12 @@ const Admin = () => {
                       <TableBody>
                         {(orgSections[orgSelectedDept] ?? []).map(sec => (
                           <TableRow key={sec}>
-                            <TableCell className="font-medium">{sec}</TableCell>
+                            <TableCell className="font-medium align-top">{sec}</TableCell>
                             <TableCell className="text-xs text-muted-foreground font-mono">
-                              D:\DMS\時效區\{orgSelectedDept}\{sec}
+                              <div>{primaryPath}\永久區\{orgSelectedDept}\{sec}</div>
+                              <div>{primaryPath}\時效區\{orgSelectedDept}\{sec}</div>
                             </TableCell>
-                            <TableCell className="text-right">
+                            <TableCell className="text-right align-top">
                               <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleRemoveSection(orgSelectedDept, sec)}>
                                 <Trash2 className="w-4 h-4" />
                               </Button>
@@ -454,6 +464,9 @@ const Admin = () => {
                         ))}
                       </TableBody>
                     </Table>
+                    <p className="mt-3 text-xs text-muted-foreground">
+                      路徑來源：儲存空間設定 → 主要儲存路徑。修改該設定後此處會同步更新。
+                    </p>
                   )}
                 </CardContent>
               </Card>
