@@ -3,6 +3,7 @@ import type { FileItem } from '@/types';
 import { DEPARTMENTS, ZONES, buildDiskPath, getDepartmentSections } from '@/config/organization';
 import fileService, { TrashItemDTO } from '@/services/fileService';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface FileContextType {
   files: FileItem[];
