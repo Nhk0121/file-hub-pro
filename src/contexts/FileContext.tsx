@@ -34,13 +34,15 @@ interface FileContextType {
 const FileContext = createContext<FileContextType | null>(null);
 
 export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated } = useAuth();
   const [files, setFiles] = useState<FileItem[]>([]);
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [trashItems, setTrashItems] = useState<TrashItemDTO[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
-  // 從後端載入檔案列表
+  // 從後端載入檔案列表（僅登入後執行）
   const refreshFiles = useCallback(async () => {
+    if (!isAuthenticated) return;
     try {
       setLoading(true);
       const [allFiles, trash] = await Promise.all([
@@ -55,11 +57,16 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
-    refreshFiles();
-  }, [refreshFiles]);
+    if (isAuthenticated) {
+      refreshFiles();
+    } else {
+      setFiles([]);
+      setTrashItems([]);
+    }
+  }, [isAuthenticated, refreshFiles]);
 
   const addFile = useCallback((file: FileItem) => {
     setFiles(prev => [...prev, file]);
