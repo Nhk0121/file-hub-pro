@@ -111,48 +111,48 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
     }
   };
 
-  const handleCreateDoc = () => {
-    if (newDocName.trim()) {
-      const ext = newDocType === 'markdown' ? '.md' : '.html';
-      const name = newDocName.trim().endsWith(ext) ? newDocName.trim() : newDocName.trim() + ext;
-      const content = newDocType === 'markdown' ? '# 新文件\n\n開始編輯...' : '<p>開始編輯...</p>';
+  const handleCreateDoc = async () => {
+    if (!newDocName.trim()) return;
+    const ext = newDocType === 'markdown' ? '.md' : '.html';
+    const name = newDocName.trim().endsWith(ext) ? newDocName.trim() : newDocName.trim() + ext;
+    const content = newDocType === 'markdown' ? '# 新文件\n\n開始編輯...' : '<p>開始編輯...</p>';
+    const mime = newDocType === 'markdown' ? 'text/markdown' : 'text/html';
 
-      // 檢查個資
-      const matches = scanPII(content);
-      const file: FileItem = {
-        id: crypto.randomUUID(),
-        name,
-        type: 'file',
-        mimeType: newDocType === 'markdown' ? 'text/markdown' : 'text/html',
-        size: 0,
-        parentId: currentFolderId,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        createdBy: user?.displayName ?? '目前使用者',
+    // PII 掃描
+    const matches = scanPII(content);
+    if (matches.length > 0) {
+      // 仍走 PII 確認流程，記錄到 pendingPiiFile（用最少欄位）
+      setPiiMatches(matches);
+      setPendingPiiFile({
+        id: 'pending', name, type: 'file', mimeType: mime, size: content.length,
+        parentId: currentFolderId, createdAt: '', updatedAt: '', createdBy: user?.displayName ?? '',
         content,
-      };
-
-      if (matches.length > 0) {
-        setPiiMatches(matches);
-        setPendingPiiFile(file);
-        setPiiWarningOpen(true);
-      } else {
-        addFile(file);
-        if (user) addLog({ userId: user.id, userName: user.displayName, action: '上傳', targetName: name });
+      } as FileItem);
+      setPiiWarningOpen(true);
+    } else {
+      const created = await createTextFile(name, content, mime, currentFolderId);
+      if (created && user) {
+        addLog({ userId: user.id, userName: user.displayName, action: '上傳', targetName: name });
       }
-      setNewDocName('');
-      setDocDialogOpen(false);
     }
+    setNewDocName('');
+    setDocDialogOpen(false);
   };
 
-  const handleConfirmPiiUpload = () => {
+  const handleConfirmPiiUpload = async () => {
     if (pendingPiiFile) {
-      addFile(pendingPiiFile);
-      if (user) {
+      const mime = pendingPiiFile.mimeType ?? 'text/plain';
+      const created = await createTextFile(
+        pendingPiiFile.name,
+        pendingPiiFile.content ?? '',
+        mime,
+        pendingPiiFile.parentId,
+      );
+      if (created && user) {
         addLog({ userId: user.id, userName: user.displayName, action: '上傳', targetName: pendingPiiFile.name });
         addLog({ userId: user.id, userName: user.displayName, action: '個資存取', targetName: pendingPiiFile.name, details: `偵測到個資: ${piiMatches.map(m => m.type).join(', ')}` });
+        toast.warning('檔案已上傳，但已記錄個資存取事件');
       }
-      toast.warning('檔案已上傳，但已記錄個資存取事件');
     }
     setPiiWarningOpen(false);
     setPendingPiiFile(null);
