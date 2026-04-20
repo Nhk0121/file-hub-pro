@@ -10,6 +10,8 @@ interface FileContextType {
   currentFolderId: string | null;
   setCurrentFolderId: (id: string | null) => void;
   addFile: (file: FileItem) => void;
+  uploadFile: (file: File, parentId: string | null) => Promise<FileItem | null>;
+  createTextFile: (name: string, content: string, mimeType: string, parentId: string | null) => Promise<FileItem | null>;
   addFolder: (name: string, parentId: string | null) => void;
   deleteItem: (id: string) => void;
   renameItem: (id: string, newName: string) => void;
