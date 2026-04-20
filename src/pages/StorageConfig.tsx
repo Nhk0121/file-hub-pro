@@ -441,13 +441,33 @@ const StorageConfig = () => {
         <Card className="glow-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><RefreshCw className="w-5 h-5 text-primary" />備份排程</CardTitle>
-            <CardDescription>由 Windows Server 排程服務讀取執行</CardDescription>
+            <CardDescription>備份目的地由上方「磁碟管理」中所有「啟用中」的備份磁碟決定</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* 目前備份目的地清單 */}
+            <div className="rounded-lg border p-3 space-y-2 bg-muted/20">
+              <Label className="text-xs text-muted-foreground">目前備份目的地</Label>
+              {disks.filter(d => d.enabled).length === 0 ? (
+                <p className="text-sm text-warning flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4" />
+                  尚未啟用任何備份磁碟，請先到上方「磁碟管理」新增並啟用，否則備份不會執行。
+                </p>
+              ) : (
+                <ul className="space-y-1">
+                  {disks.filter(d => d.enabled).map(d => (
+                    <li key={d.id} className="text-sm font-mono flex items-center gap-2">
+                      <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                      <span className="font-sans text-muted-foreground">{d.label}：</span>{d.path}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
             <div className="flex items-center justify-between rounded-lg border p-3">
               <div className="space-y-0.5">
                 <Label>啟用自動備份</Label>
-                <p className="text-xs text-muted-foreground">依排程自動將主要磁碟內容備份至所有啟用的備份磁碟</p>
+                <p className="text-xs text-muted-foreground">依排程將主要磁碟內容同步至上述「啟用中」的備份磁碟</p>
               </div>
               <Switch
                 checked={settings.backupEnabled}
