@@ -248,7 +248,7 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <FileContext.Provider value={{
       files, currentFolderId, setCurrentFolderId,
-      addFile, addFolder, deleteItem, renameItem,
+      addFile, uploadFile, createTextFile, addFolder, deleteItem, renameItem,
       updateFileContent, getChildren, getBreadcrumbs, getFile,
       canCreateSubfolder, getFolderLevel, isSystemFolder,
       addSectionFolder, removeSectionFolder,
