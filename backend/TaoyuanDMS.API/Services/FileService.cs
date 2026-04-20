@@ -7,33 +7,148 @@ public class FileService
 {
     private readonly DbConnectionFactory _db;
     private readonly IConfiguration _config;
+    private readonly StorageService _storage;
 
-    public FileService(DbConnectionFactory db, IConfiguration config)
+    // 固定的兩個分區與 16 個組別（與前端 organization.ts 對應）
+    private static readonly string[] Zones = { "永久區", "時效區" };
+    private static readonly string[] Departments = {
+        "00.處長室","01.維護組","02.設計組","03.業務組","04.電費組","05.調度組",
+        "06.總務組","07.會計組","08.人資組","09.政風組","10.工務段","11.工安組",
+        "12.電控組","13.電力工會","14.福利會","15.檔案下載"
+    };
+
+    public FileService(DbConnectionFactory db, IConfiguration config, StorageService storage)
     {
         _db = db;
         _config = config;
+        _storage = storage;
     }
 
-    private string BasePath => _config["Storage:BasePath"] ?? @"E:\DMS";
+    private async Task<string> GetBasePathAsync()
+    {
+        try
+        {
+            var settings = await _storage.GetSettingsAsync();
+            if (!string.IsNullOrWhiteSpace(settings?.PrimaryPath)) return settings.PrimaryPath;
+        }
+        catch { /* 忽略，回退設定檔 */ }
+        return _config["Storage:BasePath"] ?? @"E:\DMS";
+    }
+
+    // ===== 合成虛擬節點 ID =====
+    private static string ZoneId(string zone) => $"zone:{zone}";
+    private static string DeptId(string zone, string dept) => $"dept:{zone}:{dept}";
+    private static string SectionId(string zone, string dept, string section) => $"section:{zone}:{dept}:{section}";
+
+    private static (string zone, string? dept, string? section)? ParseVirtualId(string? id)
+    {
+        if (string.IsNullOrEmpty(id)) return null;
+        if (id.StartsWith("zone:"))
+        {
+            var parts = id.Split(':', 2);
+            return (parts[1], null, null);
+        }
+        if (id.StartsWith("dept:"))
+        {
+            var parts = id.Split(':', 3);
+            if (parts.Length == 3) return (parts[1], parts[2], null);
+        }
+        if (id.StartsWith("section:"))
+        {
+            var parts = id.Split(':', 4);
+            if (parts.Length == 4) return (parts[1], parts[2], parts[3]);
+        }
+        return null;
+    }
+
+    private async Task<List<FileDto>> BuildVirtualTreeAsync()
+    {
+        var basePath = await GetBasePathAsync();
+        using var conn = _db.CreateConnection();
+        var sectionRows = (await conn.QueryAsync<(string Department, string Section)>(
+            "SELECT Department, Section FROM DepartmentSections ORDER BY Department, Section")).ToList();
+
+        var nodes = new List<FileDto>();
+        var now = DateTime.UtcNow.ToString("o");
+
+        foreach (var zone in Zones)
+        {
+            nodes.Add(new FileDto
+            {
+                Id = ZoneId(zone),
+                Name = zone,
+                Type = "folder",
+                ParentId = null,
+                IsSystem = true,
+                FolderLevel = "zone",
+                DiskPath = Path.Combine(basePath, zone),
+                CreatedBy = "system",
+                CreatedAt = now,
+                UpdatedAt = now,
+            });
+
+            foreach (var dept in Departments)
+            {
+                nodes.Add(new FileDto
+                {
+                    Id = DeptId(zone, dept),
+                    Name = dept,
+                    Type = "folder",
+                    ParentId = ZoneId(zone),
+                    IsSystem = true,
+                    FolderLevel = "department",
+                    DiskPath = Path.Combine(basePath, zone, dept),
+                    CreatedBy = "system",
+                    CreatedAt = now,
+                    UpdatedAt = now,
+                });
+
+                foreach (var (d, sec) in sectionRows.Where(r => r.Department == dept))
+                {
+                    nodes.Add(new FileDto
+                    {
+                        Id = SectionId(zone, dept, sec),
+                        Name = sec,
+                        Type = "folder",
+                        ParentId = DeptId(zone, dept),
+                        IsSystem = true,
+                        FolderLevel = "section",
+                        DiskPath = Path.Combine(basePath, zone, dept, sec),
+                        CreatedBy = "system",
+                        CreatedAt = now,
+                        UpdatedAt = now,
+                    });
+                }
+            }
+        }
+        return nodes;
+    }
 
     public async Task<List<FileDto>> GetAllAsync()
     {
         using var conn = _db.CreateConnection();
-        var files = await conn.QueryAsync<FileDto>("SELECT * FROM Files");
-        return files.ToList();
+        var realFiles = (await conn.QueryAsync<FileDto>("SELECT * FROM Files")).ToList();
+        var virtualNodes = await BuildVirtualTreeAsync();
+        // 虛擬節點在前，使用者實際檔案在後
+        return virtualNodes.Concat(realFiles).ToList();
     }
 
     public async Task<List<FileDto>> GetChildrenAsync(string? parentId)
     {
-        using var conn = _db.CreateConnection();
-        var files = string.IsNullOrEmpty(parentId)
-            ? await conn.QueryAsync<FileDto>("SELECT * FROM Files WHERE ParentId IS NULL")
-            : await conn.QueryAsync<FileDto>("SELECT * FROM Files WHERE ParentId = @ParentId", new { ParentId = parentId });
-        return files.ToList();
+        var all = await GetAllAsync();
+        return all.Where(f => f.ParentId == parentId).ToList();
     }
 
     public async Task<FileDto> GetByIdAsync(string id)
     {
+        // 虛擬節點：直接從合成樹回傳
+        if (ParseVirtualId(id) is not null)
+        {
+            var tree = await BuildVirtualTreeAsync();
+            var v = tree.FirstOrDefault(n => n.Id == id);
+            if (v != null) return v;
+        }
+
         using var conn = _db.CreateConnection();
         return await conn.QueryFirstOrDefaultAsync<FileDto>("SELECT * FROM Files WHERE Id = @Id", new { Id = id })
             ?? throw new Exception("檔案不存在");
@@ -49,6 +164,8 @@ public class FileService
         var diskPath = await BuildDiskPathAsync(parentId, name);
         Directory.CreateDirectory(diskPath);
 
+        // 注意：虛擬 parentId 不寫進 DB（DB 沒有那筆紀錄），存 null 讓子節點成為根目錄之外
+        // 但 ParentId 仍要正確儲存以便前端定位 → 改存「合成 ID 字串」於 ParentId 欄位即可
         await conn.ExecuteAsync(@"
             INSERT INTO Files (Id, Name, Type, ParentId, DiskPath, CreatedBy, CreatedAt, UpdatedAt)
             VALUES (@Id, @Name, 'folder', @ParentId, @DiskPath, @CreatedBy, @Now, @Now)",
@@ -158,15 +275,27 @@ public class FileService
 
     private async Task<string> BuildDiskPathAsync(string? parentId, string name)
     {
+        var basePath = await GetBasePathAsync();
         if (string.IsNullOrEmpty(parentId))
-            return Path.Combine(BasePath, name);
+            return Path.Combine(basePath, name);
 
+        // 虛擬節點 parentId（zone:/dept:/section:）→ 推算實體路徑
+        var parsed = ParseVirtualId(parentId);
+        if (parsed is { } v)
+        {
+            var p = Path.Combine(basePath, v.zone);
+            if (!string.IsNullOrEmpty(v.dept)) p = Path.Combine(p, v.dept);
+            if (!string.IsNullOrEmpty(v.section)) p = Path.Combine(p, v.section);
+            return Path.Combine(p, name);
+        }
+
+        // 一般 DB 內資料夾
         using var conn = _db.CreateConnection();
         var parent = await conn.QueryFirstOrDefaultAsync<FileDto>("SELECT * FROM Files WHERE Id = @Id", new { Id = parentId });
         if (parent?.DiskPath != null)
             return Path.Combine(parent.DiskPath, name);
 
-        return Path.Combine(BasePath, name);
+        return Path.Combine(basePath, name);
     }
 
     private static bool IsTextFile(string fileName)
