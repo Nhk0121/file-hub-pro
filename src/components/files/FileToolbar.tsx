@@ -60,7 +60,7 @@ function getZoneNameFromFolder(folderId: string | null, allFiles: FileItem[]): s
 }
 
 const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }: FileToolbarProps) => {
-  const { currentFolderId, addFolder, addFile, canCreateSubfolder, files: allFiles } = useFiles();
+  const { currentFolderId, addFolder, addFile, uploadFile, createTextFile, canCreateSubfolder, files: allFiles } = useFiles();
   const { user } = useAuth();
   const { addLog } = useAudit();
   const { getFolderPermission, getUserPermanentDepts } = usePermissions();
