@@ -106,16 +106,39 @@ public class FilesController : BaseController
 
     // === Sections ===
     [HttpPost("sections")]
-    public async Task<IActionResult> AddSection([FromBody] SectionRequest req, [FromServices] SectionService sections)
+    public async Task<IActionResult> AddSection(
+        [FromBody] SectionRequest req,
+        [FromServices] SectionService sections,
+        [FromServices] StorageService storage)
     {
         await sections.AddAsync(req.Department, req.Section);
-        return Ok();
+        // 同步在主磁碟與啟用的備份磁碟建立實體資料夾
+        var folderResult = await storage.CreateSectionFoldersAsync(req.Department, req.Section);
+        await _audit.AddAsync(new CreateAuditLogRequest
+        {
+            UserId = GetUserId(), UserName = GetUserName(),
+            Action = "建立資料夾",
+            TargetName = $"{req.Department}/{req.Section}",
+            Details = $"新建 {folderResult.Created} 個、略過 {folderResult.Skipped} 個資料夾"
+        }, GetClientIp());
+        return Ok(folderResult);
     }
 
     [HttpDelete("sections")]
-    public async Task<IActionResult> RemoveSection([FromBody] SectionRequest req, [FromServices] SectionService sections)
+    public async Task<IActionResult> RemoveSection(
+        [FromBody] SectionRequest req,
+        [FromServices] SectionService sections,
+        [FromServices] StorageService storage)
     {
         await sections.RemoveAsync(req.Department, req.Section);
-        return Ok();
+        var folderResult = await storage.RemoveSectionFoldersAsync(req.Department, req.Section);
+        await _audit.AddAsync(new CreateAuditLogRequest
+        {
+            UserId = GetUserId(), UserName = GetUserName(),
+            Action = "刪除",
+            TargetName = $"{req.Department}/{req.Section}",
+            Details = $"已移除 {folderResult.Created} 個資料夾、略過 {folderResult.Skipped + folderResult.Errors.Count} 個"
+        }, GetClientIp());
+        return Ok(folderResult);
     }
 }

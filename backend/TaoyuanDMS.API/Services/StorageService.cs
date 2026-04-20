@@ -214,6 +214,67 @@ public class StorageService
         return result;
     }
 
+    // ===== 新增/刪除單一課別資料夾（在主磁碟 + 所有啟用的備份磁碟上同步執行） =====
+    /// <summary>
+    /// 在主要磁碟與所有啟用備份磁碟的「永久區、時效區」下，建立指定組別/課別資料夾。
+    /// </summary>
+    public async Task<InitializeFoldersResultDto> CreateSectionFoldersAsync(string department, string section)
+    {
+        var settings = await GetSettingsAsync();
+        var disks = await GetDisksAsync();
+        var result = new InitializeFoldersResultDto();
+        var roots = new List<string> { settings.PrimaryPath };
+        roots.AddRange(disks.Where(d => d.Enabled).Select(d => d.Path));
+
+        foreach (var root in roots)
+        {
+            foreach (var zone in new[] { "永久區", "時效區" })
+            {
+                var path = Path.Combine(root, zone, department, section);
+                TryCreate(path, result);
+            }
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// 移除主磁碟與所有啟用備份磁碟上的指定課別資料夾（資料夾若有檔案則略過，避免誤刪）。
+    /// </summary>
+    public async Task<InitializeFoldersResultDto> RemoveSectionFoldersAsync(string department, string section)
+    {
+        var settings = await GetSettingsAsync();
+        var disks = await GetDisksAsync();
+        var result = new InitializeFoldersResultDto();
+        var roots = new List<string> { settings.PrimaryPath };
+        roots.AddRange(disks.Where(d => d.Enabled).Select(d => d.Path));
+
+        foreach (var root in roots)
+        {
+            foreach (var zone in new[] { "永久區", "時效區" })
+            {
+                var path = Path.Combine(root, zone, department, section);
+                try
+                {
+                    if (!Directory.Exists(path)) { result.Skipped++; continue; }
+                    // 安全檢查：資料夾內若仍有檔案/子資料夾則不刪除
+                    if (Directory.EnumerateFileSystemEntries(path).Any())
+                    {
+                        result.Errors.Add($"略過刪除（資料夾不為空）：{path}");
+                        continue;
+                    }
+                    Directory.Delete(path);
+                    result.Created++; // 借用欄位代表「已處理」
+                    result.Paths.Add(path);
+                }
+                catch (Exception ex)
+                {
+                    result.Errors.Add($"{path}: {ex.Message}");
+                }
+            }
+        }
+        return result;
+    }
+
     private static void TryCreate(string path, InitializeFoldersResultDto result)
     {
         try
