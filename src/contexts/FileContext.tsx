@@ -10,6 +10,8 @@ interface FileContextType {
   currentFolderId: string | null;
   setCurrentFolderId: (id: string | null) => void;
   addFile: (file: FileItem) => void;
+  uploadFile: (file: File, parentId: string | null) => Promise<FileItem | null>;
+  createTextFile: (name: string, content: string, mimeType: string, parentId: string | null) => Promise<FileItem | null>;
   addFolder: (name: string, parentId: string | null) => void;
   deleteItem: (id: string) => void;
   renameItem: (id: string, newName: string) => void;
@@ -70,6 +72,36 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const addFile = useCallback((file: FileItem) => {
     setFiles(prev => [...prev, file]);
+  }, []);
+
+  const uploadFile = useCallback(async (file: File, parentId: string | null): Promise<FileItem | null> => {
+    try {
+      const created = await fileService.upload(file, parentId);
+      setFiles(prev => [...prev, created]);
+      return created;
+    } catch (err: any) {
+      console.error('上傳失敗:', err);
+      const msg = err?.response?.data?.message || err?.message || '無法上傳檔案至伺服器';
+      toast({ title: '上傳失敗', description: msg, variant: 'destructive' });
+      return null;
+    }
+  }, []);
+
+  const createTextFile = useCallback(async (
+    name: string, content: string, mimeType: string, parentId: string | null
+  ): Promise<FileItem | null> => {
+    try {
+      const blob = new Blob([content], { type: mimeType });
+      const f = new File([blob], name, { type: mimeType });
+      const created = await fileService.upload(f, parentId);
+      setFiles(prev => [...prev, created]);
+      return created;
+    } catch (err: any) {
+      console.error('建立文件失敗:', err);
+      const msg = err?.response?.data?.message || err?.message || '無法建立文件';
+      toast({ title: '建立失敗', description: msg, variant: 'destructive' });
+      return null;
+    }
   }, []);
 
   const addFolder = useCallback(async (name: string, parentId: string | null) => {
@@ -216,7 +248,7 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <FileContext.Provider value={{
       files, currentFolderId, setCurrentFolderId,
-      addFile, addFolder, deleteItem, renameItem,
+      addFile, uploadFile, createTextFile, addFolder, deleteItem, renameItem,
       updateFileContent, getChildren, getBreadcrumbs, getFile,
       canCreateSubfolder, getFolderLevel, isSystemFolder,
       addSectionFolder, removeSectionFolder,

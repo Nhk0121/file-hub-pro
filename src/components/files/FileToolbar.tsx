@@ -60,7 +60,7 @@ function getZoneNameFromFolder(folderId: string | null, allFiles: FileItem[]): s
 }
 
 const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }: FileToolbarProps) => {
-  const { currentFolderId, addFolder, addFile, canCreateSubfolder, files: allFiles } = useFiles();
+  const { currentFolderId, addFolder, addFile, uploadFile, createTextFile, canCreateSubfolder, files: allFiles } = useFiles();
   const { user } = useAuth();
   const { addLog } = useAudit();
   const { getFolderPermission, getUserPermanentDepts } = usePermissions();
@@ -111,48 +111,48 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
     }
   };
 
-  const handleCreateDoc = () => {
-    if (newDocName.trim()) {
-      const ext = newDocType === 'markdown' ? '.md' : '.html';
-      const name = newDocName.trim().endsWith(ext) ? newDocName.trim() : newDocName.trim() + ext;
-      const content = newDocType === 'markdown' ? '# 新文件\n\n開始編輯...' : '<p>開始編輯...</p>';
+  const handleCreateDoc = async () => {
+    if (!newDocName.trim()) return;
+    const ext = newDocType === 'markdown' ? '.md' : '.html';
+    const name = newDocName.trim().endsWith(ext) ? newDocName.trim() : newDocName.trim() + ext;
+    const content = newDocType === 'markdown' ? '# 新文件\n\n開始編輯...' : '<p>開始編輯...</p>';
+    const mime = newDocType === 'markdown' ? 'text/markdown' : 'text/html';
 
-      // 檢查個資
-      const matches = scanPII(content);
-      const file: FileItem = {
-        id: crypto.randomUUID(),
-        name,
-        type: 'file',
-        mimeType: newDocType === 'markdown' ? 'text/markdown' : 'text/html',
-        size: 0,
-        parentId: currentFolderId,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        createdBy: user?.displayName ?? '目前使用者',
+    // PII 掃描
+    const matches = scanPII(content);
+    if (matches.length > 0) {
+      // 仍走 PII 確認流程，記錄到 pendingPiiFile（用最少欄位）
+      setPiiMatches(matches);
+      setPendingPiiFile({
+        id: 'pending', name, type: 'file', mimeType: mime, size: content.length,
+        parentId: currentFolderId, createdAt: '', updatedAt: '', createdBy: user?.displayName ?? '',
         content,
-      };
-
-      if (matches.length > 0) {
-        setPiiMatches(matches);
-        setPendingPiiFile(file);
-        setPiiWarningOpen(true);
-      } else {
-        addFile(file);
-        if (user) addLog({ userId: user.id, userName: user.displayName, action: '上傳', targetName: name });
+      } as FileItem);
+      setPiiWarningOpen(true);
+    } else {
+      const created = await createTextFile(name, content, mime, currentFolderId);
+      if (created && user) {
+        addLog({ userId: user.id, userName: user.displayName, action: '上傳', targetName: name });
       }
-      setNewDocName('');
-      setDocDialogOpen(false);
     }
+    setNewDocName('');
+    setDocDialogOpen(false);
   };
 
-  const handleConfirmPiiUpload = () => {
+  const handleConfirmPiiUpload = async () => {
     if (pendingPiiFile) {
-      addFile(pendingPiiFile);
-      if (user) {
+      const mime = pendingPiiFile.mimeType ?? 'text/plain';
+      const created = await createTextFile(
+        pendingPiiFile.name,
+        pendingPiiFile.content ?? '',
+        mime,
+        pendingPiiFile.parentId,
+      );
+      if (created && user) {
         addLog({ userId: user.id, userName: user.displayName, action: '上傳', targetName: pendingPiiFile.name });
         addLog({ userId: user.id, userName: user.displayName, action: '個資存取', targetName: pendingPiiFile.name, details: `偵測到個資: ${piiMatches.map(m => m.type).join(', ')}` });
+        toast.warning('檔案已上傳，但已記錄個資存取事件');
       }
-      toast.warning('檔案已上傳，但已記錄個資存取事件');
     }
     setPiiWarningOpen(false);
     setPendingPiiFile(null);
@@ -170,51 +170,45 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
     const input = document.createElement('input');
     input.type = 'file';
     input.multiple = true;
-    input.onchange = (e) => {
+    input.onchange = async (e) => {
       const files = (e.target as HTMLInputElement).files;
       if (!files) return;
-      Array.from(files).forEach(f => {
+
+      for (const f of Array.from(files)) {
         // 執行檔限制：僅系統管理員可上傳
         if (isExecutableFile(f.name) && user?.role !== '系統管理員') {
-          toast.error(`「${f.name}」為執行檔，僅系統管理員可上傳`);
-          return;
+          toast.error(`「${f.name}」為執行檔,僅系統管理員可上傳`);
+          continue;
         }
 
-        const reader = new FileReader();
-        reader.onload = () => {
-          const item: FileItem = {
-            id: crypto.randomUUID(),
-            name: f.name,
-            type: 'file',
-            mimeType: f.type,
-            size: f.size,
-            parentId: currentFolderId,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            createdBy: user?.displayName ?? '目前使用者',
-            content: typeof reader.result === 'string' ? reader.result : undefined,
-          };
+        const isTextLike = f.type.startsWith('text/') || /\.(md|markdown|json|csv|xml|log|ini|ya?ml|html?|txt)$/i.test(f.name);
 
-          // 文字類型檔案掃描個資
-          if (typeof reader.result === 'string' && !reader.result.startsWith('data:')) {
-            const matches = scanPII(reader.result);
+        // 文字檔先讀內容做 PII 掃描；二進位直接上傳
+        if (isTextLike) {
+          try {
+            const text = await f.text();
+            const matches = scanPII(text);
             if (matches.length > 0) {
               setPiiMatches(matches);
-              setPendingPiiFile(item);
+              setPendingPiiFile({
+                id: 'pending', name: f.name, type: 'file', mimeType: f.type, size: f.size,
+                parentId: currentFolderId, createdAt: '', updatedAt: '',
+                createdBy: user?.displayName ?? '', content: text,
+              } as FileItem);
               setPiiWarningOpen(true);
-              return;
+              continue;
             }
+          } catch {
+            // 讀取失敗就直接上傳
           }
-
-          addFile(item);
-          if (user) addLog({ userId: user.id, userName: user.displayName, action: '上傳', targetName: f.name });
-        };
-        if (f.type.startsWith('text/') || f.name.endsWith('.md') || f.name.endsWith('.json')) {
-          reader.readAsText(f);
-        } else {
-          reader.readAsDataURL(f);
         }
-      });
+
+        const created = await uploadFile(f, currentFolderId);
+        if (created) {
+          toast.success(`已上傳:${f.name}`);
+          if (user) addLog({ userId: user.id, userName: user.displayName, action: '上傳', targetName: f.name });
+        }
+      }
     };
     input.click();
   };
