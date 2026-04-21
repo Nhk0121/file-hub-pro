@@ -8,6 +8,7 @@ public class FileService
     private readonly DbConnectionFactory _db;
     private readonly IConfiguration _config;
     private readonly StorageService _storage;
+    private const string SystemCreatedBy = "system";
 
     // 固定的兩個分區與 16 個組別（與前端 organization.ts 對應）
     private static readonly string[] Zones = { "永久區", "時效區" };
@@ -36,9 +37,15 @@ public class FileService
     }
 
     // ===== 合成虛擬節點 ID =====
-    private static string ZoneId(string zone) => $"zone:{zone}";
-    private static string DeptId(string zone, string dept) => $"dept:{zone}:{dept}";
-    private static string SectionId(string zone, string dept, string section) => $"section:{zone}:{dept}:{section}";
+    private static string ZoneId(string zone) => $"sys-zone-{Slug(zone)}";
+    private static string DeptId(string zone, string dept) => $"sys-dept-{Slug(zone)}-{Slug(dept)}";
+    private static string SectionId(string zone, string dept, string section) => $"sys-section-{Slug(zone)}-{Slug(dept)}-{Slug(section)}";
+
+    private static string Slug(string value)
+    {
+        var bytes = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(value));
+        return Convert.ToHexString(bytes)[..12].ToLowerInvariant();
+    }
 
     private static (string zone, string? dept, string? section)? ParseVirtualId(string? id)
     {
@@ -59,6 +66,59 @@ public class FileService
             if (parts.Length == 4) return (parts[1], parts[2], parts[3]);
         }
         return null;
+    }
+
+    private static (string zone, string? dept, string? section)? ParseStableSystemId(string? id, IEnumerable<(string Department, string Section)> sectionRows)
+    {
+        if (string.IsNullOrEmpty(id)) return null;
+        foreach (var zone in Zones)
+        {
+            if (id == ZoneId(zone)) return (zone, null, null);
+            foreach (var dept in Departments)
+            {
+                if (id == DeptId(zone, dept)) return (zone, dept, null);
+                foreach (var row in sectionRows.Where(r => r.Department == dept))
+                {
+                    if (id == SectionId(zone, dept, row.Section)) return (zone, dept, row.Section);
+                }
+            }
+        }
+        return null;
+    }
+
+    public async Task EnsureSystemFoldersAsync()
+    {
+        var basePath = await GetBasePathAsync();
+        using var conn = _db.CreateConnection();
+        var sectionRows = (await conn.QueryAsync<(string Department, string Section)>(
+            "SELECT Department, Section FROM DepartmentSections ORDER BY Department, Section")).ToList();
+        var now = DateTime.UtcNow;
+
+        foreach (var zone in Zones)
+        {
+            await UpsertSystemFolderAsync(conn, ZoneId(zone), zone, null, "zone", Path.Combine(basePath, zone), now);
+            foreach (var dept in Departments)
+            {
+                await UpsertSystemFolderAsync(conn, DeptId(zone, dept), dept, ZoneId(zone), "department", Path.Combine(basePath, zone, dept), now);
+                foreach (var row in sectionRows.Where(r => r.Department == dept))
+                {
+                    await UpsertSystemFolderAsync(conn, SectionId(zone, dept, row.Section), row.Section, DeptId(zone, dept), "section", Path.Combine(basePath, zone, dept, row.Section), now);
+                }
+            }
+        }
+    }
+
+    private static Task UpsertSystemFolderAsync(System.Data.IDbConnection conn, string id, string name, string? parentId, string level, string diskPath, DateTime now)
+    {
+        Directory.CreateDirectory(diskPath);
+        return conn.ExecuteAsync(@"
+            IF NOT EXISTS (SELECT 1 FROM Files WHERE Id = @Id)
+                INSERT INTO Files (Id, Name, Type, ParentId, IsSystem, FolderLevel, DiskPath, CreatedBy, CreatedAt, UpdatedAt)
+                VALUES (@Id, @Name, 'folder', @ParentId, 1, @Level, @DiskPath, @CreatedBy, @Now, @Now)
+            ELSE
+                UPDATE Files SET Name = @Name, ParentId = @ParentId, IsSystem = 1, FolderLevel = @Level, DiskPath = @DiskPath, UpdatedAt = @Now
+                WHERE Id = @Id",
+            new { Id = id, Name = name, ParentId = parentId, Level = level, DiskPath = diskPath, CreatedBy = SystemCreatedBy, Now = now });
     }
 
     private async Task<List<FileDto>> BuildVirtualTreeAsync()
@@ -126,11 +186,9 @@ public class FileService
 
     public async Task<List<FileDto>> GetAllAsync()
     {
+        await EnsureSystemFoldersAsync();
         using var conn = _db.CreateConnection();
-        var realFiles = (await conn.QueryAsync<FileDto>("SELECT * FROM Files")).ToList();
-        var virtualNodes = await BuildVirtualTreeAsync();
-        // 虛擬節點在前，使用者實際檔案在後
-        return virtualNodes.Concat(realFiles).ToList();
+        return (await conn.QueryAsync<FileDto>("SELECT * FROM Files")).ToList();
     }
 
     public async Task<List<FileDto>> GetChildrenAsync(string? parentId)
@@ -141,6 +199,7 @@ public class FileService
 
     public async Task<FileDto> GetByIdAsync(string id)
     {
+        await EnsureSystemFoldersAsync();
         // 虛擬節點：直接從合成樹回傳
         if (ParseVirtualId(id) is not null)
         {
@@ -156,6 +215,7 @@ public class FileService
 
     public async Task<FileDto> CreateFolderAsync(string name, string? parentId, string createdBy)
     {
+        await EnsureSystemFoldersAsync();
         using var conn = _db.CreateConnection();
         var id = Guid.NewGuid().ToString();
         var now = DateTime.UtcNow;
@@ -176,6 +236,7 @@ public class FileService
 
     public async Task<FileDto> UploadAsync(IFormFile file, string? parentId, string createdBy)
     {
+        await EnsureSystemFoldersAsync();
         using var conn = _db.CreateConnection();
         var id = Guid.NewGuid().ToString();
         var now = DateTime.UtcNow;
@@ -286,6 +347,17 @@ public class FileService
             var p = Path.Combine(basePath, v.zone);
             if (!string.IsNullOrEmpty(v.dept)) p = Path.Combine(p, v.dept);
             if (!string.IsNullOrEmpty(v.section)) p = Path.Combine(p, v.section);
+            return Path.Combine(p, name);
+        }
+
+        using var pathConn = _db.CreateConnection();
+        var sectionRows = (await pathConn.QueryAsync<(string Department, string Section)>(
+            "SELECT Department, Section FROM DepartmentSections")).ToList();
+        if (ParseStableSystemId(parentId, sectionRows) is { } stable)
+        {
+            var p = Path.Combine(basePath, stable.zone);
+            if (!string.IsNullOrEmpty(stable.dept)) p = Path.Combine(p, stable.dept);
+            if (!string.IsNullOrEmpty(stable.section)) p = Path.Combine(p, stable.section);
             return Path.Combine(p, name);
         }
 
