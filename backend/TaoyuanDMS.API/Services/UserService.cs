@@ -92,7 +92,7 @@ public class UserService
     public async Task<List<RegistrationDto>> GetRegistrationsAsync()
     {
         using var conn = _db.CreateConnection();
-        var regs = await conn.QueryAsync<RegistrationDto>("SELECT * FROM UserRegistrations ORDER BY CreatedAt DESC");
+        var regs = await conn.QueryAsync<RegistrationDto>("SELECT * FROM UserRegistrations WHERE Status <> N'已核准' ORDER BY CreatedAt DESC");
         return regs.ToList();
     }
 

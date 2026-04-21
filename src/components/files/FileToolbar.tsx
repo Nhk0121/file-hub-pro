@@ -102,10 +102,13 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
 
   const canAddFolder = canWrite && canCreateSubfolder(currentFolderId);
 
-  const handleCreateFolder = () => {
+  const handleCreateFolder = async () => {
     if (newFolderName.trim()) {
-      addFolder(newFolderName.trim(), currentFolderId);
-      if (user) addLog({ userId: user.id, userName: user.displayName, action: '建立資料夾', targetName: newFolderName.trim() });
+      const folderName = newFolderName.trim();
+      const created = await addFolder(folderName, currentFolderId);
+      if (!created) return;
+      toast.success(`已建立資料夾:${folderName}`);
+      if (user) addLog({ userId: user.id, userName: user.displayName, action: '建立資料夾', targetName: folderName });
       setNewFolderName('');
       setFolderDialogOpen(false);
     }
@@ -261,7 +264,10 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
 
       <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>新增資料夾</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>新增資料夾</DialogTitle>
+            <DialogDescription>建立後會同步寫入資料庫與目前選取的資料夾位置。</DialogDescription>
+          </DialogHeader>
           <Input value={newFolderName} onChange={e => setNewFolderName(e.target.value)} placeholder="資料夾名稱" onKeyDown={e => e.key === 'Enter' && handleCreateFolder()} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setFolderDialogOpen(false)}>取消</Button>
@@ -272,7 +278,10 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
 
       <Dialog open={docDialogOpen} onOpenChange={setDocDialogOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>新增{newDocType === 'markdown' ? 'Markdown' : '富文字'}文件</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>新增{newDocType === 'markdown' ? 'Markdown' : '富文字'}文件</DialogTitle>
+            <DialogDescription>建立後會儲存在目前選取的資料夾中。</DialogDescription>
+          </DialogHeader>
           <Input value={newDocName} onChange={e => setNewDocName(e.target.value)} placeholder="文件名稱" onKeyDown={e => e.key === 'Enter' && handleCreateDoc()} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setDocDialogOpen(false)}>取消</Button>

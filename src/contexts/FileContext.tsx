@@ -12,8 +12,8 @@ interface FileContextType {
   addFile: (file: FileItem) => void;
   uploadFile: (file: File, parentId: string | null) => Promise<FileItem | null>;
   createTextFile: (name: string, content: string, mimeType: string, parentId: string | null) => Promise<FileItem | null>;
-  addFolder: (name: string, parentId: string | null) => void;
-  deleteItem: (id: string) => void;
+  addFolder: (name: string, parentId: string | null) => Promise<FileItem | null>;
+  deleteItem: (id: string) => Promise<boolean>;
   renameItem: (id: string, newName: string) => void;
   updateFileContent: (id: string, content: string) => void;
   getChildren: (parentId: string | null) => FileItem[];
@@ -25,7 +25,7 @@ interface FileContextType {
   addSectionFolder: (department: string, section: string) => void;
   removeSectionFolder: (department: string, section: string) => void;
   trashItems: TrashItemDTO[];
-  moveToTrash: (id: string, userName: string) => void;
+  moveToTrash: (id: string, userName: string) => Promise<boolean>;
   restoreFromTrash: (itemId: string) => void;
   permanentDelete: (itemId: string) => void;
   emptyTrash: () => void;
@@ -104,23 +104,27 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const addFolder = useCallback(async (name: string, parentId: string | null) => {
+  const addFolder = useCallback(async (name: string, parentId: string | null): Promise<FileItem | null> => {
     try {
       const folder = await fileService.createFolder(name, parentId);
       setFiles(prev => [...prev, folder]);
+      return folder;
     } catch (err) {
       console.error('建立資料夾失敗:', err);
       toast({ title: '建立失敗', variant: 'destructive' });
+      return null;
     }
   }, []);
 
-  const deleteItem = useCallback(async (id: string) => {
+  const deleteItem = useCallback(async (id: string): Promise<boolean> => {
     try {
       await fileService.deleteItem(id);
       setFiles(prev => prev.filter(f => f.id !== id));
+      return true;
     } catch (err) {
       console.error('刪除失敗:', err);
       toast({ title: '刪除失敗', variant: 'destructive' });
+      return false;
     }
   }, []);
 
@@ -144,14 +148,16 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const moveToTrash = useCallback(async (id: string, _userName: string) => {
+  const moveToTrash = useCallback(async (id: string, _userName: string): Promise<boolean> => {
     try {
       await fileService.moveToTrash(id);
       setFiles(prev => prev.filter(f => f.id !== id));
       await fileService.getTrash().then(setTrashItems);
+      return true;
     } catch (err) {
       console.error('移至回收桶失敗:', err);
       toast({ title: '操作失敗', variant: 'destructive' });
+      return false;
     }
   }, []);
 

@@ -196,9 +196,10 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
     setDeleteConfirmItem(item);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!deleteConfirmItem) return;
-    moveToTrash(deleteConfirmItem.id, user?.displayName || '未知');
+    const deleted = await moveToTrash(deleteConfirmItem.id, user?.displayName || '未知');
+    if (!deleted) return;
     if (user) addLog({ userId: user.id, userName: user.displayName, action: '刪除', targetName: deleteConfirmItem.name, targetId: deleteConfirmItem.id, details: '移至回收桶' });
     toast.success(`已將「${deleteConfirmItem.name}」移至回收桶`);
     setDeleteConfirmItem(null);

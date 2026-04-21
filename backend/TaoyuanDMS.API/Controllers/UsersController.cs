@@ -33,12 +33,11 @@ public class UsersController : BaseController
     }
 
     [HttpPut("{id}/role")]
-    public async Task<IActionResult> UpdateRole(string id, [FromBody] dynamic body)
+    public async Task<IActionResult> UpdateRole(string id, [FromBody] UpdateRoleRequest req)
     {
         if (GetUserRole() != "系統管理員" && GetUserRole() != "管理員")
             return Forbid();
-        string role = body.GetProperty("role").GetString();
-        await _users.UpdateRoleAsync(id, role);
+        await _users.UpdateRoleAsync(id, req.Role);
         return Ok();
     }
 

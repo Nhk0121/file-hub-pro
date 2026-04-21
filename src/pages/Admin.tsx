@@ -46,7 +46,7 @@ const actionIcons: Record<AuditLog['action'], React.ReactNode> = {
 };
 
 const Admin = () => {
-  const { user, allUsers, addUser, removeUser, updateUser, updateUserRole, registrations, reviewRegistration, resetPassword } = useAuth();
+  const { user, allUsers, addUser, removeUser, updateUser, updateUserRole, registrations, reviewRegistration, resetPassword, refreshUsers } = useAuth();
   const { files, addSectionFolder, removeSectionFolder } = useFiles();
   const { logs, clearLogs, addLog } = useAudit();
   const { setFolderPermission, getFolderRules, removeFolderPermission, permanentOverrides, setPermanentOverride, removePermanentOverride } = usePermissions();
@@ -70,6 +70,7 @@ const Admin = () => {
 
   // 使用者搜尋
   const [userSearch, setUserSearch] = useState('');
+  const [savingRoleIds, setSavingRoleIds] = useState<string[]>([]);
 
   // 編輯使用者
   const [editUserOpen, setEditUserOpen] = useState(false);
@@ -93,10 +94,12 @@ const Admin = () => {
     storageService.getSettings()
       .then(s => setPrimaryPath(s.primaryPath || 'E:\\DMS'))
       .catch(() => {/* 未連線時保留預設值 */});
-  }, []);
+    refreshUsers();
+  }, [refreshUsers]);
 
   const folders = (Array.isArray(files) ? files : []).filter(f => f.type === 'folder');
-  const pendingCount = (Array.isArray(registrations) ? registrations : []).filter(r => r.status === '待審核').length;
+  const visibleRegistrations = (Array.isArray(registrations) ? registrations : []).filter(r => r.status !== '已核准');
+  const pendingCount = visibleRegistrations.filter(r => r.status === '待審核').length;
 
   const newUserSections = newUser.department ? getSectionsForDepartment(newUser.department) : [];
   const editUserSections = editForm.department ? getSectionsForDepartment(editForm.department) : [];
@@ -214,10 +217,27 @@ const Admin = () => {
     setEditingUser(null);
   };
 
-  const handleSetPermission = () => {
+  const handleChangeRole = async (targetUser: User, nextRole: UserRole) => {
+    setSavingRoleIds(prev => [...prev, targetUser.id]);
+    try {
+      await updateUserRole(targetUser.id, nextRole);
+      addLog({ userId: user.id, userName: user.displayName, action: '角色變更', targetName: targetUser.username, details: `→ ${nextRole}` });
+      toast.success(`已儲存「${targetUser.displayName}」角色：${nextRole}`);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || '角色儲存失敗');
+    } finally {
+      setSavingRoleIds(prev => prev.filter(id => id !== targetUser.id));
+    }
+  };
+
+  const handleSetPermission = async () => {
     if (!selectedFolderId || !permUserId) { toast.error('請選擇資料夾與使用者'); return; }
-    setFolderPermission(selectedFolderId, permUserId, permLevel);
-    toast.success('權限已更新');
+    try {
+      await setFolderPermission(selectedFolderId, permUserId, permLevel);
+      toast.success('權限已更新');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || '權限儲存失敗');
+    }
   };
 
   const handleReviewRegistration = (regId: string, status: '已核准' | '已拒絕') => {
@@ -334,6 +354,7 @@ const Admin = () => {
                       <TableHead>職稱</TableHead>
                       <TableHead>電話/分機</TableHead>
                       <TableHead>角色</TableHead>
+                      <TableHead>狀態</TableHead>
                       <TableHead className="text-right">操作</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -357,11 +378,8 @@ const Admin = () => {
                         <TableCell>
                           <Select
                             value={u.role}
-                            onValueChange={v => {
-                              updateUserRole(u.id, v as UserRole);
-                              addLog({ userId: user.id, userName: user.displayName, action: '角色變更', targetName: u.username, details: `→ ${v}` });
-                            }}
-                            disabled={u.id === user.id}
+                            onValueChange={v => handleChangeRole(u, v as UserRole)}
+                            disabled={u.id === user.id || savingRoleIds.includes(u.id)}
                           >
                             <SelectTrigger className="w-28 h-8">
                               <SelectValue />
@@ -373,6 +391,9 @@ const Admin = () => {
                               <SelectItem value="外包人員">外包人員</SelectItem>
                             </SelectContent>
                           </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{savingRoleIds.includes(u.id) ? '儲存中' : `目前：${u.role}`}</Badge>
                         </TableCell>
                         <TableCell className="text-right space-x-1">
                           <Button variant="ghost" size="icon" title="編輯" onClick={() => handleOpenEditUser(u)} disabled={u.id === user.id}>
@@ -483,7 +504,7 @@ const Admin = () => {
                 <CardDescription>審核使用者從登入頁面提交的帳號申請</CardDescription>
               </CardHeader>
               <CardContent>
-                {registrations.length === 0 ? (
+                {visibleRegistrations.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-8 text-center">尚無帳號申請</p>
                 ) : (
                   <Table>
@@ -501,7 +522,7 @@ const Admin = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {registrations.map(reg => (
+                      {visibleRegistrations.map(reg => (
                         <TableRow key={reg.id}>
                           <TableCell>
                             <Badge variant={reg.applicantType === '外包人員' ? 'outline' : 'secondary'}>
@@ -625,7 +646,7 @@ const Admin = () => {
                                 </Badge>
                               </TableCell>
                               <TableCell className="text-right">
-                                <Button variant="ghost" size="icon" className="text-destructive" onClick={() => removeFolderPermission(rule.id)}>
+                                <Button variant="ghost" size="icon" className="text-destructive" onClick={async () => { await removeFolderPermission(rule.id); toast.success('已移除資料夾權限'); }}>
                                   <Trash2 className="w-4 h-4" />
                                 </Button>
                               </TableCell>
@@ -682,12 +703,16 @@ const Admin = () => {
                       </div>
                     </div>
                   </div>
-                  <Button onClick={() => {
+                  <Button onClick={async () => {
                     if (!permSpecialUserId) { toast.error('請選擇使用者'); return; }
                     if (permSpecialDepts.length === 0) { toast.error('請至少選擇一個組別'); return; }
-                    setPermanentOverride(permSpecialUserId, permSpecialDepts);
-                    const u = allUsers.find(x => x.id === permSpecialUserId);
-                    toast.success(`已授權「${u?.displayName}」${permSpecialDepts.length} 個組別的永久區完整權限`);
+                    try {
+                      await setPermanentOverride(permSpecialUserId, permSpecialDepts);
+                      const u = allUsers.find(x => x.id === permSpecialUserId);
+                      toast.success(`已授權「${u?.displayName}」${permSpecialDepts.length} 個組別的永久區完整權限`);
+                    } catch (err: any) {
+                      toast.error(err?.response?.data?.message || '跨組別權限儲存失敗');
+                    }
                   }}><Plus className="w-4 h-4 mr-2" />套用跨組別權限</Button>
 
                   {permanentOverrides.length > 0 && (
@@ -715,7 +740,7 @@ const Admin = () => {
                                 </div>
                               </TableCell>
                               <TableCell className="text-right">
-                                <Button variant="ghost" size="icon" className="text-destructive" onClick={() => removePermanentOverride(override.id)}>
+                                <Button variant="ghost" size="icon" className="text-destructive" onClick={async () => { await removePermanentOverride(override.id); toast.success('已移除跨組別權限'); }}>
                                   <Trash2 className="w-4 h-4" />
                                 </Button>
                               </TableCell>
