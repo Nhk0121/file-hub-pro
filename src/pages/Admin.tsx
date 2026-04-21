@@ -217,10 +217,27 @@ const Admin = () => {
     setEditingUser(null);
   };
 
-  const handleSetPermission = () => {
+  const handleChangeRole = async (targetUser: User, nextRole: UserRole) => {
+    setSavingRoleIds(prev => [...prev, targetUser.id]);
+    try {
+      await updateUserRole(targetUser.id, nextRole);
+      addLog({ userId: user.id, userName: user.displayName, action: '角色變更', targetName: targetUser.username, details: `→ ${nextRole}` });
+      toast.success(`已儲存「${targetUser.displayName}」角色：${nextRole}`);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || '角色儲存失敗');
+    } finally {
+      setSavingRoleIds(prev => prev.filter(id => id !== targetUser.id));
+    }
+  };
+
+  const handleSetPermission = async () => {
     if (!selectedFolderId || !permUserId) { toast.error('請選擇資料夾與使用者'); return; }
-    setFolderPermission(selectedFolderId, permUserId, permLevel);
-    toast.success('權限已更新');
+    try {
+      await setFolderPermission(selectedFolderId, permUserId, permLevel);
+      toast.success('權限已更新');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || '權限儲存失敗');
+    }
   };
 
   const handleReviewRegistration = (regId: string, status: '已核准' | '已拒絕') => {
