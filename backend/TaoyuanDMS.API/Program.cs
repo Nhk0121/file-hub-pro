@@ -44,8 +44,8 @@ builder.Services.AddScoped<StorageService>();
 builder.Services.AddScoped<SectionService>();
 
 // CORS — 雙站台架構，需指定前端來源
-var allowedOrigins = builder.Configuration["Cors:AllowedOrigins"]?.Split(',') 
-    ?? new[] { "https://localhost:7443" };
+var allowedOrigins = (builder.Configuration["Cors:AllowedOrigins"] ?? "https://localhost:7443")
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
 builder.Services.AddCors(options =>
 {
@@ -59,6 +59,19 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (Exception ex)
+    {
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        await context.Response.WriteAsJsonAsync(new { message = ex.Message });
+    }
+});
 
 if (app.Environment.IsDevelopment())
 {
