@@ -377,11 +377,8 @@ const Admin = () => {
                         <TableCell>
                           <Select
                             value={u.role}
-                            onValueChange={v => {
-                              updateUserRole(u.id, v as UserRole);
-                              addLog({ userId: user.id, userName: user.displayName, action: '角色變更', targetName: u.username, details: `→ ${v}` });
-                            }}
-                            disabled={u.id === user.id}
+                            onValueChange={v => handleChangeRole(u, v as UserRole)}
+                            disabled={u.id === user.id || savingRoleIds.includes(u.id)}
                           >
                             <SelectTrigger className="w-28 h-8">
                               <SelectValue />
@@ -393,6 +390,9 @@ const Admin = () => {
                               <SelectItem value="外包人員">外包人員</SelectItem>
                             </SelectContent>
                           </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{savingRoleIds.includes(u.id) ? '儲存中' : `目前：${u.role}`}</Badge>
                         </TableCell>
                         <TableCell className="text-right space-x-1">
                           <Button variant="ghost" size="icon" title="編輯" onClick={() => handleOpenEditUser(u)} disabled={u.id === user.id}>
@@ -503,7 +503,7 @@ const Admin = () => {
                 <CardDescription>審核使用者從登入頁面提交的帳號申請</CardDescription>
               </CardHeader>
               <CardContent>
-                {registrations.length === 0 ? (
+                {visibleRegistrations.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-8 text-center">尚無帳號申請</p>
                 ) : (
                   <Table>
@@ -521,7 +521,7 @@ const Admin = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {registrations.map(reg => (
+                      {visibleRegistrations.map(reg => (
                         <TableRow key={reg.id}>
                           <TableCell>
                             <Badge variant={reg.applicantType === '外包人員' ? 'outline' : 'secondary'}>
