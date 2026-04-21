@@ -46,7 +46,7 @@ const actionIcons: Record<AuditLog['action'], React.ReactNode> = {
 };
 
 const Admin = () => {
-  const { user, allUsers, addUser, removeUser, updateUser, updateUserRole, registrations, reviewRegistration, resetPassword } = useAuth();
+  const { user, allUsers, addUser, removeUser, updateUser, updateUserRole, registrations, reviewRegistration, resetPassword, refreshUsers } = useAuth();
   const { files, addSectionFolder, removeSectionFolder } = useFiles();
   const { logs, clearLogs, addLog } = useAudit();
   const { setFolderPermission, getFolderRules, removeFolderPermission, permanentOverrides, setPermanentOverride, removePermanentOverride } = usePermissions();
@@ -70,6 +70,7 @@ const Admin = () => {
 
   // 使用者搜尋
   const [userSearch, setUserSearch] = useState('');
+  const [savingRoleIds, setSavingRoleIds] = useState<string[]>([]);
 
   // 編輯使用者
   const [editUserOpen, setEditUserOpen] = useState(false);
@@ -93,10 +94,12 @@ const Admin = () => {
     storageService.getSettings()
       .then(s => setPrimaryPath(s.primaryPath || 'E:\\DMS'))
       .catch(() => {/* 未連線時保留預設值 */});
-  }, []);
+    refreshUsers();
+  }, [refreshUsers]);
 
   const folders = (Array.isArray(files) ? files : []).filter(f => f.type === 'folder');
-  const pendingCount = (Array.isArray(registrations) ? registrations : []).filter(r => r.status === '待審核').length;
+  const visibleRegistrations = (Array.isArray(registrations) ? registrations : []).filter(r => r.status !== '已核准');
+  const pendingCount = visibleRegistrations.filter(r => r.status === '待審核').length;
 
   const newUserSections = newUser.department ? getSectionsForDepartment(newUser.department) : [];
   const editUserSections = editForm.department ? getSectionsForDepartment(editForm.department) : [];
