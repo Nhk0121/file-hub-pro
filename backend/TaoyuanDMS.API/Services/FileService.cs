@@ -86,6 +86,41 @@ public class FileService
         return null;
     }
 
+    public async Task EnsureSystemFoldersAsync()
+    {
+        var basePath = await GetBasePathAsync();
+        using var conn = _db.CreateConnection();
+        var sectionRows = (await conn.QueryAsync<(string Department, string Section)>(
+            "SELECT Department, Section FROM DepartmentSections ORDER BY Department, Section")).ToList();
+        var now = DateTime.UtcNow;
+
+        foreach (var zone in Zones)
+        {
+            await UpsertSystemFolderAsync(conn, ZoneId(zone), zone, null, "zone", Path.Combine(basePath, zone), now);
+            foreach (var dept in Departments)
+            {
+                await UpsertSystemFolderAsync(conn, DeptId(zone, dept), dept, ZoneId(zone), "department", Path.Combine(basePath, zone, dept), now);
+                foreach (var row in sectionRows.Where(r => r.Department == dept))
+                {
+                    await UpsertSystemFolderAsync(conn, SectionId(zone, dept, row.Section), row.Section, DeptId(zone, dept), "section", Path.Combine(basePath, zone, dept, row.Section), now);
+                }
+            }
+        }
+    }
+
+    private static Task UpsertSystemFolderAsync(System.Data.IDbConnection conn, string id, string name, string? parentId, string level, string diskPath, DateTime now)
+    {
+        Directory.CreateDirectory(diskPath);
+        return conn.ExecuteAsync(@"
+            IF NOT EXISTS (SELECT 1 FROM Files WHERE Id = @Id)
+                INSERT INTO Files (Id, Name, Type, ParentId, IsSystem, FolderLevel, DiskPath, CreatedBy, CreatedAt, UpdatedAt)
+                VALUES (@Id, @Name, 'folder', @ParentId, 1, @Level, @DiskPath, @CreatedBy, @Now, @Now)
+            ELSE
+                UPDATE Files SET Name = @Name, ParentId = @ParentId, IsSystem = 1, FolderLevel = @Level, DiskPath = @DiskPath, UpdatedAt = @Now
+                WHERE Id = @Id",
+            new { Id = id, Name = name, ParentId = parentId, Level = level, DiskPath = diskPath, CreatedBy = SystemCreatedBy, Now = now });
+    }
+
     private async Task<List<FileDto>> BuildVirtualTreeAsync()
     {
         var basePath = await GetBasePathAsync();
