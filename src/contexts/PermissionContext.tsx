@@ -53,7 +53,7 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const setPermanentOverride = useCallback(async (userId: string, departments: string[]) => {
     await permissionService.setPermanentOverride(userId, departments);
     await refreshPermissions();
-  }, []);
+  }, [refreshPermissions]);
 
   const removePermanentOverride = useCallback(async (overrideId: string) => {
     await permissionService.removePermanentOverride(overrideId);

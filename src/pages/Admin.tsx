@@ -354,6 +354,7 @@ const Admin = () => {
                       <TableHead>職稱</TableHead>
                       <TableHead>電話/分機</TableHead>
                       <TableHead>角色</TableHead>
+                      <TableHead>狀態</TableHead>
                       <TableHead className="text-right">操作</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -645,7 +646,7 @@ const Admin = () => {
                                 </Badge>
                               </TableCell>
                               <TableCell className="text-right">
-                                <Button variant="ghost" size="icon" className="text-destructive" onClick={() => removeFolderPermission(rule.id)}>
+                                <Button variant="ghost" size="icon" className="text-destructive" onClick={async () => { await removeFolderPermission(rule.id); toast.success('已移除資料夾權限'); }}>
                                   <Trash2 className="w-4 h-4" />
                                 </Button>
                               </TableCell>
@@ -702,12 +703,16 @@ const Admin = () => {
                       </div>
                     </div>
                   </div>
-                  <Button onClick={() => {
+                  <Button onClick={async () => {
                     if (!permSpecialUserId) { toast.error('請選擇使用者'); return; }
                     if (permSpecialDepts.length === 0) { toast.error('請至少選擇一個組別'); return; }
-                    setPermanentOverride(permSpecialUserId, permSpecialDepts);
-                    const u = allUsers.find(x => x.id === permSpecialUserId);
-                    toast.success(`已授權「${u?.displayName}」${permSpecialDepts.length} 個組別的永久區完整權限`);
+                    try {
+                      await setPermanentOverride(permSpecialUserId, permSpecialDepts);
+                      const u = allUsers.find(x => x.id === permSpecialUserId);
+                      toast.success(`已授權「${u?.displayName}」${permSpecialDepts.length} 個組別的永久區完整權限`);
+                    } catch (err: any) {
+                      toast.error(err?.response?.data?.message || '跨組別權限儲存失敗');
+                    }
                   }}><Plus className="w-4 h-4 mr-2" />套用跨組別權限</Button>
 
                   {permanentOverrides.length > 0 && (
@@ -735,7 +740,7 @@ const Admin = () => {
                                 </div>
                               </TableCell>
                               <TableCell className="text-right">
-                                <Button variant="ghost" size="icon" className="text-destructive" onClick={() => removePermanentOverride(override.id)}>
+                                <Button variant="ghost" size="icon" className="text-destructive" onClick={async () => { await removePermanentOverride(override.id); toast.success('已移除跨組別權限'); }}>
                                   <Trash2 className="w-4 h-4" />
                                 </Button>
                               </TableCell>
