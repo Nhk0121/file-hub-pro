@@ -37,14 +37,14 @@ public class FileService
     }
 
     // ===== 合成虛擬節點 ID =====
-    private static string ZoneId(string zone) => $"sys-zone-{Slug(zone)}";
-    private static string DeptId(string zone, string dept) => $"sys-dept-{Slug(zone)}-{Slug(dept)}";
-    private static string SectionId(string zone, string dept, string section) => $"sys-section-{Slug(zone)}-{Slug(dept)}-{Slug(section)}";
+    private static string ZoneId(string zone) => $"z-{Slug(zone, 12)}";
+    private static string DeptId(string zone, string dept) => $"d-{Slug(zone, 8)}-{Slug(dept, 8)}";
+    private static string SectionId(string zone, string dept, string section) => $"s-{Slug(zone, 8)}-{Slug(dept, 8)}-{Slug(section, 8)}";
 
-    private static string Slug(string value)
+    private static string Slug(string value, int length = 12)
     {
         var bytes = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(value));
-        return Convert.ToHexString(bytes)[..12].ToLowerInvariant();
+        return Convert.ToHexString(bytes)[..length].ToLowerInvariant();
     }
 
     private static (string zone, string? dept, string? section)? ParseVirtualId(string? id)
