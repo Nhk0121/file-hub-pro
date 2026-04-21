@@ -8,6 +8,7 @@ public class FileService
     private readonly DbConnectionFactory _db;
     private readonly IConfiguration _config;
     private readonly StorageService _storage;
+    private const string SystemCreatedBy = "system";
 
     // 固定的兩個分區與 16 個組別（與前端 organization.ts 對應）
     private static readonly string[] Zones = { "永久區", "時效區" };
@@ -36,9 +37,15 @@ public class FileService
     }
 
     // ===== 合成虛擬節點 ID =====
-    private static string ZoneId(string zone) => $"zone:{zone}";
-    private static string DeptId(string zone, string dept) => $"dept:{zone}:{dept}";
-    private static string SectionId(string zone, string dept, string section) => $"section:{zone}:{dept}:{section}";
+    private static string ZoneId(string zone) => $"sys-zone-{Slug(zone)}";
+    private static string DeptId(string zone, string dept) => $"sys-dept-{Slug(zone)}-{Slug(dept)}";
+    private static string SectionId(string zone, string dept, string section) => $"sys-section-{Slug(zone)}-{Slug(dept)}-{Slug(section)}";
+
+    private static string Slug(string value)
+    {
+        var bytes = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(value));
+        return Convert.ToHexString(bytes)[..12].ToLowerInvariant();
+    }
 
     private static (string zone, string? dept, string? section)? ParseVirtualId(string? id)
     {
@@ -57,6 +64,24 @@ public class FileService
         {
             var parts = id.Split(':', 4);
             if (parts.Length == 4) return (parts[1], parts[2], parts[3]);
+        }
+        return null;
+    }
+
+    private static (string zone, string? dept, string? section)? ParseStableSystemId(string? id, IEnumerable<(string Department, string Section)> sectionRows)
+    {
+        if (string.IsNullOrEmpty(id)) return null;
+        foreach (var zone in Zones)
+        {
+            if (id == ZoneId(zone)) return (zone, null, null);
+            foreach (var dept in Departments)
+            {
+                if (id == DeptId(zone, dept)) return (zone, dept, null);
+                foreach (var row in sectionRows.Where(r => r.Department == dept))
+                {
+                    if (id == SectionId(zone, dept, row.Section)) return (zone, dept, row.Section);
+                }
+            }
         }
         return null;
     }
