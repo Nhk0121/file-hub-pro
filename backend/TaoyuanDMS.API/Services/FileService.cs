@@ -186,11 +186,9 @@ public class FileService
 
     public async Task<List<FileDto>> GetAllAsync()
     {
+        await EnsureSystemFoldersAsync();
         using var conn = _db.CreateConnection();
-        var realFiles = (await conn.QueryAsync<FileDto>("SELECT * FROM Files")).ToList();
-        var virtualNodes = await BuildVirtualTreeAsync();
-        // 虛擬節點在前，使用者實際檔案在後
-        return virtualNodes.Concat(realFiles).ToList();
+        return (await conn.QueryAsync<FileDto>("SELECT * FROM Files")).ToList();
     }
 
     public async Task<List<FileDto>> GetChildrenAsync(string? parentId)
@@ -201,6 +199,7 @@ public class FileService
 
     public async Task<FileDto> GetByIdAsync(string id)
     {
+        await EnsureSystemFoldersAsync();
         // 虛擬節點：直接從合成樹回傳
         if (ParseVirtualId(id) is not null)
         {
@@ -216,6 +215,7 @@ public class FileService
 
     public async Task<FileDto> CreateFolderAsync(string name, string? parentId, string createdBy)
     {
+        await EnsureSystemFoldersAsync();
         using var conn = _db.CreateConnection();
         var id = Guid.NewGuid().ToString();
         var now = DateTime.UtcNow;
@@ -236,6 +236,7 @@ public class FileService
 
     public async Task<FileDto> UploadAsync(IFormFile file, string? parentId, string createdBy)
     {
+        await EnsureSystemFoldersAsync();
         using var conn = _db.CreateConnection();
         var id = Guid.NewGuid().ToString();
         var now = DateTime.UtcNow;
