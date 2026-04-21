@@ -48,6 +48,8 @@ public class UpdateUserRequest
     public string? Extension { get; set; }
 }
 
+public record UpdateRoleRequest(string Role);
+
 // ===== File =====
 public class FileDto
 {
