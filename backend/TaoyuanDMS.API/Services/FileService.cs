@@ -350,6 +350,17 @@ public class FileService
             return Path.Combine(p, name);
         }
 
+        using var pathConn = _db.CreateConnection();
+        var sectionRows = (await pathConn.QueryAsync<(string Department, string Section)>(
+            "SELECT Department, Section FROM DepartmentSections")).ToList();
+        if (ParseStableSystemId(parentId, sectionRows) is { } stable)
+        {
+            var p = Path.Combine(basePath, stable.zone);
+            if (!string.IsNullOrEmpty(stable.dept)) p = Path.Combine(p, stable.dept);
+            if (!string.IsNullOrEmpty(stable.section)) p = Path.Combine(p, stable.section);
+            return Path.Combine(p, name);
+        }
+
         // 一般 DB 內資料夾
         using var conn = _db.CreateConnection();
         var parent = await conn.QueryFirstOrDefaultAsync<FileDto>("SELECT * FROM Files WHERE Id = @Id", new { Id = parentId });
