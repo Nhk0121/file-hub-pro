@@ -226,22 +226,21 @@ public class FileService
 
     public async Task<List<FileDto>> GetAllAsync()
     {
-        try { await EnsureSystemFoldersAsync(); }
-        catch (Exception ex) { Console.Error.WriteLine($"[EnsureSystemFolders] {ex.Message}"); }
-
+        // 系統資料夾於應用程式啟動時已同步，此處不再每次重跑
         using var conn = _db.CreateConnection();
         return (await conn.QueryAsync<FileDto>("SELECT * FROM Files")).ToList();
     }
 
     public async Task<List<FileDto>> GetChildrenAsync(string? parentId)
     {
-        var all = await GetAllAsync();
-        return all.Where(f => f.ParentId == parentId).ToList();
+        using var conn = _db.CreateConnection();
+        return (await conn.QueryAsync<FileDto>(
+            "SELECT * FROM Files WHERE (@ParentId IS NULL AND ParentId IS NULL) OR ParentId = @ParentId",
+            new { ParentId = parentId })).ToList();
     }
 
     public async Task<FileDto> GetByIdAsync(string id)
     {
-        await EnsureSystemFoldersAsync();
         // 虛擬節點：直接從合成樹回傳
         if (ParseVirtualId(id) is not null)
         {
@@ -252,33 +251,52 @@ public class FileService
 
         using var conn = _db.CreateConnection();
         return await conn.QueryFirstOrDefaultAsync<FileDto>("SELECT * FROM Files WHERE Id = @Id", new { Id = id })
-            ?? throw new Exception("檔案不存在");
+            ?? throw new KeyNotFoundException("檔案不存在");
     }
 
     public async Task<FileDto> CreateFolderAsync(string name, string? parentId, string createdBy)
     {
-        await EnsureSystemFoldersAsync();
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("資料夾名稱不可為空");
+
         using var conn = _db.CreateConnection();
         var id = Guid.NewGuid().ToString();
         var now = DateTime.UtcNow;
 
         // 建立實體目錄
         var diskPath = await BuildDiskPathAsync(parentId, name);
-        Directory.CreateDirectory(diskPath);
+        var diskCreated = false;
+        try
+        {
+            if (!Directory.Exists(diskPath))
+            {
+                Directory.CreateDirectory(diskPath);
+                diskCreated = true;
+            }
 
-        // 注意：虛擬 parentId 不寫進 DB（DB 沒有那筆紀錄），存 null 讓子節點成為根目錄之外
-        // 但 ParentId 仍要正確儲存以便前端定位 → 改存「合成 ID 字串」於 ParentId 欄位即可
-        await conn.ExecuteAsync(@"
-            INSERT INTO Files (Id, Name, Type, ParentId, IsSystem, FolderLevel, DiskPath, CreatedBy, CreatedAt, UpdatedAt)
-            VALUES (@Id, @Name, 'folder', @ParentId, 0, 'user', @DiskPath, @CreatedBy, @Now, @Now)",
-            new { Id = id, Name = name, ParentId = parentId, DiskPath = diskPath, CreatedBy = createdBy, Now = now });
+            await conn.ExecuteAsync(@"
+                INSERT INTO Files (Id, Name, Type, ParentId, IsSystem, FolderLevel, DiskPath, CreatedBy, CreatedAt, UpdatedAt)
+                VALUES (@Id, @Name, 'folder', @ParentId, 0, 'user', @DiskPath, @CreatedBy, @Now, @Now)",
+                new { Id = id, Name = name, ParentId = parentId, DiskPath = diskPath, CreatedBy = createdBy, Now = now });
 
-        return await GetByIdAsync(id);
+            return await GetByIdAsync(id);
+        }
+        catch
+        {
+            // 補償：DB 失敗則刪除剛建立的實體目錄
+            if (diskCreated)
+            {
+                try { Directory.Delete(diskPath, false); } catch { /* 忽略 */ }
+            }
+            throw;
+        }
     }
 
     public async Task<FileDto> UploadAsync(IFormFile file, string? parentId, string createdBy)
     {
-        await EnsureSystemFoldersAsync();
+        if (file == null || file.Length == 0)
+            throw new ArgumentException("上傳檔案無效");
+
         using var conn = _db.CreateConnection();
         var id = Guid.NewGuid().ToString();
         var now = DateTime.UtcNow;
@@ -288,25 +306,39 @@ public class FileService
         var dir = Path.GetDirectoryName(diskPath)!;
         Directory.CreateDirectory(dir);
 
-        await using var stream = new FileStream(diskPath, FileMode.Create);
-        await file.CopyToAsync(stream);
-
-        // 文字檔讀取內容
-        string? content = null;
-        if (IsTextFile(file.FileName))
+        var fileWritten = false;
+        try
         {
-            stream.Position = 0;
-            using var reader = new StreamReader(stream);
-            content = await reader.ReadToEndAsync();
+            await using (var stream = new FileStream(diskPath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+            fileWritten = true;
+
+            // 文字檔讀取內容
+            string? content = null;
+            if (IsTextFile(file.FileName))
+            {
+                content = await File.ReadAllTextAsync(diskPath);
+            }
+
+            await conn.ExecuteAsync(@"
+                INSERT INTO Files (Id, Name, Type, MimeType, Size, ParentId, Content, IsSystem, DiskPath, CreatedBy, CreatedAt, UpdatedAt)
+                VALUES (@Id, @Name, 'file', @MimeType, @Size, @ParentId, @Content, 0, @DiskPath, @CreatedBy, @Now, @Now)",
+                new { Id = id, Name = file.FileName, MimeType = file.ContentType, Size = file.Length,
+                    ParentId = parentId, Content = content, DiskPath = diskPath, CreatedBy = createdBy, Now = now });
+
+            return await GetByIdAsync(id);
         }
-
-        await conn.ExecuteAsync(@"
-            INSERT INTO Files (Id, Name, Type, MimeType, Size, ParentId, Content, IsSystem, DiskPath, CreatedBy, CreatedAt, UpdatedAt)
-            VALUES (@Id, @Name, 'file', @MimeType, @Size, @ParentId, @Content, 0, @DiskPath, @CreatedBy, @Now, @Now)",
-            new { Id = id, Name = file.FileName, MimeType = file.ContentType, Size = file.Length,
-                ParentId = parentId, Content = content, DiskPath = diskPath, CreatedBy = createdBy, Now = now });
-
-        return await GetByIdAsync(id);
+        catch
+        {
+            // 補償：DB 失敗則刪除剛寫入的實體檔案，避免孤兒檔
+            if (fileWritten)
+            {
+                try { File.Delete(diskPath); } catch { /* 忽略 */ }
+            }
+            throw;
+        }
     }
 
     public async Task<FileDto> RenameAsync(string id, string newName)

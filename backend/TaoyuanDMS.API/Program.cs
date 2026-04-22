@@ -60,6 +60,22 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// 啟動時一次性建立系統資料夾（替代每次請求動態建立）
+using (var scope = app.Services.CreateScope())
+{
+    try
+    {
+        var fileSvc = scope.ServiceProvider.GetRequiredService<FileService>();
+        await fileSvc.EnsureSystemFoldersAsync(force: true);
+        Console.WriteLine("[Startup] 系統資料夾初始化完成");
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"[Startup] 系統資料夾初始化失敗：{ex.Message}");
+    }
+}
+
+// 全域錯誤處理：統一以 JSON 回傳 { code, message, traceId }
 app.Use(async (context, next) =>
 {
     try
@@ -68,8 +84,29 @@ app.Use(async (context, next) =>
     }
     catch (Exception ex)
     {
-        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-        await context.Response.WriteAsJsonAsync(new { message = ex.Message });
+        var traceId = context.TraceIdentifier;
+        Console.Error.WriteLine($"[Error {traceId}] {ex}");
+
+        var status = ex switch
+        {
+            UnauthorizedAccessException => StatusCodes.Status401Unauthorized,
+            KeyNotFoundException or FileNotFoundException => StatusCodes.Status404NotFound,
+            InvalidOperationException or ArgumentException => StatusCodes.Status400BadRequest,
+            _ => StatusCodes.Status500InternalServerError
+        };
+
+        if (!context.Response.HasStarted)
+        {
+            context.Response.Clear();
+            context.Response.StatusCode = status;
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsJsonAsync(new
+            {
+                code = status,
+                message = ex.Message,
+                traceId
+            });
+        }
     }
 });
 

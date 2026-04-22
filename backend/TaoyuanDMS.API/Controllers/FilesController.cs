@@ -114,6 +114,8 @@ public class FilesController : BaseController
         await sections.AddAsync(req.Department, req.Section);
         // 同步在主磁碟與啟用的備份磁碟建立實體資料夾
         var folderResult = await storage.CreateSectionFoldersAsync(req.Department, req.Section);
+        // 同步寫入 Files 表的系統資料夾紀錄
+        await _files.EnsureSystemFoldersAsync(force: true);
         await _audit.AddAsync(new CreateAuditLogRequest
         {
             UserId = GetUserId(), UserName = GetUserName(),
@@ -132,6 +134,7 @@ public class FilesController : BaseController
     {
         await sections.RemoveAsync(req.Department, req.Section);
         var folderResult = await storage.RemoveSectionFoldersAsync(req.Department, req.Section);
+        await _files.EnsureSystemFoldersAsync(force: true);
         await _audit.AddAsync(new CreateAuditLogRequest
         {
             UserId = GetUserId(), UserName = GetUserName(),
