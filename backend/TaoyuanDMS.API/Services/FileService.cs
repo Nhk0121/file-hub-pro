@@ -226,22 +226,21 @@ public class FileService
 
     public async Task<List<FileDto>> GetAllAsync()
     {
-        try { await EnsureSystemFoldersAsync(); }
-        catch (Exception ex) { Console.Error.WriteLine($"[EnsureSystemFolders] {ex.Message}"); }
-
+        // 系統資料夾於應用程式啟動時已同步，此處不再每次重跑
         using var conn = _db.CreateConnection();
         return (await conn.QueryAsync<FileDto>("SELECT * FROM Files")).ToList();
     }
 
     public async Task<List<FileDto>> GetChildrenAsync(string? parentId)
     {
-        var all = await GetAllAsync();
-        return all.Where(f => f.ParentId == parentId).ToList();
+        using var conn = _db.CreateConnection();
+        return (await conn.QueryAsync<FileDto>(
+            "SELECT * FROM Files WHERE (@ParentId IS NULL AND ParentId IS NULL) OR ParentId = @ParentId",
+            new { ParentId = parentId })).ToList();
     }
 
     public async Task<FileDto> GetByIdAsync(string id)
     {
-        await EnsureSystemFoldersAsync();
         // 虛擬節點：直接從合成樹回傳
         if (ParseVirtualId(id) is not null)
         {
@@ -252,7 +251,7 @@ public class FileService
 
         using var conn = _db.CreateConnection();
         return await conn.QueryFirstOrDefaultAsync<FileDto>("SELECT * FROM Files WHERE Id = @Id", new { Id = id })
-            ?? throw new Exception("檔案不存在");
+            ?? throw new KeyNotFoundException("檔案不存在");
     }
 
     public async Task<FileDto> CreateFolderAsync(string name, string? parentId, string createdBy)
