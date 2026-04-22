@@ -120,6 +120,7 @@ public class FileService
     public async Task EnsureSystemFoldersAsync(bool force = false)
     {
         await _ensureLock.WaitAsync();
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         try
         {
             using var conn = _db.CreateConnection();
@@ -137,7 +138,7 @@ public class FileService
             var basePath = await GetBasePathAsync();
             var now = DateTime.UtcNow;
 
-            // 先一次撈出所有系統資料夾的 Id，避免逐筆 SELECT
+            // 先一次撈出所有系統資料夾的 Id,避免逐筆 SELECT
             var existing = (await conn.QueryAsync<string>(
                 "SELECT Id FROM Files WHERE IsSystem = 1")).ToHashSet();
 
@@ -156,9 +157,17 @@ public class FileService
 
             _lastEnsuredAt = DateTime.UtcNow;
             _lastSectionCount = sectionRows.Count;
+            _lastError = null;
+        }
+        catch (Exception ex)
+        {
+            _lastError = ex.Message;
+            throw;
         }
         finally
         {
+            sw.Stop();
+            _lastDurationMs = sw.ElapsedMilliseconds;
             _ensureLock.Release();
         }
     }
