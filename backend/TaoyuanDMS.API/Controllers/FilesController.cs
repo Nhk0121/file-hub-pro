@@ -144,4 +144,28 @@ public class FilesController : BaseController
         }, GetClientIp());
         return Ok(folderResult);
     }
+
+    // === System Folders Status / Manual Re-init ===
+    [HttpGet("system-status")]
+    public async Task<IActionResult> GetSystemStatus()
+        => Ok(await _files.GetSystemFolderStatusAsync());
+
+    [HttpPost("system-reinit")]
+    public async Task<IActionResult> ReinitSystemFolders()
+    {
+        var role = GetUserRole();
+        if (role != "系統管理員" && role != "管理員")
+            return Forbid();
+
+        await _files.EnsureSystemFoldersAsync(force: true);
+        var status = await _files.GetSystemFolderStatusAsync();
+        await _audit.AddAsync(new CreateAuditLogRequest
+        {
+            UserId = GetUserId(), UserName = GetUserName(),
+            Action = "建立資料夾",
+            TargetName = "系統資料夾",
+            Details = $"手動重新初始化:共 {status.TotalSystemFolders}/{status.ExpectedSystemFolders} 個 ({status.LastDurationMs}ms)"
+        }, GetClientIp());
+        return Ok(status);
+    }
 }
