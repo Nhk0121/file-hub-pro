@@ -790,6 +790,105 @@ const Admin = () => {
           </TabsContent>
 
           {/* 稽核日誌 */}
+          {/* 系統資料夾 */}
+          <TabsContent value="system-folders">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Database className="w-5 h-5" />系統資料夾初始化狀態
+                  </CardTitle>
+                  <CardDescription>
+                    系統資料夾於應用程式啟動時自動建立，可在此手動強制重新同步至磁碟與資料庫。
+                  </CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={loadSysFolderStatus} disabled={sysFolderLoading}>
+                    <RefreshCw className={`w-4 h-4 mr-2 ${sysFolderLoading ? 'animate-spin' : ''}`} />重新整理
+                  </Button>
+                  <Button size="sm" onClick={handleReinitSysFolders} disabled={sysFolderReinit}>
+                    <RefreshCw className={`w-4 h-4 mr-2 ${sysFolderReinit ? 'animate-spin' : ''}`} />
+                    {sysFolderReinit ? '初始化中...' : '強制重新初始化'}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {!sysFolderStatus ? (
+                  <div className="text-sm text-muted-foreground py-8 text-center">
+                    {sysFolderLoading ? '載入中...' : '尚無資料'}
+                  </div>
+                ) : (
+                  <>
+                    {/* 健康狀態 Banner */}
+                    <div className={`rounded-lg border p-4 flex items-start gap-3 ${
+                      sysFolderStatus.isHealthy
+                        ? 'border-green-500/30 bg-green-500/5'
+                        : 'border-destructive/30 bg-destructive/5'
+                    }`}>
+                      {sysFolderStatus.isHealthy
+                        ? <CheckCircle className="w-5 h-5 text-green-500 mt-0.5" />
+                        : <AlertTriangle className="w-5 h-5 text-destructive mt-0.5" />}
+                      <div className="flex-1">
+                        <div className="font-medium">
+                          {sysFolderStatus.isHealthy ? '系統資料夾狀態正常' : '系統資料夾不一致，建議重新初始化'}
+                        </div>
+                        {sysFolderStatus.lastError && (
+                          <div className="text-sm text-destructive mt-1">
+                            最後錯誤：{sysFolderStatus.lastError}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 詳細數值 */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      <div className="rounded-lg border p-4">
+                        <div className="text-xs text-muted-foreground mb-1">最後同步時間</div>
+                        <div className="text-sm font-medium">
+                          {sysFolderStatus.lastEnsuredAt
+                            ? new Date(sysFolderStatus.lastEnsuredAt).toLocaleString('zh-TW')
+                            : '尚未同步'}
+                        </div>
+                      </div>
+                      <div className="rounded-lg border p-4">
+                        <div className="text-xs text-muted-foreground mb-1">系統資料夾數 / 預期</div>
+                        <div className="text-sm font-medium">
+                          <span className={sysFolderStatus.totalSystemFolders === sysFolderStatus.expectedSystemFolders
+                            ? 'text-green-500' : 'text-destructive'}>
+                            {sysFolderStatus.totalSystemFolders}
+                          </span>
+                          <span className="text-muted-foreground"> / {sysFolderStatus.expectedSystemFolders}</span>
+                        </div>
+                      </div>
+                      <div className="rounded-lg border p-4">
+                        <div className="text-xs text-muted-foreground mb-1">課別數（DB / 快取）</div>
+                        <div className="text-sm font-medium">
+                          {sysFolderStatus.currentSectionCount}
+                          <span className="text-muted-foreground"> / {sysFolderStatus.cachedSectionCount ?? '—'}</span>
+                        </div>
+                      </div>
+                      <div className="rounded-lg border p-4">
+                        <div className="text-xs text-muted-foreground mb-1">最後執行耗時</div>
+                        <div className="text-sm font-medium">
+                          {sysFolderStatus.lastDurationMs > 0 ? `${sysFolderStatus.lastDurationMs} ms` : '—'}
+                        </div>
+                      </div>
+                      <div className="rounded-lg border p-4 md:col-span-2">
+                        <div className="text-xs text-muted-foreground mb-1">主要儲存路徑</div>
+                        <div className="text-sm font-mono break-all">{sysFolderStatus.basePath}</div>
+                      </div>
+                    </div>
+
+                    <div className="text-xs text-muted-foreground border-t pt-3">
+                      說明：系統資料夾包含 2 個分區 × 16 個組別及其下所有課別。每次新增/移除課別後會自動觸發同步；
+                      若磁碟或資料庫不一致，可在此手動強制重新初始化（force=true）。
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="audit">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
