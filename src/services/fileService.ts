@@ -8,6 +8,18 @@ export interface TrashItemDTO {
   originalParentId: string | null;
 }
 
+export interface SystemFolderStatus {
+  lastEnsuredAt: string | null;
+  cachedSectionCount: number | null;
+  currentSectionCount: number;
+  totalSystemFolders: number;
+  expectedSystemFolders: number;
+  isHealthy: boolean;
+  lastError: string | null;
+  lastDurationMs: number;
+  basePath: string;
+}
+
 const fileService = {
   /** 取得所有檔案與資料夾 */
   getAll: async (): Promise<FileItem[]> => {
@@ -106,6 +118,19 @@ const fileService = {
   /** 刪除課別資料夾 */
   removeSection: async (department: string, section: string): Promise<void> => {
     await apiClient.delete('/files/sections', { data: { department, section } });
+  },
+
+  // === 系統資料夾狀態 ===
+  /** 取得系統資料夾初始化狀態 */
+  getSystemStatus: async (): Promise<SystemFolderStatus> => {
+    const { data } = await apiClient.get<SystemFolderStatus>('/files/system-status');
+    return data;
+  },
+
+  /** 手動強制重新初始化系統資料夾 */
+  reinitSystemFolders: async (): Promise<SystemFolderStatus> => {
+    const { data } = await apiClient.post<SystemFolderStatus>('/files/system-reinit');
+    return data;
   },
 };
 
