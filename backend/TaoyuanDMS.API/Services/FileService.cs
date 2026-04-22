@@ -269,8 +269,8 @@ public class FileService
         // 注意：虛擬 parentId 不寫進 DB（DB 沒有那筆紀錄），存 null 讓子節點成為根目錄之外
         // 但 ParentId 仍要正確儲存以便前端定位 → 改存「合成 ID 字串」於 ParentId 欄位即可
         await conn.ExecuteAsync(@"
-            INSERT INTO Files (Id, Name, Type, ParentId, DiskPath, CreatedBy, CreatedAt, UpdatedAt)
-            VALUES (@Id, @Name, 'folder', @ParentId, @DiskPath, @CreatedBy, @Now, @Now)",
+            INSERT INTO Files (Id, Name, Type, ParentId, IsSystem, FolderLevel, DiskPath, CreatedBy, CreatedAt, UpdatedAt)
+            VALUES (@Id, @Name, 'folder', @ParentId, 0, 'user', @DiskPath, @CreatedBy, @Now, @Now)",
             new { Id = id, Name = name, ParentId = parentId, DiskPath = diskPath, CreatedBy = createdBy, Now = now });
 
         return await GetByIdAsync(id);
@@ -301,8 +301,8 @@ public class FileService
         }
 
         await conn.ExecuteAsync(@"
-            INSERT INTO Files (Id, Name, Type, MimeType, Size, ParentId, Content, DiskPath, CreatedBy, CreatedAt, UpdatedAt)
-            VALUES (@Id, @Name, 'file', @MimeType, @Size, @ParentId, @Content, @DiskPath, @CreatedBy, @Now, @Now)",
+            INSERT INTO Files (Id, Name, Type, MimeType, Size, ParentId, Content, IsSystem, DiskPath, CreatedBy, CreatedAt, UpdatedAt)
+            VALUES (@Id, @Name, 'file', @MimeType, @Size, @ParentId, @Content, 0, @DiskPath, @CreatedBy, @Now, @Now)",
             new { Id = id, Name = file.FileName, MimeType = file.ContentType, Size = file.Length,
                 ParentId = parentId, Content = content, DiskPath = diskPath, CreatedBy = createdBy, Now = now });
 
