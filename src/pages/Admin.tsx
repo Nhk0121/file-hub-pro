@@ -316,7 +316,7 @@ const Admin = () => {
 
       <div className="flex-1 p-6 overflow-auto">
         <Tabs defaultValue="users" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5 max-w-3xl">
+          <TabsList className="grid w-full grid-cols-6 max-w-4xl">
             <TabsTrigger value="users" className="flex items-center gap-2"><Users className="w-4 h-4" />使用者管理</TabsTrigger>
             <TabsTrigger value="organization" className="flex items-center gap-2"><Building2 className="w-4 h-4" />組織管理</TabsTrigger>
             <TabsTrigger value="registrations" className="flex items-center gap-2 relative">
@@ -326,6 +326,7 @@ const Admin = () => {
               )}
             </TabsTrigger>
             <TabsTrigger value="permissions" className="flex items-center gap-2"><Shield className="w-4 h-4" />權限設定</TabsTrigger>
+            <TabsTrigger value="system-folders" className="flex items-center gap-2"><FolderOpen className="w-4 h-4" />系統資料夾</TabsTrigger>
             <TabsTrigger value="audit" className="flex items-center gap-2"><ScrollText className="w-4 h-4" />稽核日誌</TabsTrigger>
           </TabsList>
 
