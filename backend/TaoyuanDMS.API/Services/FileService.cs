@@ -226,7 +226,9 @@ public class FileService
 
     public async Task<List<FileDto>> GetAllAsync()
     {
-        await EnsureSystemFoldersAsync();
+        try { await EnsureSystemFoldersAsync(); }
+        catch (Exception ex) { Console.Error.WriteLine($"[EnsureSystemFolders] {ex.Message}"); }
+
         using var conn = _db.CreateConnection();
         return (await conn.QueryAsync<FileDto>("SELECT * FROM Files")).ToList();
     }
