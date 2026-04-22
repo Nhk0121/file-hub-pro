@@ -224,3 +224,17 @@ public record ReviewRegistrationRequest(string Status, string ReviewerName, stri
 
 // ===== Section =====
 public record SectionRequest(string Department, string Section);
+
+// ===== System Folder Status =====
+public class SystemFolderStatusDto
+{
+    public DateTime? LastEnsuredAt { get; set; }
+    public int? CachedSectionCount { get; set; }
+    public int CurrentSectionCount { get; set; }
+    public int TotalSystemFolders { get; set; }
+    public int ExpectedSystemFolders { get; set; }
+    public bool IsHealthy { get; set; }
+    public string? LastError { get; set; }
+    public long LastDurationMs { get; set; }
+    public string BasePath { get; set; } = "";
+}
