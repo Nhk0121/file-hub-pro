@@ -90,10 +90,37 @@ public class FileService
     private static readonly SemaphoreSlim _ensureLock = new(1, 1);
     private static DateTime _lastEnsuredAt = DateTime.MinValue;
     private static int _lastSectionCount = -1;
+    private static string? _lastError = null;
+    private static long _lastDurationMs = 0;
+
+    public async Task<SystemFolderStatusDto> GetSystemFolderStatusAsync()
+    {
+        using var conn = _db.CreateConnection();
+        var sectionCount = await conn.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM DepartmentSections");
+        var totalSystemFolders = await conn.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM Files WHERE IsSystem = 1");
+        // 預期數量 = Zones × (1 + Departments × (1 + 該部門課別數))
+        // 較精準作法：固定 Zones × Departments + Zones × 1 + Zones × sectionCount
+        var expected = Zones.Length * (1 + Departments.Length) + Zones.Length * sectionCount;
+        return new SystemFolderStatusDto
+        {
+            LastEnsuredAt = _lastEnsuredAt == DateTime.MinValue ? null : _lastEnsuredAt,
+            CachedSectionCount = _lastSectionCount < 0 ? null : _lastSectionCount,
+            CurrentSectionCount = sectionCount,
+            TotalSystemFolders = totalSystemFolders,
+            ExpectedSystemFolders = expected,
+            IsHealthy = totalSystemFolders == expected && _lastError == null,
+            LastError = _lastError,
+            LastDurationMs = _lastDurationMs,
+            BasePath = await GetBasePathAsync(),
+        };
+    }
 
     public async Task EnsureSystemFoldersAsync(bool force = false)
     {
         await _ensureLock.WaitAsync();
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         try
         {
             using var conn = _db.CreateConnection();
@@ -111,7 +138,7 @@ public class FileService
             var basePath = await GetBasePathAsync();
             var now = DateTime.UtcNow;
 
-            // 先一次撈出所有系統資料夾的 Id，避免逐筆 SELECT
+            // 先一次撈出所有系統資料夾的 Id,避免逐筆 SELECT
             var existing = (await conn.QueryAsync<string>(
                 "SELECT Id FROM Files WHERE IsSystem = 1")).ToHashSet();
 
@@ -130,9 +157,17 @@ public class FileService
 
             _lastEnsuredAt = DateTime.UtcNow;
             _lastSectionCount = sectionRows.Count;
+            _lastError = null;
+        }
+        catch (Exception ex)
+        {
+            _lastError = ex.Message;
+            throw;
         }
         finally
         {
+            sw.Stop();
+            _lastDurationMs = sw.ElapsedMilliseconds;
             _ensureLock.Release();
         }
     }
