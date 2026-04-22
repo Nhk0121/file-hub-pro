@@ -91,12 +91,43 @@ const Admin = () => {
   const [orgSections, setOrgSections] = useState<Record<string, string[]>>(getDepartmentSections);
   const [primaryPath, setPrimaryPath] = useState<string>('E:\\DMS');
 
+  // 系統資料夾狀態
+  const [sysFolderStatus, setSysFolderStatus] = useState<SystemFolderStatus | null>(null);
+  const [sysFolderLoading, setSysFolderLoading] = useState(false);
+  const [sysFolderReinit, setSysFolderReinit] = useState(false);
+
+  const loadSysFolderStatus = async () => {
+    setSysFolderLoading(true);
+    try {
+      const s = await fileService.getSystemStatus();
+      setSysFolderStatus(s);
+    } catch (e) {
+      toast.error('載入系統資料夾狀態失敗');
+    } finally {
+      setSysFolderLoading(false);
+    }
+  };
+
+  const handleReinitSysFolders = async () => {
+    setSysFolderReinit(true);
+    try {
+      const s = await fileService.reinitSystemFolders();
+      setSysFolderStatus(s);
+      toast.success(`已重新初始化系統資料夾 (${s.totalSystemFolders}/${s.expectedSystemFolders})`);
+    } catch (e) {
+      toast.error('重新初始化失敗，請查看伺服器日誌');
+    } finally {
+      setSysFolderReinit(false);
+    }
+  };
+
   // 載入儲存空間設定的主要路徑（與儲存空間設定頁面同步）
   useEffect(() => {
     storageService.getSettings()
       .then(s => setPrimaryPath(s.primaryPath || 'E:\\DMS'))
       .catch(() => {/* 未連線時保留預設值 */});
     refreshUsers();
+    loadSysFolderStatus();
   }, [refreshUsers]);
 
   const folders = (Array.isArray(files) ? files : []).filter(f => f.type === 'folder');
