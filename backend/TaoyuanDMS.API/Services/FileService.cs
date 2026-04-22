@@ -86,39 +86,79 @@ public class FileService
         return null;
     }
 
-    public async Task EnsureSystemFoldersAsync()
-    {
-        var basePath = await GetBasePathAsync();
-        using var conn = _db.CreateConnection();
-        var sectionRows = (await conn.QueryAsync<(string Department, string Section)>(
-            "SELECT Department, Section FROM DepartmentSections ORDER BY Department, Section")).ToList();
-        var now = DateTime.UtcNow;
+    // 用記憶體快取避免每次 GET 都重新 UPSERT 47+ 筆系統資料夾
+    private static readonly SemaphoreSlim _ensureLock = new(1, 1);
+    private static DateTime _lastEnsuredAt = DateTime.MinValue;
+    private static int _lastSectionCount = -1;
 
-        foreach (var zone in Zones)
+    public async Task EnsureSystemFoldersAsync(bool force = false)
+    {
+        await _ensureLock.WaitAsync();
+        try
         {
-            await UpsertSystemFolderAsync(conn, ZoneId(zone), zone, null, "zone", Path.Combine(basePath, zone), now);
-            foreach (var dept in Departments)
+            using var conn = _db.CreateConnection();
+            var sectionRows = (await conn.QueryAsync<(string Department, string Section)>(
+                "SELECT Department, Section FROM DepartmentSections ORDER BY Department, Section")).ToList();
+
+            // 5 分鐘內且課別數量未變則跳過
+            if (!force
+                && _lastSectionCount == sectionRows.Count
+                && (DateTime.UtcNow - _lastEnsuredAt).TotalMinutes < 5)
             {
-                await UpsertSystemFolderAsync(conn, DeptId(zone, dept), dept, ZoneId(zone), "department", Path.Combine(basePath, zone, dept), now);
-                foreach (var row in sectionRows.Where(r => r.Department == dept))
+                return;
+            }
+
+            var basePath = await GetBasePathAsync();
+            var now = DateTime.UtcNow;
+
+            // 先一次撈出所有系統資料夾的 Id，避免逐筆 SELECT
+            var existing = (await conn.QueryAsync<string>(
+                "SELECT Id FROM Files WHERE IsSystem = 1")).ToHashSet();
+
+            foreach (var zone in Zones)
+            {
+                await UpsertSystemFolderAsync(conn, existing, ZoneId(zone), zone, null, "zone", Path.Combine(basePath, zone), now);
+                foreach (var dept in Departments)
                 {
-                    await UpsertSystemFolderAsync(conn, SectionId(zone, dept, row.Section), row.Section, DeptId(zone, dept), "section", Path.Combine(basePath, zone, dept, row.Section), now);
+                    await UpsertSystemFolderAsync(conn, existing, DeptId(zone, dept), dept, ZoneId(zone), "department", Path.Combine(basePath, zone, dept), now);
+                    foreach (var row in sectionRows.Where(r => r.Department == dept))
+                    {
+                        await UpsertSystemFolderAsync(conn, existing, SectionId(zone, dept, row.Section), row.Section, DeptId(zone, dept), "section", Path.Combine(basePath, zone, dept, row.Section), now);
+                    }
                 }
             }
+
+            _lastEnsuredAt = DateTime.UtcNow;
+            _lastSectionCount = sectionRows.Count;
+        }
+        finally
+        {
+            _ensureLock.Release();
         }
     }
 
-    private static Task UpsertSystemFolderAsync(System.Data.IDbConnection conn, string id, string name, string? parentId, string level, string diskPath, DateTime now)
+    private static async Task UpsertSystemFolderAsync(
+        System.Data.IDbConnection conn,
+        HashSet<string> existing,
+        string id, string name, string? parentId, string level, string diskPath, DateTime now)
     {
-        Directory.CreateDirectory(diskPath);
-        return conn.ExecuteAsync(@"
-            IF NOT EXISTS (SELECT 1 FROM Files WHERE Id = @Id)
+        try { Directory.CreateDirectory(diskPath); } catch { /* 磁碟錯誤不擋 DB */ }
+
+        if (existing.Contains(id))
+        {
+            // 已存在：只更新 DiskPath/Name（避免動到 ParentId 觸發外鍵）
+            await conn.ExecuteAsync(
+                "UPDATE Files SET Name = @Name, FolderLevel = @Level, DiskPath = @DiskPath WHERE Id = @Id AND IsSystem = 1",
+                new { Id = id, Name = name, Level = level, DiskPath = diskPath });
+        }
+        else
+        {
+            await conn.ExecuteAsync(@"
                 INSERT INTO Files (Id, Name, Type, ParentId, IsSystem, FolderLevel, DiskPath, CreatedBy, CreatedAt, UpdatedAt)
-                VALUES (@Id, @Name, 'folder', @ParentId, 1, @Level, @DiskPath, @CreatedBy, @Now, @Now)
-            ELSE
-                UPDATE Files SET Name = @Name, ParentId = @ParentId, IsSystem = 1, FolderLevel = @Level, DiskPath = @DiskPath, UpdatedAt = @Now
-                WHERE Id = @Id",
-            new { Id = id, Name = name, ParentId = parentId, Level = level, DiskPath = diskPath, CreatedBy = SystemCreatedBy, Now = now });
+                VALUES (@Id, @Name, 'folder', @ParentId, 1, @Level, @DiskPath, @CreatedBy, @Now, @Now)",
+                new { Id = id, Name = name, ParentId = parentId, Level = level, DiskPath = diskPath, CreatedBy = SystemCreatedBy, Now = now });
+            existing.Add(id);
+        }
     }
 
     private async Task<List<FileDto>> BuildVirtualTreeAsync()
