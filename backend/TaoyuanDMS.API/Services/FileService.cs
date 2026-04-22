@@ -90,6 +90,32 @@ public class FileService
     private static readonly SemaphoreSlim _ensureLock = new(1, 1);
     private static DateTime _lastEnsuredAt = DateTime.MinValue;
     private static int _lastSectionCount = -1;
+    private static string? _lastError = null;
+    private static long _lastDurationMs = 0;
+
+    public async Task<SystemFolderStatusDto> GetSystemFolderStatusAsync()
+    {
+        using var conn = _db.CreateConnection();
+        var sectionCount = await conn.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM DepartmentSections");
+        var totalSystemFolders = await conn.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM Files WHERE IsSystem = 1");
+        // 預期數量 = Zones × (1 + Departments × (1 + 該部門課別數))
+        // 較精準作法：固定 Zones × Departments + Zones × 1 + Zones × sectionCount
+        var expected = Zones.Length * (1 + Departments.Length) + Zones.Length * sectionCount;
+        return new SystemFolderStatusDto
+        {
+            LastEnsuredAt = _lastEnsuredAt == DateTime.MinValue ? null : _lastEnsuredAt,
+            CachedSectionCount = _lastSectionCount < 0 ? null : _lastSectionCount,
+            CurrentSectionCount = sectionCount,
+            TotalSystemFolders = totalSystemFolders,
+            ExpectedSystemFolders = expected,
+            IsHealthy = totalSystemFolders == expected && _lastError == null,
+            LastError = _lastError,
+            LastDurationMs = _lastDurationMs,
+            BasePath = await GetBasePathAsync(),
+        };
+    }
 
     public async Task EnsureSystemFoldersAsync(bool force = false)
     {
