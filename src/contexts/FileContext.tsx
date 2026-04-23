@@ -192,7 +192,14 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const getChildren = useCallback((parentId: string | null) => {
-    return files.filter(f => f.parentId === parentId);
+    const collator = new Intl.Collator('zh-TW', { numeric: true, sensitivity: 'base' });
+    return files
+      .filter(f => f.parentId === parentId)
+      .sort((a, b) => {
+        // 資料夾優先，其次依名稱（含數字前綴 00.、01.…）排序
+        if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
+        return collator.compare(a.name, b.name);
+      });
   }, [files]);
 
   const getBreadcrumbs = useCallback((folderId: string | null) => {
