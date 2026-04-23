@@ -15,12 +15,14 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
-  Folder, FileText, Image, File, Download, Trash2, Pencil, FileCode, Lock, Clock, Archive, UserPen, Eye, AlertTriangle,
+  Folder, FileText, Image, File, Download, Trash2, Pencil, FileCode, Lock, Clock, Archive, UserPen, Eye, AlertTriangle, Share2, Copy,
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import type { FileItem } from '@/types';
 import FilePreviewDialog from '@/components/files/FilePreviewDialog';
+import shareService from '@/services/shareService';
+import fileService from '@/services/fileService';
 
 interface FileListProps {
   viewMode: 'grid' | 'list';
@@ -141,9 +143,10 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
     items = items.filter(i => i.name.toLowerCase().includes(searchQuery.toLowerCase()));
   }
 
+  const collator = new Intl.Collator('zh-TW', { numeric: true, sensitivity: 'base' });
   items.sort((a, b) => {
     if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
-    return a.name.localeCompare(b.name, 'zh-TW');
+    return collator.compare(a.name, b.name);
   });
 
   const isEditableFile = (item: FileItem) => {
