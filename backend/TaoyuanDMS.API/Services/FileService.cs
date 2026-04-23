@@ -346,9 +346,19 @@ public class FileService
     public async Task<FileDto> UploadAsync(IFormFile file, string? parentId, string createdBy)
     {
         if (file == null || file.Length == 0)
-            throw new ArgumentException("上傳檔案無效");
+            throw new ArgumentException("上傳檔案無效或為空");
 
         using var conn = _db.CreateConnection();
+
+        // 驗證 parent 存在（若有指定）
+        if (!string.IsNullOrEmpty(parentId))
+        {
+            var parentExists = await conn.ExecuteScalarAsync<int>(
+                "SELECT COUNT(1) FROM Files WHERE Id = @Id", new { Id = parentId });
+            if (parentExists == 0)
+                throw new ArgumentException($"目標資料夾不存在或已被刪除（parentId={parentId}）。請重新整理頁面後再試。");
+        }
+
         var id = Guid.NewGuid().ToString();
         var now = DateTime.UtcNow;
 
@@ -381,13 +391,14 @@ public class FileService
 
             return await GetByIdAsync(id);
         }
-        catch
+        catch (Exception ex)
         {
             // 補償：DB 失敗則刪除剛寫入的實體檔案，避免孤兒檔
             if (fileWritten)
             {
                 try { File.Delete(diskPath); } catch { /* 忽略 */ }
             }
+            Console.Error.WriteLine($"[Upload Failed] file={file.FileName}, parentId={parentId}, diskPath={diskPath}, err={ex.Message}");
             throw;
         }
     }
