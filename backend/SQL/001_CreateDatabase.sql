@@ -256,5 +256,23 @@ CREATE TABLE [dbo].[BackupDisks] (
 );
 GO
 
+-- =============================================
+-- 13. 公開分享連結表（供未登入使用者下載指定檔案）
+-- =============================================
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'FileShares')
+CREATE TABLE [dbo].[FileShares] (
+    [Token]       NVARCHAR(64)   NOT NULL PRIMARY KEY,
+    [FileId]      NVARCHAR(36)   NOT NULL,
+    [CreatedBy]   NVARCHAR(100)  NOT NULL,
+    [CreatedByName] NVARCHAR(100) NOT NULL,
+    [CreatedAt]   DATETIME2      NOT NULL DEFAULT GETUTCDATE(),
+    [Revoked]     BIT            NOT NULL DEFAULT 0,
+    [DownloadCount] INT          NOT NULL DEFAULT 0
+);
+GO
+
+CREATE NONCLUSTERED INDEX IX_FileShares_FileId ON [dbo].[FileShares]([FileId]);
+GO
+
 PRINT N'TaoyuanDMS 資料庫建表完成！';
 GO
