@@ -168,4 +168,22 @@ public class FilesController : BaseController
         }, GetClientIp());
         return Ok(status);
     }
+
+    // === 系統管理員：強制刪除任一資料夾（含系統殘留） ===
+    [HttpDelete("{id}/force")]
+    public async Task<IActionResult> ForceDelete(string id)
+    {
+        var role = GetUserRole();
+        if (role != "系統管理員")
+            return Forbid();
+
+        await _files.ForceDeleteAsync(id);
+        await _audit.AddAsync(new CreateAuditLogRequest
+        {
+            UserId = GetUserId(), UserName = GetUserName(),
+            Action = "刪除", TargetId = id,
+            Details = "系統管理員強制刪除（清除殘留資料夾）"
+        }, GetClientIp());
+        return Ok();
+    }
 }
