@@ -42,6 +42,7 @@ builder.Services.AddScoped<PermissionService>();
 builder.Services.AddScoped<EditLockService>();
 builder.Services.AddScoped<StorageService>();
 builder.Services.AddScoped<SectionService>();
+builder.Services.AddScoped<ShareService>();
 
 // CORS — 雙站台架構，需指定前端來源
 var allowedOrigins = (builder.Configuration["Cors:AllowedOrigins"] ?? "https://localhost:7443")
