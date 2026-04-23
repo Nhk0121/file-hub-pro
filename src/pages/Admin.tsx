@@ -20,7 +20,7 @@ import {
   UserPlus, Lock, Download, FileEdit, LogIn, LogOut, Upload, FolderPlus, Pencil,
   Clock, CheckCircle, XCircle, ClipboardList, KeyRound, Building2,
   Eye, Printer, UserMinus, UserCog, FolderLock, FileSearch,
-  RefreshCw, AlertTriangle, Database,
+  RefreshCw, AlertTriangle, Database, Share2,
 } from 'lucide-react';
 import type { FolderPermission, AuditLog, UserRole, ApplicantType, User } from '@/types';
 import { DEPARTMENTS, getSectionsForDepartment, JOB_TITLES, addSection, removeSection, getDepartmentSections } from '@/config/organization';
@@ -45,6 +45,8 @@ const actionIcons: Record<AuditLog['action'], React.ReactNode> = {
   '帳號刪除': <UserMinus className="w-4 h-4 text-destructive" />,
   '資料夾權限變更': <FolderLock className="w-4 h-4 text-yellow-500" />,
   '個資存取': <FileSearch className="w-4 h-4 text-orange-500" />,
+  '分享': <Share2 className="w-4 h-4 text-primary" />,
+  '撤銷分享': <Share2 className="w-4 h-4 text-destructive" />,
 };
 
 const Admin = () => {

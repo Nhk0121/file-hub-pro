@@ -238,3 +238,27 @@ public class SystemFolderStatusDto
     public long LastDurationMs { get; set; }
     public string BasePath { get; set; } = "";
 }
+
+// ===== File Share =====
+public class FileShareDto
+{
+    public string Token { get; set; } = "";
+    public string FileId { get; set; } = "";
+    public string FileName { get; set; } = "";
+    public string CreatedBy { get; set; } = "";
+    public string CreatedByName { get; set; } = "";
+    public string CreatedAt { get; set; } = "";
+    public bool Revoked { get; set; }
+    public int DownloadCount { get; set; }
+}
+
+public record CreateShareRequest(string FileId);
+
+public class PublicShareInfoDto
+{
+    public string FileName { get; set; } = "";
+    public long Size { get; set; }
+    public string MimeType { get; set; } = "";
+    public string SharedBy { get; set; } = "";
+    public string SharedAt { get; set; } = "";
+}

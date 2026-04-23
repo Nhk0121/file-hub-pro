@@ -69,6 +69,11 @@ const fileService = {
     await apiClient.delete(`/files/${id}`);
   },
 
+  /** 系統管理員強制刪除（含實體與子內容，用於清除重複系統資料夾） */
+  forceDelete: async (id: string): Promise<void> => {
+    await apiClient.delete(`/files/${id}/force`);
+  },
+
   /** 重新命名 */
   rename: async (id: string, newName: string): Promise<FileItem> => {
     const { data } = await apiClient.put<FileItem>(`/files/${id}/rename`, { name: newName });

@@ -20,6 +20,7 @@ import StorageConfig from "./pages/StorageConfig";
 import PhoneBook from "./pages/PhoneBook";
 import RecycleBin from "./pages/RecycleBin";
 import NotFound from "./pages/NotFound";
+import PublicShare from "./pages/PublicShare";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +44,7 @@ const App = () => (
                 <Routes>
                   <Route path="/welcome" element={<Landing />} />
                   <Route path="/login" element={<Login />} />
+                  <Route path="/share/:token" element={<PublicShare />} />
                   <Route
                     element={
                       <ProtectedRoute>
