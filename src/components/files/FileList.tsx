@@ -309,6 +309,11 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
             <ContextMenuItem onClick={() => handleDownload(item)}>
               <Download className="w-4 h-4 mr-2" />下載
             </ContextMenuItem>
+            {user?.role !== '外包人員' && (
+              <ContextMenuItem onClick={() => handleShare(item)}>
+                <Share2 className="w-4 h-4 mr-2" />建立公開分享連結
+              </ContextMenuItem>
+            )}
           </>
         )}
         {canWrite && !item.isSystem && (
@@ -320,6 +325,11 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
               <Trash2 className="w-4 h-4 mr-2" />刪除
             </ContextMenuItem>
           </>
+        )}
+        {user?.role === '系統管理員' && item.type === 'folder' && (
+          <ContextMenuItem className="text-destructive" onClick={() => handleForceDelete(item)}>
+            <AlertTriangle className="w-4 h-4 mr-2" />強制刪除（清除殘留）
+          </ContextMenuItem>
         )}
       </ContextMenuContent>
     </ContextMenu>
