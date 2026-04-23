@@ -468,6 +468,36 @@ public class FileService
         return (data, file.Name, file.MimeType ?? "application/octet-stream");
     }
 
+    /// <summary>
+    /// 系統管理員強制刪除指定資料夾（含子內容），用於清除歷史殘留的重複系統資料夾。
+    /// </summary>
+    public async Task ForceDeleteAsync(string id)
+    {
+        using var conn = _db.CreateConnection();
+        var file = await conn.QueryFirstOrDefaultAsync<FileDto>(
+            "SELECT * FROM Files WHERE Id = @Id", new { Id = id })
+            ?? throw new KeyNotFoundException("檔案不存在");
+
+        // 刪除實體
+        if (!string.IsNullOrEmpty(file.DiskPath))
+        {
+            try
+            {
+                if (file.Type == "folder" && Directory.Exists(file.DiskPath))
+                    Directory.Delete(file.DiskPath, true);
+                else if (File.Exists(file.DiskPath))
+                    File.Delete(file.DiskPath);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[ForceDelete] 實體刪除失敗 {file.DiskPath}: {ex.Message}");
+            }
+        }
+
+        await DeleteChildrenAsync(id);
+        await conn.ExecuteAsync("DELETE FROM Files WHERE Id = @Id", new { Id = id });
+    }
+
     public async Task DeleteAsync(string id)
     {
         using var conn = _db.CreateConnection();
