@@ -138,9 +138,23 @@ public class FileService
             var basePath = await GetBasePathAsync();
             var now = DateTime.UtcNow;
 
-            // === 清理：刪除「非系統」但名稱與 Zone/Department 重複、且為孤兒（無實體子內容）的舊紀錄 ===
-            // 這通常是早期測試遺留：IsSystem=0 但名為「永久區」「時效區」「00.處長室」等
+            // === 清理：刪除重複的系統名稱資料夾（含 IsSystem=1 但 Id 不在標準清單者） ===
+            // 標準系統 Id 集合
+            var validSystemIds = new HashSet<string>();
+            foreach (var z in Zones)
+            {
+                validSystemIds.Add(ZoneId(z));
+                foreach (var d in Departments)
+                {
+                    validSystemIds.Add(DeptId(z, d));
+                    foreach (var row in sectionRows.Where(r => r.Department == d))
+                        validSystemIds.Add(SectionId(z, d, row.Section));
+                }
+            }
+
             var systemNames = Zones.Concat(Departments).ToArray();
+
+            // (1) 刪除 IsSystem=0 的同名孤兒（早期測試殘留）
             var dupes = (await conn.QueryAsync<string>(@"
                 SELECT Id FROM Files
                 WHERE IsSystem = 0
@@ -151,7 +165,22 @@ public class FileService
             if (dupes.Count > 0)
             {
                 await conn.ExecuteAsync("DELETE FROM Files WHERE Id IN @Ids", new { Ids = dupes });
-                Console.WriteLine($"[Cleanup] 刪除 {dupes.Count} 筆重複的系統名稱資料夾");
+                Console.WriteLine($"[Cleanup] 刪除 {dupes.Count} 筆 IsSystem=0 重複資料夾");
+            }
+
+            // (2) 刪除 IsSystem=1 但 Id 不在標準清單的「殘留系統資料夾」（雜湊/版本變更後遺留）
+            //     僅刪除無子內容（避免誤刪含使用者檔案的歷史節點）
+            var orphanIdRows = (await conn.QueryAsync<string>(@"
+                SELECT Id FROM Files
+                WHERE IsSystem = 1
+                  AND Name IN @Names
+                  AND NOT EXISTS (SELECT 1 FROM Files c WHERE c.ParentId = Files.Id)",
+                new { Names = systemNames })).ToList();
+            var orphanLegacy = orphanIdRows.Where(id => !validSystemIds.Contains(id)).ToList();
+            if (orphanLegacy.Count > 0)
+            {
+                await conn.ExecuteAsync("DELETE FROM Files WHERE Id IN @Ids", new { Ids = orphanLegacy });
+                Console.WriteLine($"[Cleanup] 刪除 {orphanLegacy.Count} 筆 IsSystem=1 孤兒系統資料夾");
             }
 
             // 先一次撈出所有系統資料夾的 Id,避免逐筆 SELECT
