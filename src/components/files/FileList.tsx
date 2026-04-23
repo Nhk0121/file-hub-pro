@@ -410,6 +410,34 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* 分享連結 Dialog */}
+      <Dialog open={shareDialog.open} onOpenChange={(open) => setShareDialog(s => ({ ...s, open }))}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Share2 className="w-5 h-5 text-primary" />公開分享連結已建立
+            </DialogTitle>
+            <DialogDescription>
+              將下方連結傳給對方，未登入也能下載「{shareDialog.fileName}」。可在系統管理頁撤銷。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-2">
+            <Input value={shareDialog.url} readOnly onClick={(e) => (e.target as HTMLInputElement).select()} />
+            <Button
+              variant="outline"
+              onClick={() => {
+                navigator.clipboard.writeText(shareDialog.url);
+                toast.success('已複製連結');
+              }}
+            >
+              <Copy className="w-4 h-4 mr-1" />複製
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShareDialog(s => ({ ...s, open: false }))}>關閉</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
