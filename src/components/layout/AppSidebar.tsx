@@ -20,7 +20,10 @@ const FolderTree = ({
   onSelect: (id: string | null) => void; currentFolderId: string | null;
 }) => {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const folders = files.filter(f => f.type === 'folder' && f.parentId === parentId);
+  const collator = new Intl.Collator('zh-TW', { numeric: true, sensitivity: 'base' });
+  const folders = files
+    .filter(f => f.type === 'folder' && f.parentId === parentId)
+    .sort((a, b) => collator.compare(a.name, b.name));
   if (folders.length === 0) return null;
 
   return (
