@@ -138,6 +138,22 @@ public class FileService
             var basePath = await GetBasePathAsync();
             var now = DateTime.UtcNow;
 
+            // === 清理：刪除「非系統」但名稱與 Zone/Department 重複、且為孤兒（無實體子內容）的舊紀錄 ===
+            // 這通常是早期測試遺留：IsSystem=0 但名為「永久區」「時效區」「00.處長室」等
+            var systemNames = Zones.Concat(Departments).ToArray();
+            var dupes = (await conn.QueryAsync<string>(@"
+                SELECT Id FROM Files
+                WHERE IsSystem = 0
+                  AND Type = 'folder'
+                  AND Name IN @Names
+                  AND NOT EXISTS (SELECT 1 FROM Files c WHERE c.ParentId = Files.Id)",
+                new { Names = systemNames })).ToList();
+            if (dupes.Count > 0)
+            {
+                await conn.ExecuteAsync("DELETE FROM Files WHERE Id IN @Ids", new { Ids = dupes });
+                Console.WriteLine($"[Cleanup] 刪除 {dupes.Count} 筆重複的系統名稱資料夾");
+            }
+
             // 先一次撈出所有系統資料夾的 Id,避免逐筆 SELECT
             var existing = (await conn.QueryAsync<string>(
                 "SELECT Id FROM Files WHERE IsSystem = 1")).ToHashSet();
