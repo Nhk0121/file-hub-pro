@@ -23,7 +23,7 @@ import {
   RefreshCw, AlertTriangle, Database, Share2,
 } from 'lucide-react';
 import type { FolderPermission, AuditLog, UserRole, ApplicantType, User } from '@/types';
-import { DEPARTMENTS, getSectionsForDepartment, JOB_TITLES, addSection, removeSection, getDepartmentSections } from '@/config/organization';
+import { DEPARTMENTS, getSectionsForDepartment, JOB_TITLES, addSection, removeSection, getDepartmentSections, setDepartmentSections } from '@/config/organization';
 
 const actionIcons: Record<AuditLog['action'], React.ReactNode> = {
   '登入': <LogIn className="w-4 h-4 text-green-500" />,
@@ -123,6 +123,17 @@ const Admin = () => {
     }
   };
 
+  // 從後端載入課別清單，與資料庫同步
+  const loadSectionsFromServer = async () => {
+    try {
+      const remote = await fileService.getSections();
+      const merged = setDepartmentSections(remote);
+      setOrgSections({ ...merged });
+    } catch {
+      // 載入失敗則保留 localStorage 內容
+    }
+  };
+
   // 載入儲存空間設定的主要路徑（與儲存空間設定頁面同步）
   useEffect(() => {
     storageService.getSettings()
@@ -130,6 +141,7 @@ const Admin = () => {
       .catch(() => {/* 未連線時保留預設值 */});
     refreshUsers();
     loadSysFolderStatus();
+    loadSectionsFromServer();
   }, [refreshUsers]);
 
   const folders = (Array.isArray(files) ? files : []).filter(f => f.type === 'folder');
