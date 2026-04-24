@@ -299,7 +299,7 @@ const Admin = () => {
     toast.success(`帳號申請已${status === '已核准' ? '核准' : '拒絕'}`);
   };
 
-  const handleAddSection = () => {
+  const handleAddSection = async () => {
     if (!orgSelectedDept || !newSectionName.trim()) {
       toast.error('請選擇組別並輸入課別名稱');
       return;
@@ -310,19 +310,22 @@ const Admin = () => {
       return;
     }
     const updated = addSection(orgSelectedDept, newSectionName.trim());
-    // 同步建立資料夾
-    addSectionFolder(orgSelectedDept, newSectionName.trim());
+    // 同步建立資料夾（後端會寫入 DepartmentSections + Files）
+    await addSectionFolder(orgSelectedDept, newSectionName.trim());
     setOrgSections({ ...updated });
     toast.success(`已新增課別「${newSectionName.trim()}」至「${orgSelectedDept}」`);
     setNewSectionName('');
+    // 從後端重新取得最新清單
+    await loadSectionsFromServer();
   };
 
-  const handleRemoveSection = (dept: string, section: string) => {
+  const handleRemoveSection = async (dept: string, section: string) => {
     const updated = removeSection(dept, section);
     // 同步刪除資料夾
-    removeSectionFolder(dept, section);
+    await removeSectionFolder(dept, section);
     setOrgSections({ ...updated });
     toast.success(`已刪除課別「${section}」`);
+    await loadSectionsFromServer();
   };
 
 
