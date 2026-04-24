@@ -1,5 +1,6 @@
 import axios, { AxiosError } from 'axios';
 import { toast } from '@/hooks/use-toast';
+import { sessionStore } from '@/lib/sessionStorage';
 
 // 後端 API 基礎 URL，部署時請修改為實際位址
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://localhost:5001/api';
@@ -12,7 +13,7 @@ const apiClient = axios.create({
 
 // Request 攔截器：自動加上 JWT Token
 apiClient.interceptors.request.use(config => {
-  const token = localStorage.getItem('dms_token');
+  const token = sessionStore.getToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -36,8 +37,7 @@ apiClient.interceptors.response.use(
 
     // 401：自動登出
     if (status === 401) {
-      localStorage.removeItem('dms_token');
-      localStorage.removeItem('dms_user');
+      sessionStore.clear();
       if (!window.location.pathname.includes('/login')) {
         window.location.href = '/login';
       }
