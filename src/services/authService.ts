@@ -1,4 +1,5 @@
 import apiClient from './apiClient';
+import { sessionStore } from '@/lib/sessionStorage';
 import type { User } from '@/types';
 
 export interface LoginResponse {
@@ -9,14 +10,13 @@ export interface LoginResponse {
 const authService = {
   login: async (username: string, password: string): Promise<LoginResponse> => {
     const { data } = await apiClient.post<LoginResponse>('/auth/login', { username, password });
-    localStorage.setItem('dms_token', data.token);
+    sessionStore.setToken(data.token);
     return data;
   },
 
   logout: async (): Promise<void> => {
     try { await apiClient.post('/auth/logout'); } catch { /* ignore */ }
-    localStorage.removeItem('dms_token');
-    localStorage.removeItem('dms_user');
+    sessionStore.clear();
   },
 
   getProfile: async (): Promise<User> => {

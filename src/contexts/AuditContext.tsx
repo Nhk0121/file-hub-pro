@@ -25,7 +25,7 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // 初始載入
   useEffect(() => {
-    const token = localStorage.getItem('dms_token');
+    const token = sessionStorage.getItem('dms_token');
     if (token) refreshLogs();
   }, [refreshLogs]);
 

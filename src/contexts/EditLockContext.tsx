@@ -18,7 +18,7 @@ export const EditLockProvider = ({ children }: { children: ReactNode }) => {
 
   // 初始載入
   useEffect(() => {
-    const token = localStorage.getItem('dms_token');
+    const token = sessionStorage.getItem('dms_token');
     if (token) {
       editLockService.getAll().then(setLocks).catch(console.error);
     }
