@@ -2,6 +2,14 @@ import axios, { AxiosError } from 'axios';
 import { toast } from '@/hooks/use-toast';
 import { sessionStore } from '@/lib/sessionStorage';
 
+// 一次性清理：移除舊版本遺留在 localStorage 的認證資料（已改用 sessionStorage）
+try {
+  if (localStorage.getItem('dms_token') || localStorage.getItem('dms_user')) {
+    localStorage.removeItem('dms_token');
+    localStorage.removeItem('dms_user');
+  }
+} catch { /* ignore */ }
+
 // 後端 API 基礎 URL，部署時請修改為實際位址
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://localhost:5001/api';
 
