@@ -651,7 +651,7 @@ const Admin = () => {
                       <SelectContent>
                         {folders.map(f => (
                           <SelectItem key={f.id} value={f.id}>
-                            <span className="flex items-center gap-2"><FolderOpen className="w-4 h-4" />{f.name}</span>
+                            <span className="flex items-center gap-2"><FolderOpen className="w-4 h-4" />{f._path || f.name}</span>
                           </SelectItem>
                         ))}
                       </SelectContent>
