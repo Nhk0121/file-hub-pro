@@ -144,7 +144,22 @@ const Admin = () => {
     loadSectionsFromServer();
   }, [refreshUsers]);
 
-  const folders = (Array.isArray(files) ? files : []).filter(f => f.type === 'folder');
+  const folderCollator = new Intl.Collator('zh-TW', { numeric: true, sensitivity: 'base' });
+  const allFiles = Array.isArray(files) ? files : [];
+  const folderPath = (id: string): string => {
+    const parts: string[] = [];
+    let cur = allFiles.find(f => f.id === id);
+    let guard = 0;
+    while (cur && guard++ < 20) {
+      parts.unshift(cur.name);
+      cur = cur.parentId ? allFiles.find(f => f.id === cur!.parentId) : undefined;
+    }
+    return parts.join(' / ');
+  };
+  const folders = allFiles
+    .filter(f => f.type === 'folder')
+    .map(f => ({ ...f, _path: folderPath(f.id) }))
+    .sort((a, b) => folderCollator.compare(a._path, b._path));
   const visibleRegistrations = (Array.isArray(registrations) ? registrations : []).filter(r => r.status !== '已核准');
   const pendingCount = visibleRegistrations.filter(r => r.status === '待審核').length;
 
