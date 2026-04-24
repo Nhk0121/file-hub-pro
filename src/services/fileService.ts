@@ -115,6 +115,12 @@ const fileService = {
   },
 
   // === 課別管理 ===
+  /** 取得所有課別 (依組別分組) */
+  getSections: async (): Promise<Record<string, string[]>> => {
+    const { data } = await apiClient.get<Record<string, string[]>>('/files/sections');
+    return data ?? {};
+  },
+
   /** 新增課別資料夾 */
   addSection: async (department: string, section: string): Promise<void> => {
     await apiClient.post('/files/sections', { department, section });

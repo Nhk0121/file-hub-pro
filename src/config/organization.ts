@@ -54,6 +54,16 @@ export function getDepartmentSections(): Record<string, string[]> {
   return loadSections();
 }
 
+// 以後端回傳資料覆寫本地快取（用於與資料庫同步）
+export function setDepartmentSections(sections: Record<string, string[]>): Record<string, string[]> {
+  const merged: Record<string, string[]> = { ...DEFAULT_SECTIONS };
+  for (const dept of Object.keys(sections)) {
+    merged[dept] = Array.isArray(sections[dept]) ? [...sections[dept]] : [];
+  }
+  localStorage.setItem('dms_department_sections', JSON.stringify(merged));
+  return merged;
+}
+
 // 舊的靜態變數保留為相容用途（但建議用 getDepartmentSections()）
 export const DEPARTMENT_SECTIONS: Record<string, string[]> = loadSections();
 

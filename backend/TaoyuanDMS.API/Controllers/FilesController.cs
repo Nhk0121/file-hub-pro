@@ -105,6 +105,13 @@ public class FilesController : BaseController
     }
 
     // === Sections ===
+    [HttpGet("sections")]
+    public async Task<IActionResult> GetSections([FromServices] SectionService sections)
+    {
+        var data = await sections.GetAllAsync();
+        return Ok(data);
+    }
+
     [HttpPost("sections")]
     public async Task<IActionResult> AddSection(
         [FromBody] SectionRequest req,
