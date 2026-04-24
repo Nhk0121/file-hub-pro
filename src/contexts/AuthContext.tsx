@@ -1,7 +1,9 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import type { User, UserRole, UserRegistration, RegistrationStatus, ApplicantType } from '@/types';
 import authService from '@/services/authService';
 import userService from '@/services/userService';
+import { sessionStore, IDLE_TIMEOUT_MS } from '@/lib/sessionStorage';
+import { toast } from '@/hooks/use-toast';
 
 interface AuthContextType {
   user: User | null;
@@ -25,17 +27,15 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('dms_user');
-    return saved ? JSON.parse(saved) : null;
-  });
+  const [user, setUser] = useState<User | null>(() => sessionStore.getUser<User>());
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [registrations, setRegistrations] = useState<UserRegistration[]>([]);
   const [loading, setLoading] = useState(false);
+  const idleTimerRef = useRef<number | null>(null);
 
   // 初始化：如有 token 則驗證並載入資料
   useEffect(() => {
-    const token = localStorage.getItem('dms_token');
+    const token = sessionStore.getToken();
     if (token && user) {
       refreshUsers();
       loadRegistrations();
@@ -60,12 +60,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  const logout = useCallback(async () => {
+    await authService.logout();
+    setUser(null);
+    setAllUsers([]);
+    setRegistrations([]);
+  }, []);
+
+  // 閒置自動登出：10 分鐘無操作即登出
+  useEffect(() => {
+    if (!user) return;
+
+    const resetTimer = () => {
+      if (idleTimerRef.current) window.clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = window.setTimeout(() => {
+        toast({
+          title: '閒置自動登出',
+          description: '您已 10 分鐘未操作，為保護資料安全已自動登出。',
+          variant: 'destructive',
+        });
+        logout().then(() => {
+          window.location.href = '/login';
+        });
+      }, IDLE_TIMEOUT_MS);
+    };
+
+    const events: (keyof WindowEventMap)[] = [
+      'mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click',
+    ];
+    events.forEach(e => window.addEventListener(e, resetTimer, { passive: true }));
+    resetTimer();
+
+    return () => {
+      if (idleTimerRef.current) window.clearTimeout(idleTimerRef.current);
+      events.forEach(e => window.removeEventListener(e, resetTimer));
+    };
+  }, [user, logout]);
+
   const login = useCallback(async (username: string, password: string) => {
     try {
       setLoading(true);
       const { token, user: userData } = await authService.login(username, password);
       setUser(userData);
-      localStorage.setItem('dms_user', JSON.stringify(userData));
+      sessionStore.setUser(userData);
       // 登入後載入使用者列表
       await refreshUsers();
       await loadRegistrations();
@@ -76,13 +113,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(false);
     }
   }, [refreshUsers, loadRegistrations]);
-
-  const logout = useCallback(async () => {
-    await authService.logout();
-    setUser(null);
-    setAllUsers([]);
-    setRegistrations([]);
-  }, []);
 
   const addUser = useCallback(async (newUser: User, password: string) => {
     await userService.create({ ...newUser, password } as any);
@@ -106,7 +136,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(prev => {
       if (prev && prev.id === userId) {
         const updated = { ...prev, role };
-        localStorage.setItem('dms_user', JSON.stringify(updated));
+        sessionStore.setUser(updated);
         return updated;
       }
       return prev;
@@ -116,7 +146,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateProfile = useCallback(async (updates: Partial<User>) => {
     const updated = await authService.updateProfile(updates);
     setUser(updated);
-    localStorage.setItem('dms_user', JSON.stringify(updated));
+    sessionStore.setUser(updated);
   }, []);
 
   const resetPassword = useCallback(async (userId: string) => {
