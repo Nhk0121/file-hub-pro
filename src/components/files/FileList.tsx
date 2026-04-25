@@ -171,24 +171,24 @@ const FileList = ({ viewMode, searchQuery }: FileListProps) => {
     }
   };
 
-  const handleDownload = (item: FileItem) => {
-    if (!item.content) { toast.error('此檔案無內容可下載'); return; }
-    let blob: Blob;
-    if (item.content.startsWith('data:')) {
-      const [, base64] = item.content.split(',');
-      const binary = atob(base64);
-      const arr = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
-      blob = new Blob([arr]);
-    } else {
-      blob = new Blob([item.content], { type: item.mimeType || 'text/plain' });
+  const handleDownload = async (item: FileItem) => {
+    if (item.type !== 'file') return;
+    try {
+      const blob = await fileService.download(item.id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = item.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (user) addLog({ userId: user.id, userName: user.displayName, action: '下載', targetName: item.name, targetId: item.id });
+      toast.success('下載完成');
+    } catch (err) {
+      console.error('下載失敗:', err);
+      toast.error('下載失敗');
     }
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = item.name; a.click();
-    URL.revokeObjectURL(url);
-    if (user) addLog({ userId: user.id, userName: user.displayName, action: '下載', targetName: item.name, targetId: item.id });
-    toast.success('下載完成');
   };
 
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<FileItem | null>(null);
