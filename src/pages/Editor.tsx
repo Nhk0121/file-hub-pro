@@ -122,7 +122,11 @@ const Editor = () => {
       )}
 
       <div className="flex-1 p-6 overflow-auto">
-        {locked ? (
+        {loadingContent ? (
+          <div className="flex items-center justify-center min-h-[400px]">
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : locked ? (
           <div className="border rounded-lg bg-card p-6 min-h-[400px] opacity-70 pointer-events-none select-none">
             <pre className="whitespace-pre-wrap font-mono text-sm">{content}</pre>
           </div>
