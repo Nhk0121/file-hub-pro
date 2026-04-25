@@ -7,9 +7,10 @@ import { useState, useEffect } from 'react';
 import RichTextEditor from '@/components/editor/RichTextEditor';
 import MarkdownEditor from '@/components/editor/MarkdownEditor';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Save, Lock } from 'lucide-react';
+import { ArrowLeft, Save, Lock, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import fileService from '@/services/fileService';
 
 const Editor = () => {
   const { fileId } = useParams();
