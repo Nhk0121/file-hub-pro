@@ -7,9 +7,10 @@ import { useState, useEffect } from 'react';
 import RichTextEditor from '@/components/editor/RichTextEditor';
 import MarkdownEditor from '@/components/editor/MarkdownEditor';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Save, Lock } from 'lucide-react';
+import { ArrowLeft, Save, Lock, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import fileService from '@/services/fileService';
 
 const Editor = () => {
   const { fileId } = useParams();
@@ -22,6 +23,7 @@ const Editor = () => {
   const [content, setContent] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
   const [locked, setLocked] = useState(false);
+  const [loadingContent, setLoadingContent] = useState(true);
 
   useEffect(() => {
     if (fileId) {
@@ -33,11 +35,27 @@ const Editor = () => {
     };
   }, [fileId]);
 
+  // 從後端載入真正的檔案內容（列表 API 不含 content）
   useEffect(() => {
-    if (file) {
-      setContent(file.content || '');
-      setHasChanges(false);
-    }
+    if (!file) return;
+    let cancelled = false;
+    setLoadingContent(true);
+    fileService.download(file.id)
+      .then(blob => blob.text())
+      .then(text => {
+        if (!cancelled) {
+          setContent(text);
+          setHasChanges(false);
+        }
+      })
+      .catch(err => {
+        console.error('載入檔案內容失敗:', err);
+        if (!cancelled) toast.error('無法載入檔案內容');
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingContent(false);
+      });
+    return () => { cancelled = true; };
   }, [file?.id]);
 
   if (!file) {
@@ -88,7 +106,7 @@ const Editor = () => {
             </p>
           </div>
         </div>
-        <Button onClick={handleSave} disabled={!hasChanges || locked}>
+        <Button onClick={handleSave} disabled={!hasChanges || locked || loadingContent}>
           <Save className="w-4 h-4 mr-2" />
           儲存
         </Button>
@@ -104,7 +122,11 @@ const Editor = () => {
       )}
 
       <div className="flex-1 p-6 overflow-auto">
-        {locked ? (
+        {loadingContent ? (
+          <div className="flex items-center justify-center min-h-[400px]">
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : locked ? (
           <div className="border rounded-lg bg-card p-6 min-h-[400px] opacity-70 pointer-events-none select-none">
             <pre className="whitespace-pre-wrap font-mono text-sm">{content}</pre>
           </div>

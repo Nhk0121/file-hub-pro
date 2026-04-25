@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Download, X, ZoomIn, ZoomOut, RotateCw, Pencil, FileWarning } from 'lucide-react';
+import { Download, ZoomIn, ZoomOut, RotateCw, Pencil, FileWarning, Loader2 } from 'lucide-react';
 import type { FileItem } from '@/types';
 import ReactMarkdown from 'react-markdown';
+import fileService from '@/services/fileService';
+import { toast } from 'sonner';
 
 interface FilePreviewDialogProps {
   file: FileItem | null;
@@ -18,37 +20,77 @@ const FilePreviewDialog = ({ file, open, onOpenChange }: FilePreviewDialogProps)
   const navigate = useNavigate();
   const [zoom, setZoom] = useState(100);
   const [rotation, setRotation] = useState(0);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [textContent, setTextContent] = useState<string>('');
+  const [loading, setLoading] = useState(false);
 
-  if (!file || !file.content) return null;
-
-  const name = file.name.toLowerCase();
-  const isImage = file.mimeType?.startsWith('image/') || /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(name);
-  const isPdf = file.mimeType === 'application/pdf' || name.endsWith('.pdf');
-  const isMarkdown = file.mimeType?.includes('markdown') || name.endsWith('.md');
-  const isText = file.mimeType?.startsWith('text/') || /\.(txt|csv|json|xml|log|ini|cfg|yaml|yml)$/i.test(name);
+  const name = file?.name.toLowerCase() ?? '';
+  const mime = file?.mimeType ?? '';
+  const isImage = mime.startsWith('image/') || /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(name);
+  const isPdf = mime === 'application/pdf' || name.endsWith('.pdf');
+  const isMarkdown = mime.includes('markdown') || name.endsWith('.md');
+  const isText = mime.startsWith('text/') || /\.(txt|csv|json|xml|log|ini|cfg|yaml|yml)$/i.test(name);
   const isCode = /\.(js|ts|tsx|jsx|css|html|py|java|c|cpp|h|sh|bat|sql|php|rb)$/i.test(name);
   const isWord = /\.(doc|docx)$/i.test(name);
   const isExcel = /\.(xls|xlsx)$/i.test(name);
   const isBinaryDoc = isPdf || isWord || isExcel;
+  const isEditable = isMarkdown || isText || isCode || (mime.includes('html') && !isBinaryDoc);
+  const needsText = isMarkdown || isText || isCode;
 
-  // 可線上編輯的文字檔
-  const isEditable = isMarkdown || isText || isCode || (file.mimeType?.includes('html') && !isBinaryDoc);
+  // 開啟對話框時：從後端下載檔案內容
+  useEffect(() => {
+    if (!file || !open) return;
+    if (file.type !== 'file') return;
 
-  const handleDownload = () => {
-    let blob: Blob;
-    if (file.content!.startsWith('data:')) {
-      const [, base64] = file.content!.split(',');
-      const binary = atob(base64);
-      const arr = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
-      blob = new Blob([arr]);
-    } else {
-      blob = new Blob([file.content!], { type: file.mimeType || 'text/plain' });
+    let revoked = false;
+    let currentUrl: string | null = null;
+
+    const load = async () => {
+      try {
+        setLoading(true);
+        setBlobUrl(null);
+        setTextContent('');
+        const blob = await fileService.download(file.id);
+
+        if (needsText) {
+          const text = await blob.text();
+          if (!revoked) setTextContent(text);
+        } else if (isImage || isPdf) {
+          currentUrl = URL.createObjectURL(blob);
+          if (!revoked) setBlobUrl(currentUrl);
+        }
+      } catch (err) {
+        console.error('載入檔案失敗:', err);
+        toast.error('無法載入檔案內容');
+      } finally {
+        if (!revoked) setLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      revoked = true;
+      if (currentUrl) URL.revokeObjectURL(currentUrl);
+    };
+  }, [file?.id, open, needsText, isImage, isPdf]);
+
+  if (!file) return null;
+
+  const handleDownload = async () => {
+    try {
+      const blob = await fileService.download(file.id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('下載失敗:', err);
+      toast.error('下載失敗');
     }
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = file.name; a.click();
-    URL.revokeObjectURL(url);
   };
 
   const handleEdit = () => {
@@ -57,11 +99,19 @@ const FilePreviewDialog = ({ file, open, onOpenChange }: FilePreviewDialogProps)
   };
 
   const renderPreview = () => {
-    if (isImage) {
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      );
+    }
+
+    if (isImage && blobUrl) {
       return (
         <div className="flex items-center justify-center min-h-[400px] bg-muted/20 rounded-lg overflow-auto p-4">
           <img
-            src={file.content!}
+            src={blobUrl}
             alt={file.name}
             className="max-w-full transition-transform duration-200"
             style={{ transform: `scale(${zoom / 100}) rotate(${rotation}deg)` }}
@@ -70,8 +120,18 @@ const FilePreviewDialog = ({ file, open, onOpenChange }: FilePreviewDialogProps)
       );
     }
 
-    if (isBinaryDoc) {
-      const typeLabel = isPdf ? 'PDF' : isWord ? 'Word' : 'Excel';
+    if (isPdf && blobUrl) {
+      return (
+        <iframe
+          src={blobUrl}
+          title={file.name}
+          className="w-full min-h-[60vh] rounded-lg border bg-card"
+        />
+      );
+    }
+
+    if (isWord || isExcel) {
+      const typeLabel = isWord ? 'Word' : 'Excel';
       return (
         <div className="flex items-center justify-center min-h-[400px] bg-muted/20 rounded-lg p-8">
           <div className="text-center text-muted-foreground">
@@ -91,7 +151,7 @@ const FilePreviewDialog = ({ file, open, onOpenChange }: FilePreviewDialogProps)
     if (isMarkdown) {
       return (
         <div className="prose prose-sm max-w-none p-6 bg-card border rounded-lg min-h-[300px] max-h-[60vh] overflow-auto">
-          <ReactMarkdown>{file.content!}</ReactMarkdown>
+          <ReactMarkdown>{textContent}</ReactMarkdown>
         </div>
       );
     }
@@ -99,7 +159,7 @@ const FilePreviewDialog = ({ file, open, onOpenChange }: FilePreviewDialogProps)
     if (isCode) {
       return (
         <pre className="p-4 bg-muted/30 border rounded-lg text-sm font-mono overflow-auto max-h-[60vh] whitespace-pre-wrap">
-          {file.content!}
+          {textContent}
         </pre>
       );
     }
@@ -107,7 +167,7 @@ const FilePreviewDialog = ({ file, open, onOpenChange }: FilePreviewDialogProps)
     if (isText) {
       return (
         <pre className="p-4 bg-card border rounded-lg text-sm overflow-auto max-h-[60vh] whitespace-pre-wrap">
-          {file.content!}
+          {textContent}
         </pre>
       );
     }
