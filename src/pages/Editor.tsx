@@ -23,6 +23,7 @@ const Editor = () => {
   const [content, setContent] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
   const [locked, setLocked] = useState(false);
+  const [loadingContent, setLoadingContent] = useState(true);
 
   useEffect(() => {
     if (fileId) {
@@ -34,11 +35,27 @@ const Editor = () => {
     };
   }, [fileId]);
 
+  // 從後端載入真正的檔案內容（列表 API 不含 content）
   useEffect(() => {
-    if (file) {
-      setContent(file.content || '');
-      setHasChanges(false);
-    }
+    if (!file) return;
+    let cancelled = false;
+    setLoadingContent(true);
+    fileService.download(file.id)
+      .then(blob => blob.text())
+      .then(text => {
+        if (!cancelled) {
+          setContent(text);
+          setHasChanges(false);
+        }
+      })
+      .catch(err => {
+        console.error('載入檔案內容失敗:', err);
+        if (!cancelled) toast.error('無法載入檔案內容');
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingContent(false);
+      });
+    return () => { cancelled = true; };
   }, [file?.id]);
 
   if (!file) {
