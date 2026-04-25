@@ -106,7 +106,7 @@ const Editor = () => {
             </p>
           </div>
         </div>
-        <Button onClick={handleSave} disabled={!hasChanges || locked}>
+        <Button onClick={handleSave} disabled={!hasChanges || locked || loadingContent}>
           <Save className="w-4 h-4 mr-2" />
           儲存
         </Button>
