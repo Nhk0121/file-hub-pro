@@ -44,7 +44,7 @@ const CertInstall = () => {
             本系統使用內部簽發的 HTTPS 憑證以加密傳輸資料。
             您的電腦尚未信任此憑證，因此瀏覽器會顯示警告畫面。
             安裝一次後，後續登入與檔案傳輸即可完全安全（網址列鎖頭呈綠色），
-            且 30 年內無需重複安裝。
+            安裝後長期有效，無需重複安裝。
           </AlertDescription>
         </Alert>
 
@@ -173,7 +173,7 @@ const CertInstall = () => {
 
         {/* Footer */}
         <div className="text-center text-xs text-muted-foreground pb-4">
-          桃園區處文件管理系統 · 憑證有效期 30 年（至 2055 年）
+          桃園區處文件管理系統
         </div>
       </div>
     </div>
