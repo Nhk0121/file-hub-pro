@@ -29,7 +29,7 @@ REM  【產出檔案】
 REM    C:\DMS-Cert\TaipowerDMS-RootCA.cer  （Root CA 憑證）
 REM    C:\DMS-Cert\setup-cert.ps1          （主執行腳本）
 REM    C:\DMS-Cert\renew-cert.ps1          （自動續簽腳本）
-REM    C:\inetpub\wwwroot\cert\TaipowerDMS-RootCA.cer  （供使用者下載）
+REM    D:\TaoyuanDMS-Frontend\cert\TaipowerDMS-RootCA.cer  （供使用者下載）
 REM
 REM  【自動續簽】
 REM    本工具會註冊 Windows 排程「DMS-Cert-AutoRenew」，
@@ -119,7 +119,7 @@ set PS_FILE=%CERT_DIR%\setup-cert.ps1
 >>"%PS_FILE%" echo Write-Host "============================================================" -ForegroundColor Cyan
 >>"%PS_FILE%" echo Write-Host "  ✓ 全部完成！" -ForegroundColor Green
 >>"%PS_FILE%" echo Write-Host "  Root CA 檔案：$certDir\TaipowerDMS-RootCA.cer" -ForegroundColor Cyan
->>"%PS_FILE%" echo Write-Host "  請將此 .cer 上傳至 wwwroot\cert\ 供 Client 端下載" -ForegroundColor Cyan
+>>"%PS_FILE%" echo Write-Host "  將自動複製至前端站台 cert\ 目錄供 Client 端下載" -ForegroundColor Cyan
 >>"%PS_FILE%" echo Write-Host "============================================================" -ForegroundColor Cyan
 
 echo            完成
@@ -157,12 +157,16 @@ if %errorLevel% neq 0 (
 )
 
 echo.
-echo [步驟 4/5] 複製 Root CA 至 Client 安裝目錄...
-if exist "C:\inetpub\wwwroot\cert\" (
-    copy /Y "%CERT_DIR%\TaipowerDMS-RootCA.cer" "C:\inetpub\wwwroot\cert\TaipowerDMS-RootCA.cer" >nul
-    echo            已複製到 wwwroot\cert\，使用者可從網頁下載
+echo [步驟 4/5] 複製 Root CA 至前端站台 Client 安裝目錄...
+set "FRONTEND_CERT_DIR=D:\TaoyuanDMS-Frontend\cert"
+if not exist "%FRONTEND_CERT_DIR%\" mkdir "%FRONTEND_CERT_DIR%" >nul 2>&1
+if exist "%FRONTEND_CERT_DIR%\" (
+    copy /Y "%CERT_DIR%\TaipowerDMS-RootCA.cer" "%FRONTEND_CERT_DIR%\TaipowerDMS-RootCA.cer" >nul
+    copy /Y "%~dp0install-cert.bat" "%FRONTEND_CERT_DIR%\install-cert.bat" >nul 2>&1
+    copy /Y "%~dp0README.txt" "%FRONTEND_CERT_DIR%\README.txt" >nul 2>&1
+    echo            已複製到 D:\TaoyuanDMS-Frontend\cert\，使用者可從網頁下載
 ) else (
-    echo            （未偵測到 wwwroot\cert\，請手動將 .cer 複製過去）
+    echo            （未能建立 D:\TaoyuanDMS-Frontend\cert\，請手動複製 .cer 過去）
 )
 echo.
 
