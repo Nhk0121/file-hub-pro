@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Phone, Search, Lock } from 'lucide-react';
-import { DEPARTMENTS, getSectionsForDepartment } from '@/config/organization';
+import { DEPARTMENTS, JOB_TITLES, getSectionsForDepartment } from '@/config/organization';
 
 const PhoneBook = () => {
   const { user, allUsers } = useAuth();
@@ -37,18 +37,41 @@ const PhoneBook = () => {
 
   const employees = allUsers.filter(u => u.role !== '外包人員');
 
-  const filtered = employees.filter(u => {
-    const matchSearch = !search ||
-      u.displayName?.includes(search) ||
-      u.department?.includes(search) ||
-      u.section?.includes(search) ||
-      u.jobTitle?.includes(search) ||
-      u.phone?.includes(search) ||
-      u.extension?.includes(search);
-    const matchDept = deptFilter === '全部' || u.department === deptFilter;
-    const matchSec = secFilter === '全部' || u.section === secFilter;
-    return matchSearch && matchDept && matchSec;
-  });
+  const deptIndex = (d?: string) => {
+    const i = DEPARTMENTS.indexOf(d as typeof DEPARTMENTS[number]);
+    return i === -1 ? 999 : i;
+  };
+  const jobIndex = (j?: string) => {
+    const i = JOB_TITLES.indexOf(j as typeof JOB_TITLES[number]);
+    return i === -1 ? 999 : i;
+  };
+
+  const filtered = employees
+    .filter(u => {
+      const matchSearch = !search ||
+        u.displayName?.includes(search) ||
+        u.department?.includes(search) ||
+        u.section?.includes(search) ||
+        u.jobTitle?.includes(search) ||
+        u.phone?.includes(search) ||
+        u.extension?.includes(search);
+      const matchDept = deptFilter === '全部' || u.department === deptFilter;
+      const matchSec = secFilter === '全部' || u.section === secFilter;
+      return matchSearch && matchDept && matchSec;
+    })
+    .sort((a, b) => {
+      // 1. 組別代號
+      const d = deptIndex(a.department) - deptIndex(b.department);
+      if (d !== 0) return d;
+      // 2. 課別（字典序，含代號排序）
+      const s = (a.section || '').localeCompare(b.section || '', 'zh-Hant');
+      if (s !== 0) return s;
+      // 3. 職稱代號
+      const j = jobIndex(a.jobTitle) - jobIndex(b.jobTitle);
+      if (j !== 0) return j;
+      // 4. 姓名（同職稱時備用）
+      return (a.displayName || '').localeCompare(b.displayName || '', 'zh-Hant');
+    });
 
   return (
     <div className="flex flex-col h-full">
