@@ -3,6 +3,40 @@ chcp 65001 >nul
 title 桃園區處 DMS 伺服器憑證一鍵製作工具
 color 0A
 
+REM ============================================================
+REM  使用方式（請依序執行，全程約 1 分鐘）：
+REM
+REM  【執行時機】
+REM    1. 首次架設 DMS 伺服器時
+REM    2. 伺服器 IP 變更時
+REM    3. 憑證即將到期且自動續簽失敗時（一般免手動執行）
+REM
+REM  【執行前置條件】
+REM    1. 必須在 DMS 伺服器主機（10.205.3.52）上執行
+REM    2. 必須以「系統管理員身分」執行本 BAT
+REM       → 在本檔案上按右鍵 → 選「以系統管理員身分執行」
+REM    3. IIS 已安裝完成且 DMS 站台已建立
+REM       （Port 7443 前端、Port 8443 後端）
+REM
+REM  【執行步驟】
+REM    1. 右鍵點擊 server-setup.bat → 以系統管理員身分執行
+REM    2. 等候自動完成 5 個步驟（建立 Root CA、簽發伺服器憑證、
+REM       IIS 繫結、註冊自動續簽排程、複製 .cer 至下載目錄）
+REM    3. 看到「✓ 全部完成！」訊息即代表成功
+REM    4. 完成後請通知使用者前往登入頁底部點選「下載憑證」
+REM
+REM  【產出檔案】
+REM    C:\DMS-Cert\TaipowerDMS-RootCA.cer  （Root CA 憑證）
+REM    C:\DMS-Cert\setup-cert.ps1          （主執行腳本）
+REM    C:\DMS-Cert\renew-cert.ps1          （自動續簽腳本）
+REM    C:\inetpub\wwwroot\cert\TaipowerDMS-RootCA.cer  （供使用者下載）
+REM
+REM  【自動續簽】
+REM    本工具會註冊 Windows 排程「DMS-Cert-AutoRenew」，
+REM    每週日 03:00 自動檢查並於到期前 30 天內自動續簽，
+REM    無需人工介入。
+REM ============================================================
+
 echo ============================================================
 echo   桃園區處 DMS - 伺服器端憑證一鍵製作工具
 echo   （僅在伺服器 10.205.3.52 上執行）
