@@ -93,9 +93,9 @@ const CertInstall = () => {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
-              <MousePointerClick className="w-5 h-5 text-primary" />步驟 2：以系統管理員身分執行
+              <MousePointerClick className="w-5 h-5 text-primary" />步驟 2：直接雙擊執行（不需管理員權限）
             </CardTitle>
-            <CardDescription>請依照下列順序操作</CardDescription>
+            <CardDescription>本版本僅安裝至「目前 Windows 使用者」，無需 UAC 權限</CardDescription>
           </CardHeader>
           <CardContent>
             <ol className="space-y-3 text-sm">
@@ -108,22 +108,42 @@ const CertInstall = () => {
               <li className="flex gap-3">
                 <span className="flex-shrink-0 w-6 h-6 bg-primary/10 text-primary rounded-full flex items-center justify-center text-xs font-bold">2</span>
                 <div>
-                  <p>對 <code className="bg-muted px-1.5 py-0.5 rounded text-xs">install-cert.bat</code> 按<strong>滑鼠右鍵</strong></p>
+                  <p><strong>滑鼠左鍵雙擊</strong> <code className="bg-muted px-1.5 py-0.5 rounded text-xs">install-cert.bat</code></p>
+                  <p className="text-xs text-muted-foreground mt-1">不需要選「以系統管理員身分執行」，一般使用者帳號即可</p>
                 </div>
               </li>
               <li className="flex gap-3">
                 <span className="flex-shrink-0 w-6 h-6 bg-primary/10 text-primary rounded-full flex items-center justify-center text-xs font-bold">3</span>
                 <div>
-                  <p>選擇 <strong>「以系統管理員身分執行」</strong></p>
-                  <p className="text-xs text-muted-foreground mt-1">若出現使用者帳戶控制 (UAC) 視窗，請點選「是」</p>
-                </div>
-              </li>
-              <li className="flex gap-3">
-                <span className="flex-shrink-0 w-6 h-6 bg-primary/10 text-primary rounded-full flex items-center justify-center text-xs font-bold">4</span>
-                <div>
                   <p>等待視窗顯示 <strong className="text-primary">「✓ 憑證安裝成功」</strong> 後按任意鍵關閉</p>
                 </div>
               </li>
+            </ol>
+            <Alert className="mt-4">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                <strong>多帳號提醒：</strong>本安裝僅對「目前 Windows 登入帳號」生效。若同一台電腦有其他 Windows 帳號需要使用本系統，請在該帳號下重新執行此 BAT。
+              </AlertDescription>
+            </Alert>
+          </CardContent>
+        </Card>
+
+        {/* Manual fallback */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <FileText className="w-5 h-5 text-primary" />備用方案：手動雙擊 .cer 安裝
+            </CardTitle>
+            <CardDescription>若 BAT 執行失敗（例如防毒軟體攔截），可改用此方法</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ol className="space-y-2 text-sm list-decimal list-inside">
+              <li>滑鼠雙擊 <code className="bg-muted px-1.5 py-0.5 rounded text-xs">TaipowerDMS-RootCA.cer</code></li>
+              <li>點擊「<strong>安裝憑證</strong>」按鈕</li>
+              <li>儲存位置選擇「<strong>目前使用者</strong>」→ 下一步</li>
+              <li>選「<strong>將所有憑證放入以下的存放區</strong>」→ 點「瀏覽」</li>
+              <li>選擇「<strong>受信任的根憑證授權單位</strong>」→ 確定 → 下一步 → 完成</li>
+              <li>出現安全性警告時點「<strong>是</strong>」即完成</li>
             </ol>
           </CardContent>
         </Card>
@@ -145,7 +165,7 @@ const CertInstall = () => {
             <Alert className="mt-4">
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription className="text-xs">
-                若仍出現警告，請確認 BAT 是以系統管理員身分執行，或聯絡系統管理員協助。
+                若仍出現警告，請改用「備用方案」手動雙擊 .cer 安裝，或聯絡系統管理員協助。
               </AlertDescription>
             </Alert>
           </CardContent>
