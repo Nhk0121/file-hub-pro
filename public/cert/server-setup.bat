@@ -21,7 +21,7 @@ REM === 設定參數（可依需要修改）===
 set SERVER_IP=10.205.3.52
 set CERT_DIR=C:\DMS-Cert
 set ROOT_CA_NAME=DMS Root CA
-set ROOT_CA_YEARS=30
+set ROOT_CA_YEARS=20
 set SERVER_CERT_YEARS=2
 set FRONTEND_PORT=7443
 set BACKEND_PORT=8443
@@ -39,7 +39,7 @@ set PS_FILE=%CERT_DIR%\setup-cert.ps1
 >>"%PS_FILE%" echo Get-ChildItem Cert:\LocalMachine\My ^| Where-Object { $_.Subject -like "*%ROOT_CA_NAME%*" } ^| Remove-Item -Force -ErrorAction SilentlyContinue
 >>"%PS_FILE%" echo Get-ChildItem Cert:\LocalMachine\Root ^| Where-Object { $_.Subject -like "*%ROOT_CA_NAME%*" } ^| Remove-Item -Force -ErrorAction SilentlyContinue
 >>"%PS_FILE%" echo.
->>"%PS_FILE%" echo Write-Host "[2] 建立 30 年 Root CA..." -ForegroundColor Yellow
+>>"%PS_FILE%" echo Write-Host "[2] 建立 Root CA..." -ForegroundColor Yellow
 >>"%PS_FILE%" echo $rootCA = New-SelfSignedCertificate ^^^
 >>"%PS_FILE%" echo     -Subject "CN=%ROOT_CA_NAME%, O=Taipower Taoyuan, C=TW" ^^^
 >>"%PS_FILE%" echo     -KeyUsage CertSign, CRLSign, DigitalSignature ^^^
