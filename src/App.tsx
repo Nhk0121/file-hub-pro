@@ -21,6 +21,7 @@ import PhoneBook from "./pages/PhoneBook";
 import RecycleBin from "./pages/RecycleBin";
 import NotFound from "./pages/NotFound";
 import PublicShare from "./pages/PublicShare";
+import CertInstall from "./pages/CertInstall";
 
 const queryClient = new QueryClient();
 
@@ -45,6 +46,7 @@ const App = () => (
                   <Route path="/welcome" element={<Landing />} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/share/:token" element={<PublicShare />} />
+                  <Route path="/cert-install" element={<CertInstall />} />
                   <Route
                     element={
                       <ProtectedRoute>

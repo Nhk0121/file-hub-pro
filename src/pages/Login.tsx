@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileText, Lock, User, ArrowLeft, Zap } from 'lucide-react';
+import { FileText, Lock, User, ArrowLeft, Zap, ShieldCheck } from 'lucide-react';
 import { useMonthlyTheme } from '@/hooks/useMonthlyTheme';
 import { toast } from 'sonner';
 import { DEPARTMENTS, getSectionsForDepartment, JOB_TITLES } from '@/config/organization';
@@ -341,6 +341,17 @@ const Login = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* 憑證安裝連結 */}
+        <div className="mt-6 text-center">
+          <a
+            href="/cert-install"
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            首次使用出現「不安全」警告？點此安裝系統憑證
+          </a>
+        </div>
       </div>
     </div>
   );
