@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import storageService from '@/services/storageService';
 import fileService, { type SystemFolderStatus } from '@/services/fileService';
+import auditService from '@/services/auditService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFiles } from '@/contexts/FileContext';
 import { useAudit } from '@/contexts/AuditContext';
@@ -52,7 +53,7 @@ const actionIcons: Record<AuditLog['action'], React.ReactNode> = {
 const Admin = () => {
   const { user, allUsers, addUser, removeUser, updateUser, updateUserRole, registrations, reviewRegistration, resetPassword, refreshUsers } = useAuth();
   const { files, addSectionFolder, removeSectionFolder } = useFiles();
-  const { logs, clearLogs, addLog } = useAudit();
+  const { logs, loading: auditLoading, clearLogs, addLog, refreshLogs } = useAudit();
   const { setFolderPermission, getFolderRules, removeFolderPermission, permanentOverrides, setPermanentOverride, removePermanentOverride } = usePermissions();
 
   const [auditSearch, setAuditSearch] = useState('');
@@ -344,25 +345,20 @@ const Admin = () => {
   };
 
 
-  const handleExportCSV = () => {
-    const headers = ['時間', '使用者', '動作', '對象', '詳細資訊'];
-    const rows = filteredLogs.map(log => [
-      new Date(log.timestamp).toLocaleString('zh-TW'),
-      log.userName,
-      log.action,
-      log.targetName ?? '',
-      log.details ?? '',
-    ]);
-    const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const bom = '\uFEFF';
-    const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `稽核日誌_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success(`已匯出 ${filteredLogs.length} 筆稽核紀錄`);
+  const handleExportCSV = async () => {
+    try {
+      const blob = await auditService.exportCsv();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `稽核日誌_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('已從伺服器匯出完整稽核紀錄');
+    } catch (err) {
+      console.error(err);
+      toast.error('匯出失敗，請稍後再試');
+    }
   };
 
   const selectedFolderRules = selectedFolderId ? getFolderRules(selectedFolderId) : [];
@@ -380,7 +376,11 @@ const Admin = () => {
       </div>
 
       <div className="flex-1 p-6 overflow-auto">
-        <Tabs defaultValue="users" className="space-y-4">
+        <Tabs
+          defaultValue="users"
+          className="space-y-4"
+          onValueChange={(v) => { if (v === 'audit') refreshLogs(); }}
+        >
           <TabsList className="grid w-full grid-cols-6 max-w-4xl">
             <TabsTrigger value="users" className="flex items-center gap-2"><Users className="w-4 h-4" />使用者管理</TabsTrigger>
             <TabsTrigger value="organization" className="flex items-center gap-2"><Building2 className="w-4 h-4" />組織管理</TabsTrigger>
@@ -926,10 +926,13 @@ const Admin = () => {
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                   <CardTitle>資安稽核日誌</CardTitle>
-                  <CardDescription>追蹤所有使用者操作記錄，共 {logs.length} 筆，篩選後 {filteredLogs.length} 筆</CardDescription>
+                  <CardDescription>追蹤所有使用者操作記錄，共 {logs.length} 筆，篩選後 {filteredLogs.length} 筆{auditLoading ? '（載入中…）' : ''}</CardDescription>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={filteredLogs.length === 0}>
+                  <Button variant="outline" size="sm" onClick={() => refreshLogs()} disabled={auditLoading}>
+                    <RefreshCw className={`w-4 h-4 mr-2 ${auditLoading ? 'animate-spin' : ''}`} />重新整理
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleExportCSV}>
                     <Download className="w-4 h-4 mr-2" />匯出 CSV
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => { clearLogs(); toast.success('已清除所有日誌'); }}>

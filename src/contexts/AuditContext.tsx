@@ -4,6 +4,7 @@ import auditService from '@/services/auditService';
 
 interface AuditContextType {
   logs: AuditLog[];
+  loading: boolean;
   addLog: (log: Omit<AuditLog, 'id' | 'timestamp'>) => void;
   clearLogs: () => void;
   refreshLogs: () => Promise<void>;
@@ -13,13 +14,18 @@ const AuditContext = createContext<AuditContextType | null>(null);
 
 export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const refreshLogs = useCallback(async () => {
+    setLoading(true);
     try {
-      const data = await auditService.getAll();
+      // 抓更多筆數，避免只看到最近 100 筆
+      const data = await auditService.getAll({ page: 1, pageSize: 1000 });
       setLogs(data);
     } catch (err) {
       console.error('Failed to load audit logs:', err);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -54,7 +60,7 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   return (
-    <AuditContext.Provider value={{ logs, addLog, clearLogs, refreshLogs }}>
+    <AuditContext.Provider value={{ logs, loading, addLog, clearLogs, refreshLogs }}>
       {children}
     </AuditContext.Provider>
   );
