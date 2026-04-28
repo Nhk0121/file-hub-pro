@@ -926,10 +926,13 @@ const Admin = () => {
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                   <CardTitle>資安稽核日誌</CardTitle>
-                  <CardDescription>追蹤所有使用者操作記錄，共 {logs.length} 筆，篩選後 {filteredLogs.length} 筆</CardDescription>
+                  <CardDescription>追蹤所有使用者操作記錄，共 {logs.length} 筆，篩選後 {filteredLogs.length} 筆{auditLoading ? '（載入中…）' : ''}</CardDescription>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={filteredLogs.length === 0}>
+                  <Button variant="outline" size="sm" onClick={() => refreshLogs()} disabled={auditLoading}>
+                    <RefreshCw className={`w-4 h-4 mr-2 ${auditLoading ? 'animate-spin' : ''}`} />重新整理
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleExportCSV}>
                     <Download className="w-4 h-4 mr-2" />匯出 CSV
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => { clearLogs(); toast.success('已清除所有日誌'); }}>
