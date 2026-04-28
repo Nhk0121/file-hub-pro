@@ -1,40 +1,31 @@
 @echo off
 chcp 65001 >nul
-title 桃園區處 DMS 伺服器憑證一鍵製作工具
+title DMS Server Cert Setup
 color 0A
 
 REM ============================================================
-REM  使用方式（請依序執行，全程約 1 分鐘）：
+REM  Usage / 使用方式
 REM
-REM  【執行時機】
-REM    1. 首次架設 DMS 伺服器時
-REM    2. 伺服器 IP 變更時
-REM    3. 憑證即將到期且自動續簽失敗時（一般免手動執行）
+REM  When to run / 執行時機:
+REM    1. First-time DMS server setup / 首次架設伺服器
+REM    2. Server IP changed / 伺服器 IP 變更
+REM    3. Auto-renewal failed / 自動續簽失敗（一般免手動執行）
 REM
-REM  【執行前置條件】
-REM    1. 必須在 DMS 伺服器主機（10.205.3.52）上執行
-REM    2. 必須以「系統管理員身分」執行本 BAT
-REM       → 在本檔案上按右鍵 → 選「以系統管理員身分執行」
-REM    3. IIS 已安裝完成且 DMS 站台已建立
-REM       （Port 7443 前端、Port 8443 後端）
+REM  Prerequisites / 前置條件:
+REM    1. Run on DMS server (10.205.3.52) only
+REM       僅可在 DMS 伺服器主機執行
+REM    2. Right-click -> Run as Administrator
+REM       右鍵 -> 以系統管理員身分執行
+REM    3. IIS installed, sites bound to 7443/8443
+REM       IIS 已安裝且 DMS 站台已建立（Port 7443/8443）
 REM
-REM  【執行步驟】
-REM    1. 右鍵點擊 server-setup.bat → 以系統管理員身分執行
-REM    2. 等候自動完成 5 個步驟（建立 Root CA、簽發伺服器憑證、
-REM       IIS 繫結、註冊自動續簽排程、複製 .cer 至下載目錄）
-REM    3. 看到「✓ 全部完成！」訊息即代表成功
-REM    4. 完成後請通知使用者前往登入頁底部點選「下載憑證」
-REM
-REM  【產出檔案】
-REM    C:\DMS-Cert\TaipowerDMS-RootCA.cer  （Root CA 憑證）
-REM    C:\DMS-Cert\setup-cert.ps1          （主執行腳本）
-REM    C:\DMS-Cert\renew-cert.ps1          （自動續簽腳本）
-REM    D:\TaoyuanDMS-Frontend\cert\TaipowerDMS-RootCA.cer  （供使用者下載）
-REM
-REM  【自動續簽】
-REM    本工具會註冊 Windows 排程「DMS-Cert-AutoRenew」，
-REM    每週日 03:00 自動檢查並於到期前 30 天內自動續簽，
-REM    無需人工介入。
+REM  What it does / 動作:
+REM    1. Create Root CA (20 years) / 建立 Root CA
+REM    2. Issue server cert (2 years) / 簽發伺服器憑證
+REM    3. Bind to IIS / 繫結 IIS
+REM    4. Register weekly auto-renew task / 註冊每週自動續簽
+REM    5. Copy .cer to D:\TaoyuanDMS-Frontend\cert\ for download
+REM       複製 .cer 至前端目錄供使用者下載
 REM ============================================================
 
 echo ============================================================
@@ -43,134 +34,40 @@ echo   （僅在伺服器 10.205.3.52 上執行）
 echo ============================================================
 echo.
 
-REM === 檢查管理員權限 ===
+REM === Check Administrator privilege ===
 net session >nul 2>&1
 if %errorLevel% neq 0 (
+    echo [ERROR] Please run as Administrator
     echo [錯誤] 請以系統管理員身分執行此 BAT
     pause
     exit /b 1
 )
 
-REM === 設定參數（可依需要修改）===
-set SERVER_IP=10.205.3.52
-set CERT_DIR=C:\DMS-Cert
-set ROOT_CA_NAME=DMS Root CA
-set ROOT_CA_YEARS=20
-set SERVER_CERT_YEARS=2
-set FRONTEND_PORT=7443
-set BACKEND_PORT=8443
+REM === Locate setup-cert.ps1 in same folder ===
+set "PS_SCRIPT=%~dp0setup-cert.ps1"
 
-if not exist "%CERT_DIR%" mkdir "%CERT_DIR%"
+if not exist "%PS_SCRIPT%" (
+    echo [ERROR] setup-cert.ps1 not found in: %~dp0
+    echo [錯誤] 找不到 setup-cert.ps1，請確認與本 BAT 放在同一資料夾
+    pause
+    exit /b 1
+)
 
-echo [步驟 1/5] 建立 PowerShell 執行腳本...
-set PS_FILE=%CERT_DIR%\setup-cert.ps1
-
-> "%PS_FILE%" echo $ErrorActionPreference = "Stop"
->>"%PS_FILE%" echo $serverIp = "%SERVER_IP%"
->>"%PS_FILE%" echo $certDir  = "%CERT_DIR%"
->>"%PS_FILE%" echo.
->>"%PS_FILE%" echo Write-Host "[1] 移除舊的 Root CA..." -ForegroundColor Yellow
->>"%PS_FILE%" echo Get-ChildItem Cert:\LocalMachine\My ^| Where-Object { $_.Subject -like "*%ROOT_CA_NAME%*" } ^| Remove-Item -Force -ErrorAction SilentlyContinue
->>"%PS_FILE%" echo Get-ChildItem Cert:\LocalMachine\Root ^| Where-Object { $_.Subject -like "*%ROOT_CA_NAME%*" } ^| Remove-Item -Force -ErrorAction SilentlyContinue
->>"%PS_FILE%" echo.
->>"%PS_FILE%" echo Write-Host "[2] 建立 Root CA..." -ForegroundColor Yellow
->>"%PS_FILE%" echo $rootCA = New-SelfSignedCertificate ^^^
->>"%PS_FILE%" echo     -Subject "CN=%ROOT_CA_NAME%, O=Taipower Taoyuan, C=TW" ^^^
->>"%PS_FILE%" echo     -KeyUsage CertSign, CRLSign, DigitalSignature ^^^
->>"%PS_FILE%" echo     -KeyLength 4096 -KeyAlgorithm RSA -HashAlgorithm SHA256 ^^^
->>"%PS_FILE%" echo     -KeyExportPolicy Exportable ^^^
->>"%PS_FILE%" echo     -NotAfter (Get-Date).AddYears(%ROOT_CA_YEARS%) ^^^
->>"%PS_FILE%" echo     -CertStoreLocation "Cert:\LocalMachine\My" ^^^
->>"%PS_FILE%" echo     -TextExtension @("2.5.29.19={text}CA=true^&pathlength=0")
->>"%PS_FILE%" echo Export-Certificate -Cert $rootCA -FilePath "$certDir\TaipowerDMS-RootCA.cer" ^| Out-Null
->>"%PS_FILE%" echo Import-Certificate -FilePath "$certDir\TaipowerDMS-RootCA.cer" -CertStoreLocation Cert:\LocalMachine\Root ^| Out-Null
->>"%PS_FILE%" echo Write-Host "    Root CA 完成，有效至 $($rootCA.NotAfter)" -ForegroundColor Green
->>"%PS_FILE%" echo.
->>"%PS_FILE%" echo Write-Host "[3] 簽發 2 年伺服器憑證..." -ForegroundColor Yellow
->>"%PS_FILE%" echo Get-ChildItem Cert:\LocalMachine\My ^| Where-Object { $_.Subject -eq "CN=$serverIp" } ^| Remove-Item -Force -ErrorAction SilentlyContinue
->>"%PS_FILE%" echo $serverCert = New-SelfSignedCertificate ^^^
->>"%PS_FILE%" echo     -Subject "CN=$serverIp" ^^^
->>"%PS_FILE%" echo     -DnsName $serverIp, "localhost" ^^^
->>"%PS_FILE%" echo     -Signer $rootCA -KeyLength 2048 -HashAlgorithm SHA256 ^^^
->>"%PS_FILE%" echo     -NotAfter (Get-Date).AddYears(%SERVER_CERT_YEARS%) ^^^
->>"%PS_FILE%" echo     -CertStoreLocation "Cert:\LocalMachine\My" ^^^
->>"%PS_FILE%" echo     -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.1", "2.5.29.17={text}DNS=$serverIp^&IPAddress=$serverIp")
->>"%PS_FILE%" echo Write-Host "    伺服器憑證完成 ($($serverCert.Thumbprint))" -ForegroundColor Green
->>"%PS_FILE%" echo.
->>"%PS_FILE%" echo Write-Host "[4] 繫結至 IIS Port %FRONTEND_PORT% / %BACKEND_PORT%..." -ForegroundColor Yellow
->>"%PS_FILE%" echo Import-Module WebAdministration
->>"%PS_FILE%" echo foreach ($port in @(%FRONTEND_PORT%, %BACKEND_PORT%)) {
->>"%PS_FILE%" echo     $bindPath = "IIS:\SslBindings\0.0.0.0!$port"
->>"%PS_FILE%" echo     if (Test-Path $bindPath) { Remove-Item $bindPath -Force }
->>"%PS_FILE%" echo     Get-Item "Cert:\LocalMachine\My\$($serverCert.Thumbprint)" ^| New-Item $bindPath ^| Out-Null
->>"%PS_FILE%" echo     Write-Host "    Port $port 繫結完成" -ForegroundColor Green
->>"%PS_FILE%" echo }
->>"%PS_FILE%" echo.
->>"%PS_FILE%" echo Write-Host "[5] 註冊每週自動續簽排程..." -ForegroundColor Yellow
->>"%PS_FILE%" echo $renewScript = "$certDir\renew-cert.ps1"
->>"%PS_FILE%" echo Copy-Item -Path "$certDir\renew-cert.ps1" -Destination $renewScript -Force -ErrorAction SilentlyContinue
->>"%PS_FILE%" echo Unregister-ScheduledTask -TaskName "DMS-Cert-AutoRenew" -Confirm:$false -ErrorAction SilentlyContinue
->>"%PS_FILE%" echo $action = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -File $renewScript"
->>"%PS_FILE%" echo $trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At 3am
->>"%PS_FILE%" echo $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -RunLevel Highest
->>"%PS_FILE%" echo Register-ScheduledTask -TaskName "DMS-Cert-AutoRenew" -Action $action -Trigger $trigger -Principal $principal -Description "DMS 憑證自動續簽" ^| Out-Null
->>"%PS_FILE%" echo Write-Host "    排程完成（每週日 03:00 檢查）" -ForegroundColor Green
->>"%PS_FILE%" echo.
->>"%PS_FILE%" echo Write-Host "============================================================" -ForegroundColor Cyan
->>"%PS_FILE%" echo Write-Host "  ✓ 全部完成！" -ForegroundColor Green
->>"%PS_FILE%" echo Write-Host "  Root CA 檔案：$certDir\TaipowerDMS-RootCA.cer" -ForegroundColor Cyan
->>"%PS_FILE%" echo Write-Host "  將自動複製至前端站台 cert\ 目錄供 Client 端下載" -ForegroundColor Cyan
->>"%PS_FILE%" echo Write-Host "============================================================" -ForegroundColor Cyan
-
-echo            完成
+echo [INFO] Executing PowerShell script...
+echo [資訊] 開始執行 PowerShell 腳本...
 echo.
 
-echo [步驟 2/5] 建立自動續簽腳本...
-> "%CERT_DIR%\renew-cert.ps1" echo $ErrorActionPreference = "Stop"
->>"%CERT_DIR%\renew-cert.ps1" echo $log = "%CERT_DIR%\renew.log"
->>"%CERT_DIR%\renew-cert.ps1" echo function Log($m) { Add-Content $log "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $m" }
->>"%CERT_DIR%\renew-cert.ps1" echo try {
->>"%CERT_DIR%\renew-cert.ps1" echo     $cur = Get-ChildItem Cert:\LocalMachine\My ^| Where-Object { $_.Subject -eq "CN=%SERVER_IP%" } ^| Sort-Object NotAfter -Descending ^| Select-Object -First 1
->>"%CERT_DIR%\renew-cert.ps1" echo     if ($cur -and ($cur.NotAfter - (Get-Date)).Days -gt 30) { Log "仍有 $(($cur.NotAfter - (Get-Date)).Days) 天，無需續簽"; exit 0 }
->>"%CERT_DIR%\renew-cert.ps1" echo     $ca = Get-ChildItem Cert:\LocalMachine\My ^| Where-Object { $_.Subject -like "*%ROOT_CA_NAME%*" } ^| Select-Object -First 1
->>"%CERT_DIR%\renew-cert.ps1" echo     if (-not $ca) { throw "找不到 Root CA" }
->>"%CERT_DIR%\renew-cert.ps1" echo     $new = New-SelfSignedCertificate -Subject "CN=%SERVER_IP%" -DnsName "%SERVER_IP%","localhost" -Signer $ca -KeyLength 2048 -HashAlgorithm SHA256 -NotAfter (Get-Date).AddYears(%SERVER_CERT_YEARS%) -CertStoreLocation "Cert:\LocalMachine\My" -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.1","2.5.29.17={text}DNS=%SERVER_IP%^&IPAddress=%SERVER_IP%")
->>"%CERT_DIR%\renew-cert.ps1" echo     Import-Module WebAdministration
->>"%CERT_DIR%\renew-cert.ps1" echo     foreach ($p in @(%FRONTEND_PORT%,%BACKEND_PORT%)) {
->>"%CERT_DIR%\renew-cert.ps1" echo         $bp = "IIS:\SslBindings\0.0.0.0!$p"; if (Test-Path $bp) { Remove-Item $bp -Force }
->>"%CERT_DIR%\renew-cert.ps1" echo         Get-Item "Cert:\LocalMachine\My\$($new.Thumbprint)" ^| New-Item $bp ^| Out-Null
->>"%CERT_DIR%\renew-cert.ps1" echo     }
->>"%CERT_DIR%\renew-cert.ps1" echo     if ($cur -and $cur.Thumbprint -ne $new.Thumbprint) { Remove-Item "Cert:\LocalMachine\My\$($cur.Thumbprint)" -Force }
->>"%CERT_DIR%\renew-cert.ps1" echo     Log "續簽完成，新憑證有效至 $($new.NotAfter)"
->>"%CERT_DIR%\renew-cert.ps1" echo } catch { Log "失敗：$($_.Exception.Message)"; exit 1 }
-echo            完成
-echo.
+powershell -NoProfile -ExecutionPolicy Bypass -File "%PS_SCRIPT%"
 
-echo [步驟 3/5] 執行 PowerShell 主腳本...
-echo.
-powershell -NoProfile -ExecutionPolicy Bypass -File "%PS_FILE%"
 if %errorLevel% neq 0 (
     echo.
+    echo [ERROR] Setup failed. Please check messages above.
     echo [錯誤] 憑證製作失敗，請檢查上方訊息
     pause
     exit /b 1
 )
 
 echo.
-echo [步驟 4/5] 複製 Root CA 至前端站台 Client 安裝目錄...
-set "FRONTEND_CERT_DIR=D:\TaoyuanDMS-Frontend\cert"
-if not exist "%FRONTEND_CERT_DIR%\" mkdir "%FRONTEND_CERT_DIR%" >nul 2>&1
-if exist "%FRONTEND_CERT_DIR%\" (
-    copy /Y "%CERT_DIR%\TaipowerDMS-RootCA.cer" "%FRONTEND_CERT_DIR%\TaipowerDMS-RootCA.cer" >nul
-    copy /Y "%~dp0install-cert.bat" "%FRONTEND_CERT_DIR%\install-cert.bat" >nul 2>&1
-    copy /Y "%~dp0README.txt" "%FRONTEND_CERT_DIR%\README.txt" >nul 2>&1
-    echo            已複製到 D:\TaoyuanDMS-Frontend\cert\，使用者可從網頁下載
-) else (
-    echo            （未能建立 D:\TaoyuanDMS-Frontend\cert\，請手動複製 .cer 過去）
-)
-echo.
-
-echo [步驟 5/5] 完成。
 echo ============================================================
 echo   接下來請通知使用者：
 echo     登入頁底部 → 點選「下載憑證」→ 取得 .cer 與 install-cert.bat
