@@ -60,7 +60,7 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   return (
-    <AuditContext.Provider value={{ logs, addLog, clearLogs, refreshLogs }}>
+    <AuditContext.Provider value={{ logs, loading, addLog, clearLogs, refreshLogs }}>
       {children}
     </AuditContext.Provider>
   );
