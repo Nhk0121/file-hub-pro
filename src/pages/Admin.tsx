@@ -344,25 +344,20 @@ const Admin = () => {
   };
 
 
-  const handleExportCSV = () => {
-    const headers = ['時間', '使用者', '動作', '對象', '詳細資訊'];
-    const rows = filteredLogs.map(log => [
-      new Date(log.timestamp).toLocaleString('zh-TW'),
-      log.userName,
-      log.action,
-      log.targetName ?? '',
-      log.details ?? '',
-    ]);
-    const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const bom = '\uFEFF';
-    const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `稽核日誌_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success(`已匯出 ${filteredLogs.length} 筆稽核紀錄`);
+  const handleExportCSV = async () => {
+    try {
+      const blob = await auditService.exportCsv();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `稽核日誌_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('已從伺服器匯出完整稽核紀錄');
+    } catch (err) {
+      console.error(err);
+      toast.error('匯出失敗，請稍後再試');
+    }
   };
 
   const selectedFolderRules = selectedFolderId ? getFolderRules(selectedFolderId) : [];
