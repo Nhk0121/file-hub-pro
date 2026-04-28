@@ -52,7 +52,7 @@ const actionIcons: Record<AuditLog['action'], React.ReactNode> = {
 const Admin = () => {
   const { user, allUsers, addUser, removeUser, updateUser, updateUserRole, registrations, reviewRegistration, resetPassword, refreshUsers } = useAuth();
   const { files, addSectionFolder, removeSectionFolder } = useFiles();
-  const { logs, clearLogs, addLog } = useAudit();
+  const { logs, loading: auditLoading, clearLogs, addLog, refreshLogs } = useAudit();
   const { setFolderPermission, getFolderRules, removeFolderPermission, permanentOverrides, setPermanentOverride, removePermanentOverride } = usePermissions();
 
   const [auditSearch, setAuditSearch] = useState('');
