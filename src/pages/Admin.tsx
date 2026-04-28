@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import storageService from '@/services/storageService';
 import fileService, { type SystemFolderStatus } from '@/services/fileService';
+import auditService from '@/services/auditService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFiles } from '@/contexts/FileContext';
 import { useAudit } from '@/contexts/AuditContext';
