@@ -10,8 +10,24 @@ try {
   }
 } catch { /* ignore */ }
 
-// 後端 API 基礎 URL，部署時請修改為實際位址
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://localhost:5001/api';
+// 後端 API 基礎 URL：依使用者瀏覽器當下的 hostname 動態決定
+// 同一份建置檔可同時支援 https://localhost:7443 與 https://10.205.3.52:7443 兩種來源
+function resolveApiBaseUrl(): string {
+  // 優先使用環境變數（開發或特殊部署時可覆寫）
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  if (envUrl && envUrl.trim() !== '') return envUrl;
+
+  // 瀏覽器環境：依當前 hostname 推導後端位址（後端固定為 8443 埠）
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    const host = window.location.hostname;
+    return `https://${host}:8443/api`;
+  }
+
+  // SSR 或 fallback
+  return 'https://localhost:8443/api';
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
