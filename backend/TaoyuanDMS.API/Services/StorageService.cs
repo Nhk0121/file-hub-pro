@@ -61,10 +61,20 @@ public class StorageService
     public async Task<StorageSettingsDto> GetSettingsAsync()
     {
         using var conn = _db.CreateConnection();
+
+        // 容錯：若舊資料庫尚未升級新欄位，自動補上（冪等）
+        await conn.ExecuteAsync(@"
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[StorageSettings]') AND name = 'TrashRetentionDays')
+                ALTER TABLE [dbo].[StorageSettings] ADD [TrashRetentionDays] INT NOT NULL DEFAULT 30;
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[StorageSettings]') AND name = 'TempZoneRetentionDays')
+                ALTER TABLE [dbo].[StorageSettings] ADD [TempZoneRetentionDays] INT NOT NULL DEFAULT 30;");
+
         var row = await conn.QueryFirstOrDefaultAsync<StorageSettingsDto>(@"
             SELECT TOP 1
                 PrimaryPath, AutoCreateFolders, BackupEnabled,
                 BackupFrequency, BackupTime, BackupRetentionDays,
+                ISNULL(TrashRetentionDays, 30) AS TrashRetentionDays,
+                ISNULL(TempZoneRetentionDays, 30) AS TempZoneRetentionDays,
                 CONVERT(varchar(33), UpdatedAt, 126) AS UpdatedAt
             FROM StorageSettings WHERE Id = 1");
 
@@ -83,6 +93,8 @@ public class StorageService
                 BackupFrequency = "每日",
                 BackupTime = "02:00",
                 BackupRetentionDays = 30,
+                TrashRetentionDays = 30,
+                TempZoneRetentionDays = 30,
                 UpdatedAt = DateTime.UtcNow.ToString("o"),
             };
         }
@@ -100,6 +112,8 @@ public class StorageService
                 BackupFrequency = @BackupFrequency,
                 BackupTime = @BackupTime,
                 BackupRetentionDays = @BackupRetentionDays,
+                TrashRetentionDays = @TrashRetentionDays,
+                TempZoneRetentionDays = @TempZoneRetentionDays,
                 UpdatedAt = GETUTCDATE()
             WHERE Id = 1",
             req);
