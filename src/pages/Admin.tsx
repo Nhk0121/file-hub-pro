@@ -161,7 +161,9 @@ const Admin = () => {
     .filter(f => f.type === 'folder')
     .map(f => ({ ...f, _path: folderPath(f.id) }))
     .sort((a, b) => folderCollator.compare(a._path, b._path));
-  const visibleRegistrations = (Array.isArray(registrations) ? registrations : []).filter(r => r.status !== '已核准');
+  // 帳號審核僅顯示「公司員工」申請；外包人員申請已移至「外包人員管理」頁
+  const visibleRegistrations = (Array.isArray(registrations) ? registrations : [])
+    .filter(r => r.status !== '已核准' && r.applicantType !== '外包人員');
   const pendingCount = visibleRegistrations.filter(r => r.status === '待審核').length;
 
   const newUserSections = newUser.department ? getSectionsForDepartment(newUser.department) : [];
