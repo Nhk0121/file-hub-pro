@@ -568,8 +568,8 @@ const Admin = () => {
           <TabsContent value="registrations">
             <Card>
               <CardHeader>
-                <CardTitle>帳號申請審核</CardTitle>
-                <CardDescription>審核使用者從登入頁面提交的帳號申請</CardDescription>
+                <CardTitle>帳號申請審核（公司員工）</CardTitle>
+                <CardDescription>審核公司員工從登入頁面提交的帳號申請。外包人員申請請至「外包人員管理」頁面。</CardDescription>
               </CardHeader>
               <CardContent>
                 {visibleRegistrations.length === 0 ? (
