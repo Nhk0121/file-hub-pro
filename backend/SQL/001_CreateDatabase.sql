@@ -232,6 +232,8 @@ CREATE TABLE [dbo].[StorageSettings] (
     [BackupFrequency]     NVARCHAR(20)   NOT NULL DEFAULT N'每日',
     [BackupTime]          NVARCHAR(10)   NOT NULL DEFAULT N'02:00',
     [BackupRetentionDays] INT            NOT NULL DEFAULT 30,
+    [TrashRetentionDays]  INT            NOT NULL DEFAULT 30,
+    [TempZoneRetentionDays] INT          NOT NULL DEFAULT 30,
     [UpdatedAt]           DATETIME2      NOT NULL DEFAULT GETUTCDATE(),
     CONSTRAINT CK_StorageSettings_SingleRow CHECK ([Id] = 1)
 );
@@ -240,6 +242,14 @@ GO
 -- 預置單列設定（若尚未存在）
 IF NOT EXISTS (SELECT 1 FROM [dbo].[StorageSettings] WHERE [Id] = 1)
     INSERT INTO [dbo].[StorageSettings] ([Id]) VALUES (1);
+GO
+
+-- 既有資料庫升級：補上保留天數欄位（冪等）
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[StorageSettings]') AND name = 'TrashRetentionDays')
+    ALTER TABLE [dbo].[StorageSettings] ADD [TrashRetentionDays] INT NOT NULL DEFAULT 30;
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[StorageSettings]') AND name = 'TempZoneRetentionDays')
+    ALTER TABLE [dbo].[StorageSettings] ADD [TempZoneRetentionDays] INT NOT NULL DEFAULT 30;
 GO
 
 -- =============================================
