@@ -73,9 +73,17 @@ const Admin = () => {
   const [permUserId, setPermUserId] = useState('');
   const [permLevel, setPermLevel] = useState<FolderPermission>('完整權限');
 
-  // 使用者搜尋
+  // 使用者搜尋（比照電話簿：關鍵字 + 組別 + 課別）
   const [userSearch, setUserSearch] = useState('');
+  const [userDeptFilter, setUserDeptFilter] = useState<string>('全部');
+  const [userSecFilter, setUserSecFilter] = useState<string>('全部');
   const [savingRoleIds, setSavingRoleIds] = useState<string[]>([]);
+
+  const handleUserDeptChange = (val: string) => {
+    setUserDeptFilter(val);
+    setUserSecFilter('全部');
+  };
+  const userAvailableSections = userDeptFilter !== '全部' ? getSectionsForDepartment(userDeptFilter) : [];
 
   // 編輯使用者
   const [editUserOpen, setEditUserOpen] = useState(false);
