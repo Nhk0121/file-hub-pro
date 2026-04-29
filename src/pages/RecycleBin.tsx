@@ -9,8 +9,9 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import storageService from '@/services/storageService';
 
 const RecycleBin = () => {
   const { trashItems, restoreFromTrash, permanentDelete, emptyTrash } = useFiles();
