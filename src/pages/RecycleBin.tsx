@@ -9,8 +9,9 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import storageService from '@/services/storageService';
 
 const RecycleBin = () => {
   const { trashItems, restoreFromTrash, permanentDelete, emptyTrash } = useFiles();
@@ -18,6 +19,13 @@ const RecycleBin = () => {
   const { addLog } = useAudit();
   const [confirmEmpty, setConfirmEmpty] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [retentionDays, setRetentionDays] = useState<number>(30);
+
+  useEffect(() => {
+    storageService.getSettings()
+      .then(s => setRetentionDays(s.trashRetentionDays || 30))
+      .catch(() => setRetentionDays(30));
+  }, []);
 
   const isAdmin = user?.role === '管理員' || user?.role === '系統管理員';
 
@@ -55,7 +63,7 @@ const RecycleBin = () => {
   };
 
   const formatDate = (d: string) => new Date(d).toLocaleString('zh-TW');
-  const daysLeft = (d: string) => Math.max(0, 30 - Math.floor((Date.now() - new Date(d).getTime()) / 86400000));
+  const daysLeft = (d: string) => Math.max(0, retentionDays - Math.floor((Date.now() - new Date(d).getTime()) / 86400000));
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -64,7 +72,7 @@ const RecycleBin = () => {
           <Trash2 className="w-6 h-6 text-destructive" />
           <div>
             <h1 className="text-2xl font-bold">資源回收桶</h1>
-            <p className="text-sm text-muted-foreground">刪除的檔案將保留 30 天，之後自動永久清除</p>
+            <p className="text-sm text-muted-foreground">刪除的檔案將保留 {retentionDays} 天，之後自動永久清除</p>
           </div>
         </div>
         {rootItems.length > 0 && isAdmin && (

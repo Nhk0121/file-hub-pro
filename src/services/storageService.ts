@@ -14,6 +14,8 @@ export interface StorageSettings {
   backupFrequency: '每日' | '每週' | '每月' | '手動';
   backupTime: string;
   backupRetentionDays: number;
+  trashRetentionDays: number;
+  tempZoneRetentionDays: number;
   updatedAt: string;
 }
 
