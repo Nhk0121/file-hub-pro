@@ -96,6 +96,8 @@ const StorageConfig = () => {
         backupFrequency: settings.backupFrequency,
         backupTime: settings.backupTime,
         backupRetentionDays: settings.backupRetentionDays,
+        trashRetentionDays: settings.trashRetentionDays,
+        tempZoneRetentionDays: settings.tempZoneRetentionDays,
       });
       // 重新讀取以取得最新主路徑與磁碟使用量
       await loadAll();
