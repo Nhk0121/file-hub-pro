@@ -73,9 +73,17 @@ const Admin = () => {
   const [permUserId, setPermUserId] = useState('');
   const [permLevel, setPermLevel] = useState<FolderPermission>('完整權限');
 
-  // 使用者搜尋
+  // 使用者搜尋（比照電話簿：關鍵字 + 組別 + 課別）
   const [userSearch, setUserSearch] = useState('');
+  const [userDeptFilter, setUserDeptFilter] = useState<string>('全部');
+  const [userSecFilter, setUserSecFilter] = useState<string>('全部');
   const [savingRoleIds, setSavingRoleIds] = useState<string[]>([]);
+
+  const handleUserDeptChange = (val: string) => {
+    setUserDeptFilter(val);
+    setUserSecFilter('全部');
+  };
+  const userAvailableSections = userDeptFilter !== '全部' ? getSectionsForDepartment(userDeptFilter) : [];
 
   // 編輯使用者
   const [editUserOpen, setEditUserOpen] = useState(false);
@@ -161,7 +169,9 @@ const Admin = () => {
     .filter(f => f.type === 'folder')
     .map(f => ({ ...f, _path: folderPath(f.id) }))
     .sort((a, b) => folderCollator.compare(a._path, b._path));
-  const visibleRegistrations = (Array.isArray(registrations) ? registrations : []).filter(r => r.status !== '已核准');
+  // 帳號審核僅顯示「公司員工」申請；外包人員申請已移至「外包人員管理」頁
+  const visibleRegistrations = (Array.isArray(registrations) ? registrations : [])
+    .filter(r => r.status !== '已核准' && r.applicantType !== '外包人員');
   const pendingCount = visibleRegistrations.filter(r => r.status === '待審核').length;
 
   const newUserSections = newUser.department ? getSectionsForDepartment(newUser.department) : [];
@@ -406,9 +416,32 @@ const Admin = () => {
                 <Button onClick={() => setAddUserOpen(true)}><UserPlus className="w-4 h-4 mr-2" />新增使用者</Button>
               </CardHeader>
               <CardContent>
-                <div className="relative mb-4 max-w-sm">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input value={userSearch} onChange={e => setUserSearch(e.target.value)} placeholder="搜尋帳號、姓名、組別..." className="pl-9" />
+                <div className="flex items-center gap-3 flex-wrap mb-4">
+                  <div className="relative flex-1 min-w-[200px] max-w-sm">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      value={userSearch}
+                      onChange={e => setUserSearch(e.target.value)}
+                      placeholder="搜尋帳號、姓名、職稱、電話、信箱..."
+                      className="pl-9"
+                    />
+                  </div>
+                  <Select value={userDeptFilter} onValueChange={handleUserDeptChange}>
+                    <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="全部">全部組別</SelectItem>
+                      {DEPARTMENTS.map(d => (<SelectItem key={d} value={d}>{d}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                  {userAvailableSections.length > 0 && (
+                    <Select value={userSecFilter} onValueChange={setUserSecFilter}>
+                      <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="全部">全部課別</SelectItem>
+                        {userAvailableSections.map(s => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
                 <Table>
                   <TableHeader>
@@ -425,11 +458,45 @@ const Admin = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(Array.isArray(allUsers) ? allUsers : []).filter(u => {
-                      if (!userSearch) return true;
-                      const q = userSearch.toLowerCase();
-                      return u.username.toLowerCase().includes(q) || u.displayName.toLowerCase().includes(q) || (u.department || '').toLowerCase().includes(q) || (u.section || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
-                    }).map(u => (
+                    {(() => {
+                      const list = Array.isArray(allUsers) ? allUsers : [];
+                      const deptIndex = (d?: string) => {
+                        const i = DEPARTMENTS.indexOf(d as typeof DEPARTMENTS[number]);
+                        return i === -1 ? 999 : i;
+                      };
+                      const jobIndex = (j?: string) => {
+                        const i = JOB_TITLES.indexOf(j as typeof JOB_TITLES[number]);
+                        return i === -1 ? 999 : i;
+                      };
+                      const q = userSearch.trim().toLowerCase();
+                      const filtered = list.filter(u => {
+                        const matchSearch = !q
+                          || u.username.toLowerCase().includes(q)
+                          || (u.displayName || '').toLowerCase().includes(q)
+                          || (u.department || '').toLowerCase().includes(q)
+                          || (u.section || '').toLowerCase().includes(q)
+                          || (u.jobTitle || '').toLowerCase().includes(q)
+                          || (u.email || '').toLowerCase().includes(q)
+                          || (u.phone || '').toLowerCase().includes(q)
+                          || (u.extension || '').toLowerCase().includes(q);
+                        const matchDept = userDeptFilter === '全部' || u.department === userDeptFilter;
+                        const matchSec = userSecFilter === '全部' || u.section === userSecFilter;
+                        return matchSearch && matchDept && matchSec;
+                      });
+                      const sorted = filtered.sort((a, b) => {
+                        // 1. 組別代號
+                        const d = deptIndex(a.department) - deptIndex(b.department);
+                        if (d !== 0) return d;
+                        // 2. 課別
+                        const s = (a.section || '').localeCompare(b.section || '', 'zh-Hant');
+                        if (s !== 0) return s;
+                        // 3. 職稱代號
+                        const j = jobIndex(a.jobTitle) - jobIndex(b.jobTitle);
+                        if (j !== 0) return j;
+                        // 4. 姓名
+                        return (a.displayName || '').localeCompare(b.displayName || '', 'zh-Hant');
+                      });
+                      return sorted.map(u => (
                       <TableRow key={u.id}>
                         <TableCell>
                           <Badge variant={u.applicantType === '外包人員' ? 'outline' : 'secondary'}>
@@ -473,7 +540,8 @@ const Admin = () => {
                           </Button>
                         </TableCell>
                       </TableRow>
-                    ))}
+                      ));
+                    })()}
                   </TableBody>
                 </Table>
               </CardContent>
@@ -566,8 +634,8 @@ const Admin = () => {
           <TabsContent value="registrations">
             <Card>
               <CardHeader>
-                <CardTitle>帳號申請審核</CardTitle>
-                <CardDescription>審核使用者從登入頁面提交的帳號申請</CardDescription>
+                <CardTitle>帳號申請審核（公司員工）</CardTitle>
+                <CardDescription>審核公司員工從登入頁面提交的帳號申請。外包人員申請請至「外包人員管理」頁面。</CardDescription>
               </CardHeader>
               <CardContent>
                 {visibleRegistrations.length === 0 ? (

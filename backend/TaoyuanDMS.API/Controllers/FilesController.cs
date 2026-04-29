@@ -105,7 +105,9 @@ public class FilesController : BaseController
     }
 
     // === Sections ===
+    // 註冊頁面需於未登入時取得課別清單，故開放匿名存取
     [HttpGet("sections")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetSections([FromServices] SectionService sections)
     {
         var data = await sections.GetAllAsync();

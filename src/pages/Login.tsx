@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAudit } from '@/contexts/AuditContext';
 import { useNavigate } from 'react-router-dom';
+import fileService from '@/services/fileService';
+import { setDepartmentSections } from '@/config/organization';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,6 +37,19 @@ const Login = () => {
     displayName: '', email: '', department: '', section: '', phone: '', extension: '',
   });
 
+  // 從後端同步課別清單（避免本機 localStorage 為空導致課別下拉無選項）
+  const [sectionsVersion, setSectionsVersion] = useState(0);
+  useEffect(() => {
+    fileService.getSections()
+      .then(remote => {
+        setDepartmentSections(remote);
+        setSectionsVersion(v => v + 1);
+      })
+      .catch(() => { /* 後端未連線時保留 localStorage 既有資料 */ });
+  }, []);
+
+  // 透過 sectionsVersion 觸發重算，確保同步後下拉選單即時更新
+  void sectionsVersion;
   const empSections = empForm.department ? getSectionsForDepartment(empForm.department) : [];
   const conSections = conForm.department ? getSectionsForDepartment(conForm.department) : [];
   const theme = useMonthlyTheme();
