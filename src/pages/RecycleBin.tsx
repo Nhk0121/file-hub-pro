@@ -63,7 +63,7 @@ const RecycleBin = () => {
   };
 
   const formatDate = (d: string) => new Date(d).toLocaleString('zh-TW');
-  const daysLeft = (d: string) => Math.max(0, 30 - Math.floor((Date.now() - new Date(d).getTime()) / 86400000));
+  const daysLeft = (d: string) => Math.max(0, retentionDays - Math.floor((Date.now() - new Date(d).getTime()) / 86400000));
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
