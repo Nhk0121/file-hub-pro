@@ -153,6 +153,8 @@ public class StorageSettingsDto
     public string BackupFrequency { get; set; } = "每日";
     public string BackupTime { get; set; } = "02:00";
     public int BackupRetentionDays { get; set; } = 30;
+    public int TrashRetentionDays { get; set; } = 30;
+    public int TempZoneRetentionDays { get; set; } = 30;
     public string UpdatedAt { get; set; } = "";
 }
 
@@ -162,7 +164,9 @@ public record UpdateStorageSettingsRequest(
     bool BackupEnabled,
     string BackupFrequency,
     string BackupTime,
-    int BackupRetentionDays);
+    int BackupRetentionDays,
+    int TrashRetentionDays,
+    int TempZoneRetentionDays);
 
 public class BackupDiskDto
 {
