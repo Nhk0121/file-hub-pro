@@ -389,7 +389,7 @@ const StorageConfig = () => {
         <Card className="glow-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Clock className="w-5 h-5 text-primary" />各組空間限制 — 時效區</CardTitle>
-            <CardDescription>時效區檔案超過 30 天將自動清除</CardDescription>
+            <CardDescription>時效區檔案超過 {settings.tempZoneRetentionDays} 天將自動清除（可於下方「自動清除設定」調整）</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
