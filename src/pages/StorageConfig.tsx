@@ -439,6 +439,38 @@ const StorageConfig = () => {
           </CardContent>
         </Card>
 
+        {/* 自動清除設定 */}
+        <Card className="glow-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Clock className="w-5 h-5 text-primary" />自動清除設定</CardTitle>
+            <CardDescription>自定義回收桶與時效區檔案的保留天數，超過天數後將由排程自動清除</CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>回收桶保留天數</Label>
+              <Input
+                type="number" min={1} max={365}
+                value={settings.trashRetentionDays}
+                onChange={e => setSettings({ ...settings, trashRetentionDays: Math.max(1, parseInt(e.target.value) || 30) })}
+              />
+              <p className="text-xs text-muted-foreground">已刪除檔案在回收桶中保留的天數（預設 30 天）</p>
+            </div>
+            <div className="space-y-2">
+              <Label>時效區保留天數</Label>
+              <Input
+                type="number" min={1} max={3650}
+                value={settings.tempZoneRetentionDays}
+                onChange={e => setSettings({ ...settings, tempZoneRetentionDays: Math.max(1, parseInt(e.target.value) || 30) })}
+              />
+              <p className="text-xs text-muted-foreground">時效區內檔案自上傳起保留的天數（預設 30 天）</p>
+            </div>
+            <div className="md:col-span-2 p-3 bg-muted rounded-lg text-xs text-muted-foreground space-y-1">
+              <p>• 變更後請按右上角「儲存設定」生效</p>
+              <p>• 實際自動清除由 Windows 排程或背景服務讀取此設定執行；永久區檔案不受影響</p>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* 備份排程 */}
         <Card className="glow-card">
           <CardHeader>
