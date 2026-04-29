@@ -19,6 +19,13 @@ const RecycleBin = () => {
   const { addLog } = useAudit();
   const [confirmEmpty, setConfirmEmpty] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [retentionDays, setRetentionDays] = useState<number>(30);
+
+  useEffect(() => {
+    storageService.getSettings()
+      .then(s => setRetentionDays(s.trashRetentionDays || 30))
+      .catch(() => setRetentionDays(30));
+  }, []);
 
   const isAdmin = user?.role === '管理員' || user?.role === '系統管理員';
 
