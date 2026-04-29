@@ -72,7 +72,7 @@ const RecycleBin = () => {
           <Trash2 className="w-6 h-6 text-destructive" />
           <div>
             <h1 className="text-2xl font-bold">資源回收桶</h1>
-            <p className="text-sm text-muted-foreground">刪除的檔案將保留 30 天，之後自動永久清除</p>
+            <p className="text-sm text-muted-foreground">刪除的檔案將保留 {retentionDays} 天，之後自動永久清除</p>
           </div>
         </div>
         {rootItems.length > 0 && isAdmin && (
