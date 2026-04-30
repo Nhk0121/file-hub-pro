@@ -67,7 +67,9 @@ public class StorageService
             IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[StorageSettings]') AND name = 'TrashRetentionDays')
                 ALTER TABLE [dbo].[StorageSettings] ADD [TrashRetentionDays] INT NOT NULL DEFAULT 30;
             IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[StorageSettings]') AND name = 'TempZoneRetentionDays')
-                ALTER TABLE [dbo].[StorageSettings] ADD [TempZoneRetentionDays] INT NOT NULL DEFAULT 30;");
+                ALTER TABLE [dbo].[StorageSettings] ADD [TempZoneRetentionDays] INT NOT NULL DEFAULT 30;
+            IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[StorageSettings]') AND name = 'SystemTitle')
+                ALTER TABLE [dbo].[StorageSettings] ADD [SystemTitle] NVARCHAR(100) NOT NULL DEFAULT N'桃園區處文件管理系統';");
 
         var row = await conn.QueryFirstOrDefaultAsync<StorageSettingsDto>(@"
             SELECT TOP 1
@@ -75,6 +77,7 @@ public class StorageService
                 BackupFrequency, BackupTime, BackupRetentionDays,
                 ISNULL(TrashRetentionDays, 30) AS TrashRetentionDays,
                 ISNULL(TempZoneRetentionDays, 30) AS TempZoneRetentionDays,
+                ISNULL(NULLIF(LTRIM(RTRIM(SystemTitle)), ''), N'桃園區處文件管理系統') AS SystemTitle,
                 CONVERT(varchar(33), UpdatedAt, 126) AS UpdatedAt
             FROM StorageSettings WHERE Id = 1");
 
@@ -95,6 +98,7 @@ public class StorageService
                 BackupRetentionDays = 30,
                 TrashRetentionDays = 30,
                 TempZoneRetentionDays = 30,
+                SystemTitle = "桃園區處文件管理系統",
                 UpdatedAt = DateTime.UtcNow.ToString("o"),
             };
         }
