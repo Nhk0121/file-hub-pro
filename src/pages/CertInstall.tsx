@@ -3,8 +3,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Download, ShieldCheck, ArrowLeft, FileText, AlertTriangle, MousePointerClick, CheckCircle2 } from 'lucide-react';
+import { useSystemTitle } from '@/contexts/SystemTitleContext';
 
 const CertInstall = () => {
+  const { title: systemTitle } = useSystemTitle();
   return (
     <div className="min-h-screen bg-background bg-grid p-4 sm:p-8">
       <div className="max-w-3xl mx-auto space-y-6">
@@ -173,7 +175,7 @@ const CertInstall = () => {
 
         {/* Footer */}
         <div className="text-center text-xs text-muted-foreground pb-4">
-          桃園區處文件管理系統
+          {systemTitle}
         </div>
       </div>
     </div>
