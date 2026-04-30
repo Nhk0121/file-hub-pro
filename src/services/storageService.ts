@@ -16,6 +16,7 @@ export interface StorageSettings {
   backupRetentionDays: number;
   trashRetentionDays: number;
   tempZoneRetentionDays: number;
+  systemTitle: string;
   updatedAt: string;
 }
 
