@@ -18,9 +18,11 @@ import {
 import storageService, {
   type StorageSettings, type BackupDisk, type DepartmentQuota, type DiskUsage,
 } from '@/services/storageService';
+import { useSystemTitle } from '@/contexts/SystemTitleContext';
 
 const StorageConfig = () => {
   const { user } = useAuth();
+  const { refresh: refreshSystemTitle } = useSystemTitle();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -98,9 +100,12 @@ const StorageConfig = () => {
         backupRetentionDays: settings.backupRetentionDays,
         trashRetentionDays: settings.trashRetentionDays,
         tempZoneRetentionDays: settings.tempZoneRetentionDays,
+        systemTitle: (settings.systemTitle || '').trim() || '桃園區處文件管理系統',
       });
       // 重新讀取以取得最新主路徑與磁碟使用量
       await loadAll();
+      // 同步刷新全域系統標題（瀏覽器分頁、側邊欄等）
+      await refreshSystemTitle();
       toast.success('儲存設定已更新');
     } catch (err) {
       toast.error('儲存失敗，請檢查連線或權限');
