@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FileText, Lock, User, ArrowLeft, Zap, ShieldCheck } from 'lucide-react';
 import { useMonthlyTheme } from '@/hooks/useMonthlyTheme';
+import { useSystemTitle } from '@/contexts/SystemTitleContext';
 import { toast } from 'sonner';
 import { DEPARTMENTS, getSectionsForDepartment, JOB_TITLES } from '@/config/organization';
 import type { ApplicantType } from '@/types';
@@ -154,7 +155,7 @@ const Login = () => {
           <div className="w-20 h-20 bg-primary rounded-2xl flex items-center justify-center mb-4 glow-primary rotate-3 hover:rotate-0 transition-transform duration-300">
             <FileText className="w-10 h-10 text-primary-foreground" />
           </div>
-          <h1 className="text-3xl font-bold text-foreground tracking-tight">桃園區處文件管理系統</h1>
+          <h1 className="text-3xl font-bold text-foreground tracking-tight">{useSystemTitle().title}</h1>
           <p className="text-muted-foreground mt-2 flex items-center gap-2">
             <Zap className="w-3 h-3" />
             Taoyuan District Document Management System

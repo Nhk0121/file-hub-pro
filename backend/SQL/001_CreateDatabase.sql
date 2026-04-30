@@ -234,6 +234,7 @@ CREATE TABLE [dbo].[StorageSettings] (
     [BackupRetentionDays] INT            NOT NULL DEFAULT 30,
     [TrashRetentionDays]  INT            NOT NULL DEFAULT 30,
     [TempZoneRetentionDays] INT          NOT NULL DEFAULT 30,
+    [SystemTitle]         NVARCHAR(100)  NOT NULL DEFAULT N'桃園區處文件管理系統',
     [UpdatedAt]           DATETIME2      NOT NULL DEFAULT GETUTCDATE(),
     CONSTRAINT CK_StorageSettings_SingleRow CHECK ([Id] = 1)
 );
@@ -250,6 +251,8 @@ IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[St
 GO
 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[StorageSettings]') AND name = 'TempZoneRetentionDays')
     ALTER TABLE [dbo].[StorageSettings] ADD [TempZoneRetentionDays] INT NOT NULL DEFAULT 30;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[StorageSettings]') AND name = 'SystemTitle')
+    ALTER TABLE [dbo].[StorageSettings] ADD [SystemTitle] NVARCHAR(100) NOT NULL DEFAULT N'桃園區處文件管理系統';
 GO
 
 -- =============================================

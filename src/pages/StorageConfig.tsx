@@ -18,9 +18,11 @@ import {
 import storageService, {
   type StorageSettings, type BackupDisk, type DepartmentQuota, type DiskUsage,
 } from '@/services/storageService';
+import { useSystemTitle } from '@/contexts/SystemTitleContext';
 
 const StorageConfig = () => {
   const { user } = useAuth();
+  const { refresh: refreshSystemTitle } = useSystemTitle();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -98,9 +100,12 @@ const StorageConfig = () => {
         backupRetentionDays: settings.backupRetentionDays,
         trashRetentionDays: settings.trashRetentionDays,
         tempZoneRetentionDays: settings.tempZoneRetentionDays,
+        systemTitle: (settings.systemTitle || '').trim() || '桃園區處文件管理系統',
       });
       // 重新讀取以取得最新主路徑與磁碟使用量
       await loadAll();
+      // 同步刷新全域系統標題（瀏覽器分頁、側邊欄等）
+      await refreshSystemTitle();
       toast.success('儲存設定已更新');
     } catch (err) {
       toast.error('儲存失敗，請檢查連線或權限');
@@ -436,6 +441,26 @@ const StorageConfig = () => {
                 })}
               </TableBody>
             </Table>
+          </CardContent>
+        </Card>
+
+        {/* 系統標題自訂 */}
+        <Card className="glow-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Database className="w-5 h-5 text-primary" />系統標題</CardTitle>
+            <CardDescription>自訂顯示於登入頁、側邊欄、瀏覽器分頁的系統名稱（最多 100 字）</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Label>系統名稱</Label>
+            <Input
+              maxLength={100}
+              placeholder="桃園區處文件管理系統"
+              value={settings.systemTitle ?? ''}
+              onChange={e => setSettings({ ...settings, systemTitle: e.target.value })}
+            />
+            <p className="text-xs text-muted-foreground">
+              留空將還原為預設值「桃園區處文件管理系統」。儲存後即時套用，無需重新登入。
+            </p>
           </CardContent>
         </Card>
 

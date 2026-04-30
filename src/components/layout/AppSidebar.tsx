@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { useMonthlyTheme } from '@/hooks/useMonthlyTheme';
+import { useSystemTitle } from '@/contexts/SystemTitleContext';
 import type { FileItem } from '@/types';
 
 const FolderTree = ({
@@ -79,6 +80,7 @@ const AppSidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useMonthlyTheme();
+  const { title: systemTitle, shortTitle: systemShortTitle } = useSystemTitle();
 
   const handleFolderSelect = (id: string | null) => {
     setCurrentFolderId(id);
@@ -109,7 +111,7 @@ const AppSidebar = () => {
           <FileText className="w-5 h-5 text-sidebar-primary-foreground" />
         </div>
         <div>
-          <h1 className="text-sm font-bold text-sidebar-foreground">桃園區處 DMS</h1>
+          <h1 className="text-sm font-bold text-sidebar-foreground truncate" title={systemTitle}>{systemShortTitle}</h1>
           <p className="text-xs text-sidebar-muted">{theme.name}主題 · v2.0</p>
         </div>
       </div>

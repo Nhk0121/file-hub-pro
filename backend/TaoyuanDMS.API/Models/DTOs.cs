@@ -155,6 +155,7 @@ public class StorageSettingsDto
     public int BackupRetentionDays { get; set; } = 30;
     public int TrashRetentionDays { get; set; } = 30;
     public int TempZoneRetentionDays { get; set; } = 30;
+    public string SystemTitle { get; set; } = "桃園區處文件管理系統";
     public string UpdatedAt { get; set; } = "";
 }
 
@@ -166,7 +167,8 @@ public record UpdateStorageSettingsRequest(
     string BackupTime,
     int BackupRetentionDays,
     int TrashRetentionDays,
-    int TempZoneRetentionDays);
+    int TempZoneRetentionDays,
+    string? SystemTitle);
 
 public class BackupDiskDto
 {
