@@ -444,6 +444,26 @@ const StorageConfig = () => {
           </CardContent>
         </Card>
 
+        {/* 系統標題自訂 */}
+        <Card className="glow-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Database className="w-5 h-5 text-primary" />系統標題</CardTitle>
+            <CardDescription>自訂顯示於登入頁、側邊欄、瀏覽器分頁的系統名稱（最多 100 字）</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Label>系統名稱</Label>
+            <Input
+              maxLength={100}
+              placeholder="桃園區處文件管理系統"
+              value={settings.systemTitle ?? ''}
+              onChange={e => setSettings({ ...settings, systemTitle: e.target.value })}
+            />
+            <p className="text-xs text-muted-foreground">
+              留空將還原為預設值「桃園區處文件管理系統」。儲存後即時套用，無需重新登入。
+            </p>
+          </CardContent>
+        </Card>
+
         {/* 自動清除設定 */}
         <Card className="glow-card">
           <CardHeader>
