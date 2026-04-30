@@ -68,11 +68,12 @@ const App = () => (
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </BrowserRouter>
-            </EditLockProvider>
-            </FileProvider>
-          </PermissionProvider>
-        </AuditProvider>
-      </AuthProvider>
+              </EditLockProvider>
+              </FileProvider>
+            </PermissionProvider>
+          </AuditProvider>
+        </AuthProvider>
+      </SystemTitleProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
