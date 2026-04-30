@@ -118,6 +118,7 @@ public class StorageService
                 BackupRetentionDays = @BackupRetentionDays,
                 TrashRetentionDays = @TrashRetentionDays,
                 TempZoneRetentionDays = @TempZoneRetentionDays,
+                SystemTitle = ISNULL(NULLIF(LTRIM(RTRIM(@SystemTitle)), ''), N'桃園區處文件管理系統'),
                 UpdatedAt = GETUTCDATE()
             WHERE Id = 1",
             req);
