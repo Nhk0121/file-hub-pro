@@ -445,23 +445,46 @@ const StorageConfig = () => {
           </CardContent>
         </Card>
 
-        {/* 系統標題自訂 */}
+        {/* 系統標題 / 網頁設計者自訂 */}
         <Card className="glow-card">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Database className="w-5 h-5 text-primary" />系統標題</CardTitle>
-            <CardDescription>自訂顯示於登入頁、側邊欄、瀏覽器分頁的系統名稱（最多 100 字）</CardDescription>
+            <CardTitle className="flex items-center gap-2"><Database className="w-5 h-5 text-primary" />系統標題與設計者</CardTitle>
+            <CardDescription>自訂系統名稱（顯示於登入頁、側邊欄、瀏覽器分頁）與網頁設計者署名（顯示於歡迎頁頁尾）</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <Label>系統名稱</Label>
-            <Input
-              maxLength={100}
-              placeholder="桃園區處文件管理系統"
-              value={settings.systemTitle ?? ''}
-              onChange={e => setSettings({ ...settings, systemTitle: e.target.value })}
-            />
-            <p className="text-xs text-muted-foreground">
-              留空將還原為預設值「桃園區處文件管理系統」。儲存後即時套用，無需重新登入。
-            </p>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>系統名稱（最多 100 字）</Label>
+              <Input
+                maxLength={100}
+                placeholder="桃園區處文件管理系統"
+                value={settings.systemTitle ?? ''}
+                onChange={e => setSettings({ ...settings, systemTitle: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                留空將還原為預設值「桃園區處文件管理系統」。儲存後即時套用，無需重新登入。
+              </p>
+            </div>
+            <div className="space-y-2 border-t border-border/50 pt-4">
+              <Label>網頁設計者（顯示於歡迎頁頁尾）</Label>
+              <div className="flex gap-2">
+                <Input
+                  maxLength={50}
+                  placeholder="桃園區處資訊小組"
+                  value={designerInput}
+                  onChange={e => setDesignerInput(e.target.value)}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => { setDesigner(designerInput); toast.success('網頁設計者已更新'); }}
+                >
+                  套用
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                目前顯示：<span className="text-primary font-medium">{designer}</span>。此設定儲存於本機瀏覽器，可自由定義。
+              </p>
+            </div>
           </CardContent>
         </Card>
 
