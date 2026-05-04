@@ -159,6 +159,50 @@ public class OnlyOfficeController : BaseController
         return Ok(result);
     }
 
+    /// <summary>
+    /// 連線診斷端點：檢查 DMS → OnlyOffice Document Server 是否可達、JWT 是否啟用、callback URL 對不對。
+    /// 使用方式：登入後 GET /api/onlyoffice/diagnose
+    /// </summary>
+    [HttpGet("diagnose")]
+    [Authorize]
+    public async Task<IActionResult> Diagnose([FromServices] IHttpClientFactory httpFactory)
+    {
+        var result = new Dictionary<string, object?>
+        {
+            ["documentServerUrl"] = _office.DocumentServerUrl,
+            ["callbackBaseUrl"] = _office.CallbackBaseUrl,
+            ["jwtEnabled"] = _office.JwtEnabled,
+            ["jwtSecretLength"] = _office.JwtSecret?.Length ?? 0,
+        };
+
+        // 1. 測 DMS-VM → OnlyOffice-VM 的連線（OnlyOffice healthcheck）
+        try
+        {
+            using var http = httpFactory.CreateClient("OnlyOffice");
+            http.Timeout = TimeSpan.FromSeconds(5);
+            var resp = await http.GetAsync($"{_office.DocumentServerUrl}/healthcheck");
+            var body = await resp.Content.ReadAsStringAsync();
+            result["docServerReachable"] = resp.IsSuccessStatusCode;
+            result["docServerStatus"] = (int)resp.StatusCode;
+            result["docServerBody"] = body.Length > 200 ? body.Substring(0, 200) : body;
+        }
+        catch (Exception ex)
+        {
+            result["docServerReachable"] = false;
+            result["docServerError"] = ex.Message;
+        }
+
+        // 2. 簽一個樣本 token，前端可拿去 jwt.io 解碼確認
+        var sampleToken = _office.SignToken(new
+        {
+            document = new { fileType = "docx", key = "test", title = "test.docx", url = "https://example.com/test.docx" },
+            documentType = "word",
+        });
+        result["sampleToken"] = sampleToken;
+
+        return Ok(result);
+    }
+
     /// <summary>OnlyOffice → DMS-VM 抓檔案。允許匿名，用 ticket 防止外部任意下載。</summary>
     [HttpGet("file/{id}")]
     [AllowAnonymous]
