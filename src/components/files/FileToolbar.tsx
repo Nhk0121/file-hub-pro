@@ -244,12 +244,18 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
       const { files: picked, rejectedDeepFiles } = extractFilesFromInput(fl, DEFAULT_MAX_FOLDER_DEPTH);
       if (picked.length === 0 && rejectedDeepFiles.length === 0) return;
 
+      // 拒絕/失敗清單（顯示給使用者）
+      const rejections: RejectionItem[] = [];
+
+      // 超過深度
+      for (const p of rejectedDeepFiles) {
+        rejections.push({ path: p, reason: `超過 ${DEFAULT_MAX_FOLDER_DEPTH} 層深度限制，未上傳` });
+      }
+
       // 1) 依路徑分組，先建立所需的子資料夾（DFS / 由淺到深）
-      //    folderIdMap: pathKey ("a/b/c") -> 在 DMS 中的 folderId（根目錄為空字串 key）
       const folderIdMap = new Map<string, string | null>();
       folderIdMap.set('', currentFolderId);
 
-      // 蒐集所有需要存在的資料夾路徑
       const allPaths = new Set<string>();
       for (const it of picked) {
         const segs = it.relativePath;
@@ -257,19 +263,22 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
           allPaths.add(segs.slice(0, i).join('/'));
         }
       }
-      // 依深度排序
       const sortedPaths = Array.from(allPaths).sort((a, b) => a.split('/').length - b.split('/').length);
 
-      let folderCreateFailed = 0;
+      const failedFolderPaths = new Set<string>();
       for (const pathKey of sortedPaths) {
         const segs = pathKey.split('/');
         const folderName = segs[segs.length - 1];
         const parentKey = segs.slice(0, -1).join('/');
-        const parentId = folderIdMap.get(parentKey) ?? null;
+        const parentId = folderIdMap.get(parentKey);
 
-        // 若無權建子資料夾，則略過
+        if (parentId === undefined || failedFolderPaths.has(parentKey)) {
+          failedFolderPaths.add(pathKey);
+          continue;
+        }
         if (!canCreateSubfolder(parentId)) {
-          folderCreateFailed++;
+          failedFolderPaths.add(pathKey);
+          rejections.push({ path: pathKey + '/', reason: '無權在此位置建立子資料夾（連帶其下檔案略過）' });
           continue;
         }
         try {
@@ -277,20 +286,35 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
           if (created) {
             folderIdMap.set(pathKey, created.id);
           } else {
-            folderCreateFailed++;
+            failedFolderPaths.add(pathKey);
+            rejections.push({ path: pathKey + '/', reason: '建立子資料夾失敗（伺服器拒絕或重名）' });
           }
-        } catch {
-          folderCreateFailed++;
+        } catch (err) {
+          failedFolderPaths.add(pathKey);
+          rejections.push({
+            path: pathKey + '/',
+            reason: `建立子資料夾失敗：${err instanceof Error ? err.message : '未知錯誤'}`,
+          });
         }
       }
 
-      // 2) 依目標資料夾分組，分別處理檔名重複
+      // 2) 依目標資料夾分組，分別處理檔名重複，並保留原始相對路徑
       const grouped = groupByPath(picked);
-      const renamedQueue: { file: File; parentId: string | null }[] = [];
+      type Queued = { file: File; parentId: string | null; originalPath: string };
+      const renamedQueue: Queued[] = [];
 
       grouped.forEach((items, pathKey) => {
         const targetParentId = folderIdMap.get(pathKey);
-        if (targetParentId === undefined) return; // 上層資料夾建立失敗
+        if (targetParentId === undefined) {
+          // 上層資料夾建立失敗 → 該分組下所有檔案視為被拒絕（避免靜默丟失）
+          for (const it of items) {
+            rejections.push({
+              path: [...it.relativePath, it.file.name].join('/'),
+              reason: '所屬資料夾建立失敗，檔案未上傳',
+            });
+          }
+          return;
+        }
         const existing = new Set<string>(
           allFiles
             .filter(x => x.type === 'file' && x.parentId === targetParentId)
@@ -299,19 +323,22 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
         for (const it of items) {
           const newName = generateUniqueName(it.file.name, existing);
           existing.add(newName);
-          renamedQueue.push({ file: renameFile(it.file, newName), parentId: targetParentId });
+          renamedQueue.push({
+            file: renameFile(it.file, newName),
+            parentId: targetParentId,
+            originalPath: [...it.relativePath, it.file.name].join('/'),
+          });
         }
       });
 
-      // 3) 預先處理：執行檔自動略過 + PII 預掃，分流為 cleanQueue / piiItems
-      const cleanQueue: { file: File; parentId: string | null }[] = [];
+      // 3) 預先處理：執行檔自動略過 + PII 預掃
+      const cleanQueue: Queued[] = [];
       const piiItems: BatchPiiItem[] = [];
-      let skippedExe = 0;
 
       for (const item of renamedQueue) {
         const f = item.file;
         if (isExecutableFile(f.name) && user?.role !== '系統管理員') {
-          skippedExe++;
+          rejections.push({ path: item.originalPath, reason: '執行檔，僅系統管理員可上傳' });
           continue;
         }
         const isTextLike = f.type.startsWith('text/') || /\.(md|markdown|json|csv|xml|log|ini|ya?ml|html?|txt)$/i.test(f.name);
@@ -323,31 +350,36 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
           } catch { /* ignore */ }
         }
         if (matches.length > 0) {
-          // 計算顯示用相對路徑（找回原始 webkitRelativePath；若已被 renameFile 替換則用名稱）
-          const original = picked.find(p => p.file.name === f.name || (p.file as unknown as { webkitRelativePath?: string }).webkitRelativePath?.endsWith('/' + f.name));
-          const relPath = original
-            ? [...original.relativePath, f.name].join('/')
-            : f.name;
-          piiItems.push({ file: f, parentId: item.parentId, relativePath: relPath, matches });
+          piiItems.push({ file: f, parentId: item.parentId, relativePath: item.originalPath, matches });
         } else {
           cleanQueue.push(item);
         }
       }
 
-      const skippedByPerm = picked.length - renamedQueue.length;
-      const msgs: string[] = [`掃描完成：共 ${renamedQueue.length} 個檔案`];
-      if (rejectedDeepFiles.length > 0) msgs.push(`已略過 ${rejectedDeepFiles.length} 個超過 ${DEFAULT_MAX_FOLDER_DEPTH} 層深度`);
-      if (folderCreateFailed > 0) msgs.push(`${folderCreateFailed} 個子資料夾建立失敗`);
-      if (skippedByPerm > 0) msgs.push(`${skippedByPerm} 個因權限略過`);
-      if (skippedExe > 0) msgs.push(`${skippedExe} 個執行檔已略過`);
-      if (piiItems.length > 0) msgs.push(`${piiItems.length} 個檔案疑含個資，待您確認`);
+      // toast 摘要
+      const total = picked.length + rejectedDeepFiles.length;
+      const msgs: string[] = [`掃描完成：總計 ${total} 個檔案`];
+      if (cleanQueue.length > 0) msgs.push(`${cleanQueue.length} 個將直接上傳`);
+      if (piiItems.length > 0) msgs.push(`${piiItems.length} 個疑含個資待確認`);
+      if (rejections.length > 0) msgs.push(`${rejections.length} 個被拒絕`);
       toast.info(msgs.join('；'));
 
-      // 4a) 先把無 PII 的檔案上傳
+      // 4a) 先把無 PII 的檔案上傳，並蒐集失敗
+      let uploadedOk = 0;
       for (const item of cleanQueue) {
-        const created = await uploadFile(item.file, item.parentId);
-        if (created && user) {
-          addLog({ userId: user.id, userName: user.displayName, action: '上傳', targetName: item.file.name });
+        try {
+          const created = await uploadFile(item.file, item.parentId);
+          if (created) {
+            uploadedOk++;
+            if (user) addLog({ userId: user.id, userName: user.displayName, action: '上傳', targetName: item.file.name });
+          } else {
+            rejections.push({ path: item.originalPath, reason: '上傳失敗（伺服器拒絕）' });
+          }
+        } catch (err) {
+          rejections.push({
+            path: item.originalPath,
+            reason: `上傳失敗：${err instanceof Error ? err.message : '未知錯誤'}`,
+          });
         }
       }
 
@@ -355,6 +387,15 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
       if (piiItems.length > 0) {
         setBatchPiiItems(piiItems);
         setBatchPiiOpen(true);
+      }
+
+      // 5) 若有任何拒絕/失敗，顯示明細彈窗讓使用者明確收到
+      if (rejections.length > 0) {
+        setRejectionItems(rejections);
+        setRejectionSummary({ uploaded: uploadedOk, total });
+        setRejectionDialogOpen(true);
+      } else if (uploadedOk > 0 && piiItems.length === 0) {
+        toast.success(`已成功上傳 ${uploadedOk} 個檔案`);
       }
     };
     input.click();
