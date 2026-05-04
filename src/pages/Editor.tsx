@@ -6,11 +6,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import RichTextEditor from '@/components/editor/RichTextEditor';
 import MarkdownEditor from '@/components/editor/MarkdownEditor';
+import OnlyOfficeEditor from '@/components/editor/OnlyOfficeEditor';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Save, Lock, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import fileService from '@/services/fileService';
+import onlyOfficeService from '@/services/onlyOfficeService';
 
 const Editor = () => {
   const { fileId } = useParams();
@@ -20,24 +22,33 @@ const Editor = () => {
   const { addLog } = useAudit();
   const { user } = useAuth();
   const file = fileId ? getFile(fileId) : undefined;
+
+  const name = (file?.name ?? '').toLowerCase();
+  const mime = file?.mimeType || '';
+  const isMarkdown = mime.includes('markdown') || name.endsWith('.md');
+  const isHtml = mime.includes('html') || name.endsWith('.html') || name.endsWith('.htm');
+  const isOffice = !!file && onlyOfficeService.isOfficeFile(file.name);
+  const isPlainText = !!file && !isMarkdown && !isHtml && !isOffice;
+
   const [content, setContent] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
   const [locked, setLocked] = useState(false);
   const [loadingContent, setLoadingContent] = useState(true);
 
+  // Office 文件交給 OnlyOfficeEditor 自行管鎖；其餘走原有 EditLockContext
   useEffect(() => {
-    if (fileId) {
-      const got = acquireLock(fileId);
-      setLocked(!got);
-    }
-    return () => {
-      if (fileId) releaseLock(fileId);
-    };
-  }, [fileId]);
+    if (!fileId || isOffice) return;
+    const got = acquireLock(fileId);
+    setLocked(!got);
+    return () => { releaseLock(fileId); };
+  }, [fileId, isOffice]);
 
-  // 從後端載入真正的檔案內容（列表 API 不含 content）
+  // 文字類檔案才載入內容
   useEffect(() => {
-    if (!file) return;
+    if (!file || isOffice) {
+      setLoadingContent(false);
+      return;
+    }
     let cancelled = false;
     setLoadingContent(true);
     fileService.download(file.id)
@@ -52,11 +63,9 @@ const Editor = () => {
         console.error('載入檔案內容失敗:', err);
         if (!cancelled) toast.error('無法載入檔案內容');
       })
-      .finally(() => {
-        if (!cancelled) setLoadingContent(false);
-      });
+      .finally(() => { if (!cancelled) setLoadingContent(false); });
     return () => { cancelled = true; };
-  }, [file?.id]);
+  }, [file?.id, isOffice]);
 
   if (!file) {
     return (
@@ -67,13 +76,11 @@ const Editor = () => {
     );
   }
 
-  const name = file.name.toLowerCase();
-  const mime = file.mimeType || '';
-  const isMarkdown = mime.includes('markdown') || name.endsWith('.md');
-  const isHtml = mime.includes('html') || name.endsWith('.html') || name.endsWith('.htm');
-  const isPlainText = !isMarkdown && !isHtml; // TXT, CSV, JSON, XML, LOG etc.
-
-  const editorTypeLabel = isMarkdown ? 'Markdown 編輯器' : isHtml ? '富文字編輯器' : '純文字編輯器';
+  const editorTypeLabel = isOffice
+    ? 'OnlyOffice 線上編輯'
+    : isMarkdown ? 'Markdown 編輯器'
+    : isHtml ? '富文字編輯器'
+    : '純文字編輯器';
 
   const handleSave = () => {
     updateFileContent(file.id, content);
@@ -102,47 +109,53 @@ const Editor = () => {
             <h2 className="text-lg font-semibold">{file.name}</h2>
             <p className="text-xs text-muted-foreground">
               {editorTypeLabel}
-              {hasChanges && ' • 未儲存的變更'}
+              {!isOffice && hasChanges && ' • 未儲存的變更'}
+              {isOffice && ' • 自動儲存'}
             </p>
           </div>
         </div>
-        <Button onClick={handleSave} disabled={!hasChanges || locked || loadingContent}>
-          <Save className="w-4 h-4 mr-2" />
-          儲存
-        </Button>
+        {!isOffice && (
+          <Button onClick={handleSave} disabled={!hasChanges || locked || loadingContent}>
+            <Save className="w-4 h-4 mr-2" />
+            儲存
+          </Button>
+        )}
       </div>
 
-      {locked && lockInfo && (
+      {!isOffice && locked && lockInfo && (
         <Alert variant="destructive" className="mx-6 mt-4">
           <Lock className="h-4 w-4" />
           <AlertDescription>
-            此文件正由 <strong>{lockInfo.userName}</strong> 編輯中，目前為唯讀模式。
+            此文件正由 <strong>{lockInfo.userName}</strong> 編輯中,目前為唯讀模式。
           </AlertDescription>
         </Alert>
       )}
 
-      <div className="flex-1 p-6 overflow-auto">
-        {loadingContent ? (
+      <div className="flex-1 flex flex-col overflow-auto">
+        {isOffice ? (
+          <OnlyOfficeEditor fileId={file.id} fileName={file.name} />
+        ) : loadingContent ? (
           <div className="flex items-center justify-center min-h-[400px]">
             <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
           </div>
         ) : locked ? (
-          <div className="border rounded-lg bg-card p-6 min-h-[400px] opacity-70 pointer-events-none select-none">
+          <div className="m-6 border rounded-lg bg-card p-6 min-h-[400px] opacity-70 pointer-events-none select-none">
             <pre className="whitespace-pre-wrap font-mono text-sm">{content}</pre>
           </div>
         ) : isMarkdown ? (
-          <MarkdownEditor content={content} onChange={handleContentChange} />
+          <div className="p-6"><MarkdownEditor content={content} onChange={handleContentChange} /></div>
         ) : isHtml ? (
-          <RichTextEditor content={content} onChange={handleContentChange} />
-        ) : (
-          /* 純文字編輯器：TXT, CSV, JSON, XML, LOG 等 */
-          <textarea
-            value={content}
-            onChange={e => handleContentChange(e.target.value)}
-            className="w-full min-h-[400px] p-4 bg-card border rounded-lg font-mono text-sm resize-y focus:outline-none focus:ring-2 focus:ring-ring"
-            placeholder="在此編輯文件內容..."
-          />
-        )}
+          <div className="p-6"><RichTextEditor content={content} onChange={handleContentChange} /></div>
+        ) : isPlainText ? (
+          <div className="p-6">
+            <textarea
+              value={content}
+              onChange={e => handleContentChange(e.target.value)}
+              className="w-full min-h-[400px] p-4 bg-card border rounded-lg font-mono text-sm resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+              placeholder="在此編輯文件內容..."
+            />
+          </div>
+        ) : null}
       </div>
     </div>
   );
