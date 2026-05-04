@@ -20,8 +20,7 @@ export function extractRootFilesFromInput(fileList: FileList | null): FolderUplo
   if (!fileList) return { files, rejectedSubfolderFiles: rejected };
 
   for (const f of Array.from(fileList)) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rel: string = f.webkitRelativePath || '';
+    const rel: string = (f as unknown as { webkitRelativePath?: string }).webkitRelativePath || '';
     const segments = rel.split('/').filter(Boolean);
     if (segments.length <= 2) {
       files.push(f);
@@ -45,8 +44,8 @@ export async function extractRootFilesFromDrop(
   const entries: FileSystemEntry[] = [];
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const entry: FileSystemEntry | null = item.webkitGetAsEntry?.();
+    const entry: FileSystemEntry | null =
+      (item as unknown as { webkitGetAsEntry?: () => FileSystemEntry | null }).webkitGetAsEntry?.() ?? null;
     if (entry) entries.push(entry);
   }
 
