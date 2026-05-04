@@ -478,8 +478,18 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
               <DropdownMenuItem onClick={handleUpload}>
                 <Upload className="w-4 h-4 mr-2" />上傳檔案
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleUploadFolder}>
-                <FolderUp className="w-4 h-4 mr-2" />上傳整個資料夾
+              <DropdownMenuItem
+                disabled={!canAddFolder}
+                onClick={() => {
+                  if (!canAddFolder) {
+                    toast.error('目前位置無法建立子資料夾，請先進入您具完整權限的資料夾後再上傳整個資料夾');
+                    return;
+                  }
+                  handleUploadFolder();
+                }}
+              >
+                <FolderUp className="w-4 h-4 mr-2" />
+                上傳整個資料夾{!canAddFolder && '（不可用）'}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
