@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react';
-import storageService from '@/services/storageService';
+import apiClient from '@/services/apiClient';
+import { sessionStore } from '@/lib/sessionStorage';
 
 const DEFAULT_TITLE = '桃園區處文件管理系統';
 const DEFAULT_DESIGNER = '桃園區處資訊小組';
