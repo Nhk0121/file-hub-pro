@@ -39,25 +39,37 @@ public class OnlyOfficeService
     public bool JwtEnabled => !string.IsNullOrWhiteSpace(JwtSecret);
 
     /// <summary>
-    /// 依 payload 產生 OnlyOffice JWT（內含 document/editorConfig 的 hash）
-    /// payload: 一般傳入序列化後的 config 物件
+    /// 依 payload 產生 OnlyOffice 規格 JWT（HS256）。
+    /// 重要：OnlyOffice 要求 payload 的 document / editorConfig 為「巢狀物件」，
+    /// 不能用 Claim 攤平成字串，否則 Document Server 會回 "The document security token is not correctly formed"。
+    /// 因此這裡直接手刻 base64url(header).base64url(payload).base64url(HMACSHA256 sig)。
     /// </summary>
     public string SignToken(object payload)
     {
         if (!JwtEnabled) return "";
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(JwtSecret));
-        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-        // OnlyOffice 接受任意 claim，把整個 payload 攤平
-        var json = JsonSerializer.Serialize(payload);
-        var dict = JsonSerializer.Deserialize<Dictionary<string, object>>(json) ?? new();
+        var jsonOpts = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = null, // 保留原欄位名（document/editorConfig/...）
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+        };
 
-        var handler = new JwtSecurityTokenHandler();
-        var token = new JwtSecurityToken(
-            claims: dict.Select(kv => new Claim(kv.Key, kv.Value?.ToString() ?? "", ClaimValueTypes.String)),
-            signingCredentials: creds);
-        return handler.WriteToken(token);
+        var headerJson = "{\"alg\":\"HS256\",\"typ\":\"JWT\"}";
+        var payloadJson = JsonSerializer.Serialize(payload, jsonOpts);
+
+        var header64 = Base64UrlEncode(Encoding.UTF8.GetBytes(headerJson));
+        var payload64 = Base64UrlEncode(Encoding.UTF8.GetBytes(payloadJson));
+        var signingInput = $"{header64}.{payload64}";
+
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(JwtSecret));
+        var sig = hmac.ComputeHash(Encoding.UTF8.GetBytes(signingInput));
+        var sig64 = Base64UrlEncode(sig);
+
+        return $"{signingInput}.{sig64}";
     }
+
+    private static string Base64UrlEncode(byte[] bytes)
+        => Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
     /// <summary>
     /// 驗證 OnlyOffice callback 帶回的 JWT。
