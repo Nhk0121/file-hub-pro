@@ -232,17 +232,34 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
     input.click();
   };
 
+  const getFolderUploadUnavailableMessage = () => {
+    if (!canWrite) return '目前位置沒有上傳權限，請確認您已登入且具備完整權限';
+    if (!currentFolderId) return '請先進入課別或使用者建立的資料夾，再上傳整個資料夾';
+    if (!canCreateSubfolder(currentFolderId)) return '目前位置無法建立子資料夾，請先進入課別資料夾或既有子資料夾後再上傳整個資料夾';
+    return null;
+  };
+
   // 上傳整個資料夾（最多 3 層子資料夾，超過會略過）
   const handleUploadFolder = () => {
+    const unavailableMessage = getFolderUploadUnavailableMessage();
+    if (unavailableMessage) {
+      toast.error(unavailableMessage);
+      return;
+    }
+
     const input = document.createElement('input');
     input.type = 'file';
     input.multiple = true;
     input.setAttribute('webkitdirectory', '');
     input.setAttribute('directory', '');
     input.onchange = async (e) => {
-      const fl = (e.target as HTMLInputElement).files;
-      const { files: picked, rejectedDeepFiles } = extractFilesFromInput(fl, DEFAULT_MAX_FOLDER_DEPTH);
-      if (picked.length === 0 && rejectedDeepFiles.length === 0) return;
+      try {
+        const fl = (e.target as HTMLInputElement).files;
+        const { files: picked, rejectedDeepFiles } = extractFilesFromInput(fl, DEFAULT_MAX_FOLDER_DEPTH);
+        if (picked.length === 0 && rejectedDeepFiles.length === 0) {
+          toast.warning('未讀取到任何檔案，請確認選取的資料夾內有檔案後再試一次');
+          return;
+        }
 
       // 拒絕/失敗清單（顯示給使用者）
       const rejections: RejectionItem[] = [];
@@ -390,12 +407,16 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
       }
 
       // 5) 若有任何拒絕/失敗，顯示明細彈窗讓使用者明確收到
-      if (rejections.length > 0) {
-        setRejectionItems(rejections);
-        setRejectionSummary({ uploaded: uploadedOk, total });
-        setRejectionDialogOpen(true);
-      } else if (uploadedOk > 0 && piiItems.length === 0) {
-        toast.success(`已成功上傳 ${uploadedOk} 個檔案`);
+        if (rejections.length > 0) {
+          setRejectionItems(rejections);
+          setRejectionSummary({ uploaded: uploadedOk, total });
+          setRejectionDialogOpen(true);
+        } else if (uploadedOk > 0 && piiItems.length === 0) {
+          toast.success(`已成功上傳 ${uploadedOk} 個檔案`);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : '未知錯誤';
+        toast.error(`資料夾上傳流程中斷：${message}`);
       }
     };
     input.click();
