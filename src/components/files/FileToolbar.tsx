@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -11,9 +11,13 @@ import { useFiles } from '@/contexts/FileContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAudit } from '@/contexts/AuditContext';
 import { usePermissions } from '@/contexts/PermissionContext';
-import { FolderPlus, FilePlus, Upload, Plus, Search, LayoutGrid, List, AlertTriangle } from 'lucide-react';
+import { FolderPlus, FilePlus, Upload, FolderUp, Plus, Search, LayoutGrid, List, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { scanPII, isExecutableFile } from '@/lib/piiChecker';
+import {
+  extractRootFilesFromInput, extractRootFilesFromDrop,
+  generateUniqueName, renameFile,
+} from '@/lib/folderUpload';
 import type { FileItem } from '@/types';
 
 interface FileToolbarProps {
