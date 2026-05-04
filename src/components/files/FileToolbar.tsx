@@ -298,48 +298,102 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
         }
       });
 
+      // 3) 預先處理：執行檔自動略過 + PII 預掃，分流為 cleanQueue / piiItems
+      const cleanQueue: { file: File; parentId: string | null }[] = [];
+      const piiItems: BatchPiiItem[] = [];
+      let skippedExe = 0;
+
+      for (const item of renamedQueue) {
+        const f = item.file;
+        if (isExecutableFile(f.name) && user?.role !== '系統管理員') {
+          skippedExe++;
+          continue;
+        }
+        const isTextLike = f.type.startsWith('text/') || /\.(md|markdown|json|csv|xml|log|ini|ya?ml|html?|txt)$/i.test(f.name);
+        let matches: { type: string; sample: string }[] = [];
+        if (isTextLike) {
+          try {
+            const text = await f.text();
+            matches = scanPII(text);
+          } catch { /* ignore */ }
+        }
+        if (matches.length > 0) {
+          // 計算顯示用相對路徑（找回原始 webkitRelativePath；若已被 renameFile 替換則用名稱）
+          const original = picked.find(p => p.file.name === f.name || (p.file as unknown as { webkitRelativePath?: string }).webkitRelativePath?.endsWith('/' + f.name));
+          const relPath = original
+            ? [...original.relativePath, f.name].join('/')
+            : f.name;
+          piiItems.push({ file: f, parentId: item.parentId, relativePath: relPath, matches });
+        } else {
+          cleanQueue.push(item);
+        }
+      }
+
       const skippedByPerm = picked.length - renamedQueue.length;
-      const msgs: string[] = [`即將上傳 ${renamedQueue.length} 個檔案`];
-      if (rejectedDeepFiles.length > 0) msgs.push(`已略過 ${rejectedDeepFiles.length} 個超過 ${DEFAULT_MAX_FOLDER_DEPTH} 層深度的檔案`);
+      const msgs: string[] = [`掃描完成：共 ${renamedQueue.length} 個檔案`];
+      if (rejectedDeepFiles.length > 0) msgs.push(`已略過 ${rejectedDeepFiles.length} 個超過 ${DEFAULT_MAX_FOLDER_DEPTH} 層深度`);
       if (folderCreateFailed > 0) msgs.push(`${folderCreateFailed} 個子資料夾建立失敗`);
-      if (skippedByPerm > 0) msgs.push(`${skippedByPerm} 個檔案因權限略過`);
+      if (skippedByPerm > 0) msgs.push(`${skippedByPerm} 個因權限略過`);
+      if (skippedExe > 0) msgs.push(`${skippedExe} 個執行檔已略過`);
+      if (piiItems.length > 0) msgs.push(`${piiItems.length} 個檔案疑含個資，待您確認`);
       toast.info(msgs.join('；'));
 
-      // 3) 依序上傳到對應 parentId
-      for (const item of renamedQueue) {
-        await processFileForUploadTo(item.file, item.parentId);
+      // 4a) 先把無 PII 的檔案上傳
+      for (const item of cleanQueue) {
+        const created = await uploadFile(item.file, item.parentId);
+        if (created && user) {
+          addLog({ userId: user.id, userName: user.displayName, action: '上傳', targetName: item.file.name });
+        }
+      }
+
+      // 4b) 若有 PII 檔案 → 開啟彙總彈窗讓使用者一次決定
+      if (piiItems.length > 0) {
+        setBatchCleanQueue([]); // cleanQueue 已上傳完，這裡只用來給彈窗 callback 區隔；保留欄位以利後續擴充
+        setBatchPiiItems(piiItems);
+        setBatchPiiOpen(true);
       }
     };
     input.click();
   };
 
-  // processFileForUpload 的指定 parentId 版本（資料夾上傳用）
-  const processFileForUploadTo = async (f: File, parentId: string | null) => {
-    if (isExecutableFile(f.name) && user?.role !== '系統管理員') {
-      toast.error(`「${f.name}」為執行檔,僅系統管理員可上傳`);
-      return;
+  // 批次 PII：使用者選擇全部上傳
+  const handleConfirmBatchPii = async () => {
+    const items = batchPiiItems;
+    setBatchPiiOpen(false);
+    setBatchPiiItems([]);
+    if (items.length === 0) return;
+
+    let ok = 0;
+    for (const it of items) {
+      const created = await uploadFile(it.file, it.parentId);
+      if (created && user) {
+        addLog({ userId: user.id, userName: user.displayName, action: '上傳', targetName: it.file.name });
+        addLog({
+          userId: user.id, userName: user.displayName,
+          action: '個資存取', targetName: it.file.name,
+          details: `偵測到個資: ${it.matches.map(m => m.type).join(', ')}`,
+        });
+        ok++;
+      }
     }
-    const isTextLike = f.type.startsWith('text/') || /\.(md|markdown|json|csv|xml|log|ini|ya?ml|html?|txt)$/i.test(f.name);
-    if (isTextLike) {
-      try {
-        const text = await f.text();
-        const matches = scanPII(text);
-        if (matches.length > 0) {
-          // 資料夾批次上傳遇到 PII 仍直接記錄上傳並寫入稽核（避免逐檔彈窗）
-          const created = await uploadFile(f, parentId);
-          if (created && user) {
-            addLog({ userId: user.id, userName: user.displayName, action: '上傳', targetName: f.name });
-            addLog({ userId: user.id, userName: user.displayName, action: '個資存取', targetName: f.name, details: `偵測到個資: ${matches.map(m => m.type).join(', ')}` });
-          }
-          return;
-        }
-      } catch { /* ignore */ }
-    }
-    const created = await uploadFile(f, parentId);
-    if (created && user) {
-      addLog({ userId: user.id, userName: user.displayName, action: '上傳', targetName: f.name });
-    }
+    toast.warning(`已上傳 ${ok} 個含個資檔案，已寫入稽核日誌`);
   };
+
+  // 批次 PII：使用者選擇全部略過
+  const handleCancelBatchPii = () => {
+    const count = batchPiiItems.length;
+    if (user && count > 0) {
+      addLog({
+        userId: user.id, userName: user.displayName,
+        action: '個資存取', targetName: `批次上傳取消 (${count} 個檔案)`,
+        details: `使用者選擇略過含個資檔案：${batchPiiItems.map(i => i.relativePath).join('；')}`,
+      });
+    }
+    setBatchPiiOpen(false);
+    setBatchPiiItems([]);
+    toast.info(`已略過 ${count} 個含個資檔案`);
+  };
+
 
 
   return (
