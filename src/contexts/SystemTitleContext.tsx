@@ -55,11 +55,16 @@ export const SystemTitleProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const refresh = useCallback(async () => {
+    // 未登入時不呼叫後端，避免 401 噪音與全域錯誤 toast
+    if (!sessionStore.getToken()) return;
     try {
-      const s = await storageService.getSettings();
-      if (s?.systemTitle) applyTitle(s.systemTitle);
+      const { data } = await apiClient.get<{ systemTitle?: string }>('/storage/settings', {
+        // 即使失敗也不顯示全域錯誤提示
+        ...( { silent: true } as Record<string, unknown> ),
+      });
+      if (data?.systemTitle) applyTitle(data.systemTitle);
     } catch {
-      // 後端未連線時保留 fallback；不影響系統運作
+      // 後端未連線或權限問題時保留 fallback；不影響系統運作
     }
   }, [applyTitle]);
 
