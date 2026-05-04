@@ -195,10 +195,10 @@ const FilePreviewDialog = ({ file, open, onOpenChange }: FilePreviewDialogProps)
           <div className="flex items-center justify-between pr-6">
             <DialogTitle className="truncate">{file.name}</DialogTitle>
             <div className="flex items-center gap-1">
-              {isEditable && (
-                <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={handleEdit} title="線上編輯">
+              {(isEditable || isOffice) && (
+                <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={handleEdit} title={isOffice ? 'OnlyOffice 線上編輯' : '線上編輯'}>
                   <Pencil className="w-4 h-4" />
-                  編輯
+                  {isOffice ? 'OnlyOffice 編輯' : '編輯'}
                 </Button>
               )}
               {isImage && (
