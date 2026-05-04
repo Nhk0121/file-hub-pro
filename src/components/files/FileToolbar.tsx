@@ -90,7 +90,6 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
   };
   const [batchPiiOpen, setBatchPiiOpen] = useState(false);
   const [batchPiiItems, setBatchPiiItems] = useState<BatchPiiItem[]>([]);
-  const [batchCleanQueue, setBatchCleanQueue] = useState<{ file: File; parentId: string | null }[]>([]);
 
   const isAdmin = user?.role === '管理員' || user?.role === '系統管理員';
 
