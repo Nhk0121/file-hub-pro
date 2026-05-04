@@ -505,7 +505,43 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 批次 PII 彙總彈窗（資料夾上傳用） */}
+      <Dialog open={batchPiiOpen} onOpenChange={(o) => { if (!o) handleCancelBatchPii(); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="w-5 h-5" />批次上傳：個資風險彙總
+            </DialogTitle>
+            <DialogDescription>
+              系統在本次資料夾上傳中偵測到 <span className="font-semibold text-destructive">{batchPiiItems.length}</span> 個檔案疑似包含個人資料，請選擇處置方式。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[50vh] overflow-auto border rounded-md p-3 space-y-2 bg-muted/30">
+            {batchPiiItems.map((it, idx) => (
+              <div key={idx} className="text-sm border-b last:border-b-0 pb-2 last:pb-0">
+                <div className="font-medium break-all">{it.relativePath}</div>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {it.matches.map((m, i) => (
+                    <span key={i} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-destructive/10 text-destructive">
+                      <AlertTriangle className="w-3 h-3" />{m.type}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            ※「全部上傳」會把上述檔案一併上傳並寫入稽核日誌；「全部略過」則僅記錄略過事件，檔案不會上傳。其他無個資的檔案已上傳完成。
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCancelBatchPii}>全部略過</Button>
+            <Button variant="destructive" onClick={handleConfirmBatchPii}>全部上傳並記錄</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
+
   );
 };
 
