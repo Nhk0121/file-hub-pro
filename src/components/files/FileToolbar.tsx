@@ -15,8 +15,11 @@ import { FolderPlus, FilePlus, Upload, FolderUp, Plus, Search, LayoutGrid, List,
 import { toast } from 'sonner';
 import { scanPII, isExecutableFile } from '@/lib/piiChecker';
 import {
-  extractRootFilesFromInput, extractRootFilesFromDrop,
+  extractFilesFromInput,
   generateUniqueName, renameFile,
+  groupByPath,
+  DEFAULT_MAX_FOLDER_DEPTH,
+  type FolderUploadFile,
 } from '@/lib/folderUpload';
 import type { FileItem } from '@/types';
 
