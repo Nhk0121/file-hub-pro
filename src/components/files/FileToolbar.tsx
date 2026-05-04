@@ -173,6 +173,35 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
     toast.info('已取消上傳');
   };
 
+  const processFileForUpload = async (f: File) => {
+    if (isExecutableFile(f.name) && user?.role !== '系統管理員') {
+      toast.error(`「${f.name}」為執行檔,僅系統管理員可上傳`);
+      return;
+    }
+    const isTextLike = f.type.startsWith('text/') || /\.(md|markdown|json|csv|xml|log|ini|ya?ml|html?|txt)$/i.test(f.name);
+    if (isTextLike) {
+      try {
+        const text = await f.text();
+        const matches = scanPII(text);
+        if (matches.length > 0) {
+          setPiiMatches(matches);
+          setPendingPiiFile({
+            id: 'pending', name: f.name, type: 'file', mimeType: f.type, size: f.size,
+            parentId: currentFolderId, createdAt: '', updatedAt: '',
+            createdBy: user?.displayName ?? '', content: text,
+          } as FileItem);
+          setPiiWarningOpen(true);
+          return;
+        }
+      } catch { /* ignore */ }
+    }
+    const created = await uploadFile(f, currentFolderId);
+    if (created) {
+      toast.success(`已上傳:${f.name}`);
+      if (user) addLog({ userId: user.id, userName: user.displayName, action: '上傳', targetName: f.name });
+    }
+  };
+
   const handleUpload = () => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -180,42 +209,36 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
     input.onchange = async (e) => {
       const files = (e.target as HTMLInputElement).files;
       if (!files) return;
+      for (const f of Array.from(files)) await processFileForUpload(f);
+    };
+    input.click();
+  };
 
-      for (const f of Array.from(files)) {
-        // 執行檔限制：僅系統管理員可上傳
-        if (isExecutableFile(f.name) && user?.role !== '系統管理員') {
-          toast.error(`「${f.name}」為執行檔,僅系統管理員可上傳`);
-          continue;
-        }
+  // 上傳整個資料夾（僅取根層檔案；子資料夾會被略過）
+  const handleUploadFolder = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.setAttribute('webkitdirectory', '');
+    input.setAttribute('directory', '');
+    input.onchange = async (e) => {
+      const fl = (e.target as HTMLInputElement).files;
+      const { files, rejectedSubfolderFiles } = extractRootFilesFromInput(fl);
+      if (files.length === 0 && rejectedSubfolderFiles.length === 0) return;
 
-        const isTextLike = f.type.startsWith('text/') || /\.(md|markdown|json|csv|xml|log|ini|ya?ml|html?|txt)$/i.test(f.name);
+      const existing = new Set<string>(
+        allFiles
+          .filter(x => x.type === 'file' && x.parentId === currentFolderId)
+          .map(x => x.name),
+      );
+      const renamed = files.map(f => {
+        const newName = generateUniqueName(f.name, existing);
+        existing.add(newName);
+        return renameFile(f, newName);
+      });
 
-        // 文字檔先讀內容做 PII 掃描；二進位直接上傳
-        if (isTextLike) {
-          try {
-            const text = await f.text();
-            const matches = scanPII(text);
-            if (matches.length > 0) {
-              setPiiMatches(matches);
-              setPendingPiiFile({
-                id: 'pending', name: f.name, type: 'file', mimeType: f.type, size: f.size,
-                parentId: currentFolderId, createdAt: '', updatedAt: '',
-                createdBy: user?.displayName ?? '', content: text,
-              } as FileItem);
-              setPiiWarningOpen(true);
-              continue;
-            }
-          } catch {
-            // 讀取失敗就直接上傳
-          }
-        }
-
-        const created = await uploadFile(f, currentFolderId);
-        if (created) {
-          toast.success(`已上傳:${f.name}`);
-          if (user) addLog({ userId: user.id, userName: user.displayName, action: '上傳', targetName: f.name });
-        }
-      }
+      toast.info(`即將上傳 ${renamed.length} 個檔案${rejectedSubfolderFiles.length > 0 ? `，已略過 ${rejectedSubfolderFiles.length} 個位於子資料夾內` : ''}`);
+      for (const f of renamed) await processFileForUpload(f);
     };
     input.click();
   };
@@ -256,6 +279,9 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleUpload}>
                 <Upload className="w-4 h-4 mr-2" />上傳檔案
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleUploadFolder}>
+                <FolderUp className="w-4 h-4 mr-2" />上傳整個資料夾
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
