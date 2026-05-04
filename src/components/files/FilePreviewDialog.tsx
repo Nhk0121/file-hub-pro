@@ -34,7 +34,9 @@ const FilePreviewDialog = ({ file, open, onOpenChange }: FilePreviewDialogProps)
   const isCode = /\.(js|ts|tsx|jsx|css|html|py|java|c|cpp|h|sh|bat|sql|php|rb)$/i.test(name);
   const isWord = /\.(doc|docx)$/i.test(name);
   const isExcel = /\.(xls|xlsx)$/i.test(name);
-  const isBinaryDoc = isPdf || isWord || isExcel;
+  const isPpt = /\.(ppt|pptx)$/i.test(name);
+  const isOffice = file ? onlyOfficeService.isOfficeFile(file.name) : false;
+  const isBinaryDoc = isPdf || isWord || isExcel || isPpt;
   const isEditable = isMarkdown || isText || isCode || (mime.includes('html') && !isBinaryDoc);
   const needsText = isMarkdown || isText || isCode;
 
