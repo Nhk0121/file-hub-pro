@@ -347,7 +347,6 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
 
       // 4b) 若有 PII 檔案 → 開啟彙總彈窗讓使用者一次決定
       if (piiItems.length > 0) {
-        setBatchCleanQueue([]); // cleanQueue 已上傳完，這裡只用來給彈窗 callback 區隔；保留欄位以利後續擴充
         setBatchPiiItems(piiItems);
         setBatchPiiOpen(true);
       }
