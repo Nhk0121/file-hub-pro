@@ -469,6 +469,33 @@ public class FileService
     }
 
     /// <summary>
+    /// OnlyOffice 編輯完成後寫回原檔（覆蓋實體檔案 + 更新 DB Size/UpdatedAt）。
+    /// 注意：不更動 Name / DiskPath / ParentId，僅替換內容。
+    /// </summary>
+    public async Task OverwriteFileBytesAsync(string id, byte[] data)
+    {
+        var file = await GetByIdAsync(id);
+        if (file.Type != "file")
+            throw new InvalidOperationException("僅可覆蓋檔案而非資料夾");
+        if (string.IsNullOrEmpty(file.DiskPath))
+            throw new FileNotFoundException("實體路徑不存在");
+
+        var dir = Path.GetDirectoryName(file.DiskPath)!;
+        Directory.CreateDirectory(dir);
+
+        // 寫入暫存後 atomic move，降低中斷時損毀風險
+        var tmp = file.DiskPath + ".tmp-" + Guid.NewGuid().ToString("N")[..8];
+        await File.WriteAllBytesAsync(tmp, data);
+        File.Move(tmp, file.DiskPath, overwrite: true);
+
+        using var conn = _db.CreateConnection();
+        await conn.ExecuteAsync(
+            "UPDATE Files SET Size = @Size, UpdatedAt = GETUTCDATE() WHERE Id = @Id",
+            new { Size = (long)data.Length, Id = id });
+    }
+
+
+    /// <summary>
     /// 系統管理員強制刪除指定資料夾（含子內容），用於清除歷史殘留的重複系統資料夾。
     /// </summary>
     public async Task ForceDeleteAsync(string id)

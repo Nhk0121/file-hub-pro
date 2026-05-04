@@ -4,10 +4,11 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Download, ZoomIn, ZoomOut, RotateCw, Pencil, FileWarning, Loader2 } from 'lucide-react';
+import { Download, ZoomIn, ZoomOut, RotateCw, Pencil, FileWarning, Loader2, FileEdit } from 'lucide-react';
 import type { FileItem } from '@/types';
 import ReactMarkdown from 'react-markdown';
 import fileService from '@/services/fileService';
+import onlyOfficeService from '@/services/onlyOfficeService';
 import { toast } from 'sonner';
 
 interface FilePreviewDialogProps {
@@ -33,7 +34,9 @@ const FilePreviewDialog = ({ file, open, onOpenChange }: FilePreviewDialogProps)
   const isCode = /\.(js|ts|tsx|jsx|css|html|py|java|c|cpp|h|sh|bat|sql|php|rb)$/i.test(name);
   const isWord = /\.(doc|docx)$/i.test(name);
   const isExcel = /\.(xls|xlsx)$/i.test(name);
-  const isBinaryDoc = isPdf || isWord || isExcel;
+  const isPpt = /\.(ppt|pptx)$/i.test(name);
+  const isOffice = file ? onlyOfficeService.isOfficeFile(file.name) : false;
+  const isBinaryDoc = isPdf || isWord || isExcel || isPpt;
   const isEditable = isMarkdown || isText || isCode || (mime.includes('html') && !isBinaryDoc);
   const needsText = isMarkdown || isText || isCode;
 
@@ -130,19 +133,24 @@ const FilePreviewDialog = ({ file, open, onOpenChange }: FilePreviewDialogProps)
       );
     }
 
-    if (isWord || isExcel) {
-      const typeLabel = isWord ? 'Word' : 'Excel';
+    if (isWord || isExcel || isPpt) {
+      const typeLabel = isWord ? 'Word' : isExcel ? 'Excel' : 'PowerPoint';
       return (
         <div className="flex items-center justify-center min-h-[400px] bg-muted/20 rounded-lg p-8">
           <div className="text-center text-muted-foreground">
             <FileWarning className="w-16 h-16 mx-auto mb-4 opacity-40" />
             <p className="text-lg font-medium mb-2">{typeLabel} 文件</p>
             <p className="text-sm mb-4">
-              {typeLabel} 為二進位格式，目前僅支援下載後以桌面應用程式編輯。
+              使用「OnlyOffice 線上編輯」可直接於瀏覽器編輯，或下載至本機以桌面應用程式開啟。
             </p>
-            <Button onClick={handleDownload} variant="outline">
-              <Download className="w-4 h-4 mr-2" />下載 {typeLabel} 檔案
-            </Button>
+            <div className="flex items-center justify-center gap-2">
+              <Button onClick={handleEdit} className="glow-primary">
+                <FileEdit className="w-4 h-4 mr-2" />OnlyOffice 線上編輯
+              </Button>
+              <Button onClick={handleDownload} variant="outline">
+                <Download className="w-4 h-4 mr-2" />下載 {typeLabel} 檔案
+              </Button>
+            </div>
           </div>
         </div>
       );
@@ -192,10 +200,10 @@ const FilePreviewDialog = ({ file, open, onOpenChange }: FilePreviewDialogProps)
           <div className="flex items-center justify-between pr-6">
             <DialogTitle className="truncate">{file.name}</DialogTitle>
             <div className="flex items-center gap-1">
-              {isEditable && (
-                <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={handleEdit} title="線上編輯">
+              {(isEditable || isOffice) && (
+                <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={handleEdit} title={isOffice ? 'OnlyOffice 線上編輯' : '線上編輯'}>
                   <Pencil className="w-4 h-4" />
-                  編輯
+                  {isOffice ? 'OnlyOffice 編輯' : '編輯'}
                 </Button>
               )}
               {isImage && (
