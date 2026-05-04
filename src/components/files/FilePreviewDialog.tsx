@@ -4,10 +4,11 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Download, ZoomIn, ZoomOut, RotateCw, Pencil, FileWarning, Loader2 } from 'lucide-react';
+import { Download, ZoomIn, ZoomOut, RotateCw, Pencil, FileWarning, Loader2, FileEdit } from 'lucide-react';
 import type { FileItem } from '@/types';
 import ReactMarkdown from 'react-markdown';
 import fileService from '@/services/fileService';
+import onlyOfficeService from '@/services/onlyOfficeService';
 import { toast } from 'sonner';
 
 interface FilePreviewDialogProps {
