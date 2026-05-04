@@ -76,10 +76,21 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
   const [newDocName, setNewDocName] = useState('');
   const [newDocType, setNewDocType] = useState<'markdown' | 'richtext'>('markdown');
 
-  // PII 警告彈窗
+  // PII 警告彈窗（單檔）
   const [piiWarningOpen, setPiiWarningOpen] = useState(false);
   const [piiMatches, setPiiMatches] = useState<{ type: string; sample: string }[]>([]);
   const [pendingPiiFile, setPendingPiiFile] = useState<FileItem | null>(null);
+
+  // PII 警告彈窗（資料夾批次）
+  type BatchPiiItem = {
+    file: File;
+    parentId: string | null;
+    relativePath: string;
+    matches: { type: string; sample: string }[];
+  };
+  const [batchPiiOpen, setBatchPiiOpen] = useState(false);
+  const [batchPiiItems, setBatchPiiItems] = useState<BatchPiiItem[]>([]);
+  const [batchCleanQueue, setBatchCleanQueue] = useState<{ file: File; parentId: string | null }[]>([]);
 
   const isAdmin = user?.role === '管理員' || user?.role === '系統管理員';
 
