@@ -111,13 +111,18 @@ const Landing = () => {
 
       {/* Footer */}
       <footer className="relative z-10 border-t border-border/50 glass">
-        <div className="max-w-6xl mx-auto px-6 py-6 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="max-w-6xl mx-auto px-6 py-6 flex flex-col md:flex-row items-center justify-between gap-3">
           <p className="text-sm text-muted-foreground">
             © {new Date().getFullYear()} 台灣電力公司桃園區營業處 · 文件管理系統
           </p>
-          <p className="text-xs text-muted-foreground">
-            本系統僅供授權人員使用，所有操作均受稽核紀錄
-          </p>
+          <div className="flex flex-col md:items-end gap-1">
+            <p className="text-xs text-muted-foreground">
+              本系統僅供授權人員使用，所有操作均受稽核紀錄
+            </p>
+            <p className="text-xs text-muted-foreground">
+              網頁設計：<span className="text-primary font-medium">{designer}</span>
+            </p>
+          </div>
         </div>
       </footer>
     </div>
