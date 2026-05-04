@@ -19,7 +19,6 @@ import {
   generateUniqueName, renameFile,
   groupByPath,
   DEFAULT_MAX_FOLDER_DEPTH,
-  type FolderUploadFile,
 } from '@/lib/folderUpload';
 import type { FileItem } from '@/types';
 
