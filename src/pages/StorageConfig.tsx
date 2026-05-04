@@ -22,7 +22,8 @@ import { useSystemTitle } from '@/contexts/SystemTitleContext';
 
 const StorageConfig = () => {
   const { user } = useAuth();
-  const { refresh: refreshSystemTitle } = useSystemTitle();
+  const { refresh: refreshSystemTitle, designer, setDesigner } = useSystemTitle();
+  const [designerInput, setDesignerInput] = useState<string>(designer);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
