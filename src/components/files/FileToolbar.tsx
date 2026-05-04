@@ -585,6 +585,46 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 上傳結果明細彈窗 — 確保使用者收到所有被拒絕/失敗的檔案資訊 */}
+      <Dialog open={rejectionDialogOpen} onOpenChange={setRejectionDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="w-5 h-5" />上傳結果通知
+            </DialogTitle>
+            <DialogDescription>
+              本次共處理 <span className="font-semibold">{rejectionSummary.total}</span> 個檔案，
+              成功上傳 <span className="font-semibold text-primary">{rejectionSummary.uploaded}</span> 個，
+              另有 <span className="font-semibold text-destructive">{rejectionItems.length}</span> 個被拒絕或失敗，明細如下：
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[55vh] overflow-auto border rounded-md bg-muted/30">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-muted/80 backdrop-blur">
+                <tr className="border-b">
+                  <th className="text-left px-3 py-2 font-medium">檔案 / 資料夾</th>
+                  <th className="text-left px-3 py-2 font-medium w-1/3">原因</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rejectionItems.map((it, idx) => (
+                  <tr key={idx} className="border-b last:border-b-0">
+                    <td className="px-3 py-2 break-all font-mono text-xs">{it.path}</td>
+                    <td className="px-3 py-2 text-destructive">{it.reason}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            ※ 此清單僅用於即時提示，相關事件已寫入稽核日誌可供後續查詢。
+          </p>
+          <DialogFooter>
+            <Button onClick={() => setRejectionDialogOpen(false)}>我已知悉</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
 
   );
