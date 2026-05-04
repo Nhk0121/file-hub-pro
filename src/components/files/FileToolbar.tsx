@@ -15,8 +15,10 @@ import { FolderPlus, FilePlus, Upload, FolderUp, Plus, Search, LayoutGrid, List,
 import { toast } from 'sonner';
 import { scanPII, isExecutableFile } from '@/lib/piiChecker';
 import {
-  extractRootFilesFromInput, extractRootFilesFromDrop,
+  extractFilesFromInput,
   generateUniqueName, renameFile,
+  groupByPath,
+  DEFAULT_MAX_FOLDER_DEPTH,
 } from '@/lib/folderUpload';
 import type { FileItem } from '@/types';
 
@@ -214,7 +216,7 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
     input.click();
   };
 
-  // 上傳整個資料夾（僅取根層檔案；子資料夾會被略過）
+  // 上傳整個資料夾（最多 3 層子資料夾，超過會略過）
   const handleUploadFolder = () => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -223,25 +225,111 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
     input.setAttribute('directory', '');
     input.onchange = async (e) => {
       const fl = (e.target as HTMLInputElement).files;
-      const { files, rejectedSubfolderFiles } = extractRootFilesFromInput(fl);
-      if (files.length === 0 && rejectedSubfolderFiles.length === 0) return;
+      const { files: picked, rejectedDeepFiles } = extractFilesFromInput(fl, DEFAULT_MAX_FOLDER_DEPTH);
+      if (picked.length === 0 && rejectedDeepFiles.length === 0) return;
 
-      const existing = new Set<string>(
-        allFiles
-          .filter(x => x.type === 'file' && x.parentId === currentFolderId)
-          .map(x => x.name),
-      );
-      const renamed = files.map(f => {
-        const newName = generateUniqueName(f.name, existing);
-        existing.add(newName);
-        return renameFile(f, newName);
+      // 1) 依路徑分組，先建立所需的子資料夾（DFS / 由淺到深）
+      //    folderIdMap: pathKey ("a/b/c") -> 在 DMS 中的 folderId（根目錄為空字串 key）
+      const folderIdMap = new Map<string, string | null>();
+      folderIdMap.set('', currentFolderId);
+
+      // 蒐集所有需要存在的資料夾路徑
+      const allPaths = new Set<string>();
+      for (const it of picked) {
+        const segs = it.relativePath;
+        for (let i = 1; i <= segs.length; i++) {
+          allPaths.add(segs.slice(0, i).join('/'));
+        }
+      }
+      // 依深度排序
+      const sortedPaths = Array.from(allPaths).sort((a, b) => a.split('/').length - b.split('/').length);
+
+      let folderCreateFailed = 0;
+      for (const pathKey of sortedPaths) {
+        const segs = pathKey.split('/');
+        const folderName = segs[segs.length - 1];
+        const parentKey = segs.slice(0, -1).join('/');
+        const parentId = folderIdMap.get(parentKey) ?? null;
+
+        // 若無權建子資料夾，則略過
+        if (!canCreateSubfolder(parentId)) {
+          folderCreateFailed++;
+          continue;
+        }
+        try {
+          const created = await addFolder(folderName, parentId);
+          if (created) {
+            folderIdMap.set(pathKey, created.id);
+          } else {
+            folderCreateFailed++;
+          }
+        } catch {
+          folderCreateFailed++;
+        }
+      }
+
+      // 2) 依目標資料夾分組，分別處理檔名重複
+      const grouped = groupByPath(picked);
+      const renamedQueue: { file: File; parentId: string | null }[] = [];
+
+      grouped.forEach((items, pathKey) => {
+        const targetParentId = folderIdMap.get(pathKey);
+        if (targetParentId === undefined) return; // 上層資料夾建立失敗
+        const existing = new Set<string>(
+          allFiles
+            .filter(x => x.type === 'file' && x.parentId === targetParentId)
+            .map(x => x.name),
+        );
+        for (const it of items) {
+          const newName = generateUniqueName(it.file.name, existing);
+          existing.add(newName);
+          renamedQueue.push({ file: renameFile(it.file, newName), parentId: targetParentId });
+        }
       });
 
-      toast.info(`即將上傳 ${renamed.length} 個檔案${rejectedSubfolderFiles.length > 0 ? `，已略過 ${rejectedSubfolderFiles.length} 個位於子資料夾內` : ''}`);
-      for (const f of renamed) await processFileForUpload(f);
+      const skippedByPerm = picked.length - renamedQueue.length;
+      const msgs: string[] = [`即將上傳 ${renamedQueue.length} 個檔案`];
+      if (rejectedDeepFiles.length > 0) msgs.push(`已略過 ${rejectedDeepFiles.length} 個超過 ${DEFAULT_MAX_FOLDER_DEPTH} 層深度的檔案`);
+      if (folderCreateFailed > 0) msgs.push(`${folderCreateFailed} 個子資料夾建立失敗`);
+      if (skippedByPerm > 0) msgs.push(`${skippedByPerm} 個檔案因權限略過`);
+      toast.info(msgs.join('；'));
+
+      // 3) 依序上傳到對應 parentId
+      for (const item of renamedQueue) {
+        await processFileForUploadTo(item.file, item.parentId);
+      }
     };
     input.click();
   };
+
+  // processFileForUpload 的指定 parentId 版本（資料夾上傳用）
+  const processFileForUploadTo = async (f: File, parentId: string | null) => {
+    if (isExecutableFile(f.name) && user?.role !== '系統管理員') {
+      toast.error(`「${f.name}」為執行檔,僅系統管理員可上傳`);
+      return;
+    }
+    const isTextLike = f.type.startsWith('text/') || /\.(md|markdown|json|csv|xml|log|ini|ya?ml|html?|txt)$/i.test(f.name);
+    if (isTextLike) {
+      try {
+        const text = await f.text();
+        const matches = scanPII(text);
+        if (matches.length > 0) {
+          // 資料夾批次上傳遇到 PII 仍直接記錄上傳並寫入稽核（避免逐檔彈窗）
+          const created = await uploadFile(f, parentId);
+          if (created && user) {
+            addLog({ userId: user.id, userName: user.displayName, action: '上傳', targetName: f.name });
+            addLog({ userId: user.id, userName: user.displayName, action: '個資存取', targetName: f.name, details: `偵測到個資: ${matches.map(m => m.type).join(', ')}` });
+          }
+          return;
+        }
+      } catch { /* ignore */ }
+    }
+    const created = await uploadFile(f, parentId);
+    if (created && user) {
+      addLog({ userId: user.id, userName: user.displayName, action: '上傳', targetName: f.name });
+    }
+  };
+
 
   return (
     <>
