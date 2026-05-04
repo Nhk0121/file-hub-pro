@@ -76,10 +76,20 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
   const [newDocName, setNewDocName] = useState('');
   const [newDocType, setNewDocType] = useState<'markdown' | 'richtext'>('markdown');
 
-  // PII 警告彈窗
+  // PII 警告彈窗（單檔）
   const [piiWarningOpen, setPiiWarningOpen] = useState(false);
   const [piiMatches, setPiiMatches] = useState<{ type: string; sample: string }[]>([]);
   const [pendingPiiFile, setPendingPiiFile] = useState<FileItem | null>(null);
+
+  // PII 警告彈窗（資料夾批次）
+  type BatchPiiItem = {
+    file: File;
+    parentId: string | null;
+    relativePath: string;
+    matches: { type: string; sample: string }[];
+  };
+  const [batchPiiOpen, setBatchPiiOpen] = useState(false);
+  const [batchPiiItems, setBatchPiiItems] = useState<BatchPiiItem[]>([]);
 
   const isAdmin = user?.role === '管理員' || user?.role === '系統管理員';
 
@@ -287,48 +297,101 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
         }
       });
 
+      // 3) 預先處理：執行檔自動略過 + PII 預掃，分流為 cleanQueue / piiItems
+      const cleanQueue: { file: File; parentId: string | null }[] = [];
+      const piiItems: BatchPiiItem[] = [];
+      let skippedExe = 0;
+
+      for (const item of renamedQueue) {
+        const f = item.file;
+        if (isExecutableFile(f.name) && user?.role !== '系統管理員') {
+          skippedExe++;
+          continue;
+        }
+        const isTextLike = f.type.startsWith('text/') || /\.(md|markdown|json|csv|xml|log|ini|ya?ml|html?|txt)$/i.test(f.name);
+        let matches: { type: string; sample: string }[] = [];
+        if (isTextLike) {
+          try {
+            const text = await f.text();
+            matches = scanPII(text);
+          } catch { /* ignore */ }
+        }
+        if (matches.length > 0) {
+          // 計算顯示用相對路徑（找回原始 webkitRelativePath；若已被 renameFile 替換則用名稱）
+          const original = picked.find(p => p.file.name === f.name || (p.file as unknown as { webkitRelativePath?: string }).webkitRelativePath?.endsWith('/' + f.name));
+          const relPath = original
+            ? [...original.relativePath, f.name].join('/')
+            : f.name;
+          piiItems.push({ file: f, parentId: item.parentId, relativePath: relPath, matches });
+        } else {
+          cleanQueue.push(item);
+        }
+      }
+
       const skippedByPerm = picked.length - renamedQueue.length;
-      const msgs: string[] = [`即將上傳 ${renamedQueue.length} 個檔案`];
-      if (rejectedDeepFiles.length > 0) msgs.push(`已略過 ${rejectedDeepFiles.length} 個超過 ${DEFAULT_MAX_FOLDER_DEPTH} 層深度的檔案`);
+      const msgs: string[] = [`掃描完成：共 ${renamedQueue.length} 個檔案`];
+      if (rejectedDeepFiles.length > 0) msgs.push(`已略過 ${rejectedDeepFiles.length} 個超過 ${DEFAULT_MAX_FOLDER_DEPTH} 層深度`);
       if (folderCreateFailed > 0) msgs.push(`${folderCreateFailed} 個子資料夾建立失敗`);
-      if (skippedByPerm > 0) msgs.push(`${skippedByPerm} 個檔案因權限略過`);
+      if (skippedByPerm > 0) msgs.push(`${skippedByPerm} 個因權限略過`);
+      if (skippedExe > 0) msgs.push(`${skippedExe} 個執行檔已略過`);
+      if (piiItems.length > 0) msgs.push(`${piiItems.length} 個檔案疑含個資，待您確認`);
       toast.info(msgs.join('；'));
 
-      // 3) 依序上傳到對應 parentId
-      for (const item of renamedQueue) {
-        await processFileForUploadTo(item.file, item.parentId);
+      // 4a) 先把無 PII 的檔案上傳
+      for (const item of cleanQueue) {
+        const created = await uploadFile(item.file, item.parentId);
+        if (created && user) {
+          addLog({ userId: user.id, userName: user.displayName, action: '上傳', targetName: item.file.name });
+        }
+      }
+
+      // 4b) 若有 PII 檔案 → 開啟彙總彈窗讓使用者一次決定
+      if (piiItems.length > 0) {
+        setBatchPiiItems(piiItems);
+        setBatchPiiOpen(true);
       }
     };
     input.click();
   };
 
-  // processFileForUpload 的指定 parentId 版本（資料夾上傳用）
-  const processFileForUploadTo = async (f: File, parentId: string | null) => {
-    if (isExecutableFile(f.name) && user?.role !== '系統管理員') {
-      toast.error(`「${f.name}」為執行檔,僅系統管理員可上傳`);
-      return;
+  // 批次 PII：使用者選擇全部上傳
+  const handleConfirmBatchPii = async () => {
+    const items = batchPiiItems;
+    setBatchPiiOpen(false);
+    setBatchPiiItems([]);
+    if (items.length === 0) return;
+
+    let ok = 0;
+    for (const it of items) {
+      const created = await uploadFile(it.file, it.parentId);
+      if (created && user) {
+        addLog({ userId: user.id, userName: user.displayName, action: '上傳', targetName: it.file.name });
+        addLog({
+          userId: user.id, userName: user.displayName,
+          action: '個資存取', targetName: it.file.name,
+          details: `偵測到個資: ${it.matches.map(m => m.type).join(', ')}`,
+        });
+        ok++;
+      }
     }
-    const isTextLike = f.type.startsWith('text/') || /\.(md|markdown|json|csv|xml|log|ini|ya?ml|html?|txt)$/i.test(f.name);
-    if (isTextLike) {
-      try {
-        const text = await f.text();
-        const matches = scanPII(text);
-        if (matches.length > 0) {
-          // 資料夾批次上傳遇到 PII 仍直接記錄上傳並寫入稽核（避免逐檔彈窗）
-          const created = await uploadFile(f, parentId);
-          if (created && user) {
-            addLog({ userId: user.id, userName: user.displayName, action: '上傳', targetName: f.name });
-            addLog({ userId: user.id, userName: user.displayName, action: '個資存取', targetName: f.name, details: `偵測到個資: ${matches.map(m => m.type).join(', ')}` });
-          }
-          return;
-        }
-      } catch { /* ignore */ }
-    }
-    const created = await uploadFile(f, parentId);
-    if (created && user) {
-      addLog({ userId: user.id, userName: user.displayName, action: '上傳', targetName: f.name });
-    }
+    toast.warning(`已上傳 ${ok} 個含個資檔案，已寫入稽核日誌`);
   };
+
+  // 批次 PII：使用者選擇全部略過
+  const handleCancelBatchPii = () => {
+    const count = batchPiiItems.length;
+    if (user && count > 0) {
+      addLog({
+        userId: user.id, userName: user.displayName,
+        action: '個資存取', targetName: `批次上傳取消 (${count} 個檔案)`,
+        details: `使用者選擇略過含個資檔案：${batchPiiItems.map(i => i.relativePath).join('；')}`,
+      });
+    }
+    setBatchPiiOpen(false);
+    setBatchPiiItems([]);
+    toast.info(`已略過 ${count} 個含個資檔案`);
+  };
+
 
 
   return (
@@ -440,7 +503,43 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 批次 PII 彙總彈窗（資料夾上傳用） */}
+      <Dialog open={batchPiiOpen} onOpenChange={(o) => { if (!o) handleCancelBatchPii(); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="w-5 h-5" />批次上傳：個資風險彙總
+            </DialogTitle>
+            <DialogDescription>
+              系統在本次資料夾上傳中偵測到 <span className="font-semibold text-destructive">{batchPiiItems.length}</span> 個檔案疑似包含個人資料，請選擇處置方式。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[50vh] overflow-auto border rounded-md p-3 space-y-2 bg-muted/30">
+            {batchPiiItems.map((it, idx) => (
+              <div key={idx} className="text-sm border-b last:border-b-0 pb-2 last:pb-0">
+                <div className="font-medium break-all">{it.relativePath}</div>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {it.matches.map((m, i) => (
+                    <span key={i} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-destructive/10 text-destructive">
+                      <AlertTriangle className="w-3 h-3" />{m.type}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            ※「全部上傳」會把上述檔案一併上傳並寫入稽核日誌；「全部略過」則僅記錄略過事件，檔案不會上傳。其他無個資的檔案已上傳完成。
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCancelBatchPii}>全部略過</Button>
+            <Button variant="destructive" onClick={handleConfirmBatchPii}>全部上傳並記錄</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
+
   );
 };
 
