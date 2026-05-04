@@ -6,13 +6,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import RichTextEditor from '@/components/editor/RichTextEditor';
 import MarkdownEditor from '@/components/editor/MarkdownEditor';
-import OnlyOfficeEditor from '@/components/editor/OnlyOfficeEditor';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Save, Lock, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import fileService from '@/services/fileService';
-import onlyOfficeService from '@/services/onlyOfficeService';
 
 const Editor = () => {
   const { fileId } = useParams();
@@ -27,25 +25,22 @@ const Editor = () => {
   const mime = file?.mimeType || '';
   const isMarkdown = mime.includes('markdown') || name.endsWith('.md');
   const isHtml = mime.includes('html') || name.endsWith('.html') || name.endsWith('.htm');
-  const isOffice = !!file && onlyOfficeService.isOfficeFile(file.name);
-  const isPlainText = !!file && !isMarkdown && !isHtml && !isOffice;
+  const isPlainText = !!file && !isMarkdown && !isHtml;
 
   const [content, setContent] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
   const [locked, setLocked] = useState(false);
   const [loadingContent, setLoadingContent] = useState(true);
 
-  // Office 文件交給 OnlyOfficeEditor 自行管鎖；其餘走原有 EditLockContext
   useEffect(() => {
-    if (!fileId || isOffice) return;
+    if (!fileId) return;
     const got = acquireLock(fileId);
     setLocked(!got);
     return () => { releaseLock(fileId); };
-  }, [fileId, isOffice]);
+  }, [fileId]);
 
-  // 文字類檔案才載入內容
   useEffect(() => {
-    if (!file || isOffice) {
+    if (!file) {
       setLoadingContent(false);
       return;
     }
@@ -65,7 +60,7 @@ const Editor = () => {
       })
       .finally(() => { if (!cancelled) setLoadingContent(false); });
     return () => { cancelled = true; };
-  }, [file?.id, isOffice]);
+  }, [file?.id]);
 
   if (!file) {
     return (
@@ -76,9 +71,7 @@ const Editor = () => {
     );
   }
 
-  const editorTypeLabel = isOffice
-    ? 'OnlyOffice 線上編輯'
-    : isMarkdown ? 'Markdown 編輯器'
+  const editorTypeLabel = isMarkdown ? 'Markdown 編輯器'
     : isHtml ? '富文字編輯器'
     : '純文字編輯器';
 
@@ -109,20 +102,17 @@ const Editor = () => {
             <h2 className="text-lg font-semibold">{file.name}</h2>
             <p className="text-xs text-muted-foreground">
               {editorTypeLabel}
-              {!isOffice && hasChanges && ' • 未儲存的變更'}
-              {isOffice && ' • 自動儲存'}
+              {hasChanges && ' • 未儲存的變更'}
             </p>
           </div>
         </div>
-        {!isOffice && (
-          <Button onClick={handleSave} disabled={!hasChanges || locked || loadingContent}>
-            <Save className="w-4 h-4 mr-2" />
-            儲存
-          </Button>
-        )}
+        <Button onClick={handleSave} disabled={!hasChanges || locked || loadingContent}>
+          <Save className="w-4 h-4 mr-2" />
+          儲存
+        </Button>
       </div>
 
-      {!isOffice && locked && lockInfo && (
+      {locked && lockInfo && (
         <Alert variant="destructive" className="mx-6 mt-4">
           <Lock className="h-4 w-4" />
           <AlertDescription>
@@ -132,9 +122,7 @@ const Editor = () => {
       )}
 
       <div className="flex-1 flex flex-col overflow-auto">
-        {isOffice ? (
-          <OnlyOfficeEditor fileId={file.id} fileName={file.name} />
-        ) : loadingContent ? (
+        {loadingContent ? (
           <div className="flex items-center justify-center min-h-[400px]">
             <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
           </div>
