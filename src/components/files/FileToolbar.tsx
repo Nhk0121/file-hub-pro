@@ -239,22 +239,30 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
     return null;
   };
 
-  // 上傳整個資料夾（最多 3 層子資料夾，超過會略過）
+  // 常駐隱藏 input（避免 Radix DropdownMenu 關閉後動態建立的 input.click() 被瀏覽器當成非使用者手勢忽略）
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
+
+  // 上傳整個資料夾（最多 N 層子資料夾，超過會略過）
   const handleUploadFolder = () => {
     const unavailableMessage = getFolderUploadUnavailableMessage();
     if (unavailableMessage) {
       toast.error(unavailableMessage);
       return;
     }
+    const input = folderInputRef.current;
+    if (!input) {
+      toast.error('資料夾選擇器未就緒，請重新整理頁面後再試');
+      return;
+    }
+    // 重置 value 避免選同一資料夾不觸發 onChange
+    input.value = '';
+    input.click();
+  };
 
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.multiple = true;
-    input.setAttribute('webkitdirectory', '');
-    input.setAttribute('directory', '');
-    input.onchange = async (e) => {
-      try {
-        const fl = (e.target as HTMLInputElement).files;
+  const handleFolderInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      {
+        const fl = e.target.files;
         const { files: picked, rejectedDeepFiles } = extractFilesFromInput(fl, DEFAULT_MAX_FOLDER_DEPTH);
         if (picked.length === 0 && rejectedDeepFiles.length === 0) {
           toast.warning('未讀取到任何檔案，請確認選取的資料夾內有檔案後再試一次');
@@ -414,12 +422,14 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
         } else if (uploadedOk > 0 && piiItems.length === 0) {
           toast.success(`已成功上傳 ${uploadedOk} 個檔案`);
         }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : '未知錯誤';
-        toast.error(`資料夾上傳流程中斷：${message}`);
       }
-    };
-    input.click();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '未知錯誤';
+      toast.error(`資料夾上傳流程中斷：${message}`);
+    } finally {
+      // 重置以便下次能再選同一資料夾
+      if (e.target) (e.target as HTMLInputElement).value = '';
+    }
   };
 
   // 批次 PII：使用者選擇全部上傳
@@ -464,6 +474,15 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
 
   return (
     <>
+      {/* 常駐隱藏資料夾選擇 input：避免 Dropdown 關閉後動態 input.click() 失去使用者手勢 */}
+      <input
+        ref={folderInputRef}
+        type="file"
+        multiple
+        {...({ webkitdirectory: '', directory: '' } as Record<string, string>)}
+        style={{ display: 'none' }}
+        onChange={handleFolderInputChange}
+      />
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px] max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -500,7 +519,8 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
                 <Upload className="w-4 h-4 mr-2" />上傳檔案
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => {
+                onSelect={(ev) => {
+                  ev.preventDefault();
                   handleUploadFolder();
                 }}
               >
