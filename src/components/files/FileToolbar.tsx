@@ -239,22 +239,30 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
     return null;
   };
 
-  // 上傳整個資料夾（最多 3 層子資料夾，超過會略過）
+  // 常駐隱藏 input（避免 Radix DropdownMenu 關閉後動態建立的 input.click() 被瀏覽器當成非使用者手勢忽略）
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
+
+  // 上傳整個資料夾（最多 N 層子資料夾，超過會略過）
   const handleUploadFolder = () => {
     const unavailableMessage = getFolderUploadUnavailableMessage();
     if (unavailableMessage) {
       toast.error(unavailableMessage);
       return;
     }
+    const input = folderInputRef.current;
+    if (!input) {
+      toast.error('資料夾選擇器未就緒，請重新整理頁面後再試');
+      return;
+    }
+    // 重置 value 避免選同一資料夾不觸發 onChange
+    input.value = '';
+    input.click();
+  };
 
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.multiple = true;
-    input.setAttribute('webkitdirectory', '');
-    input.setAttribute('directory', '');
-    input.onchange = async (e) => {
-      try {
-        const fl = (e.target as HTMLInputElement).files;
+  const handleFolderInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      {
+        const fl = e.target.files;
         const { files: picked, rejectedDeepFiles } = extractFilesFromInput(fl, DEFAULT_MAX_FOLDER_DEPTH);
         if (picked.length === 0 && rejectedDeepFiles.length === 0) {
           toast.warning('未讀取到任何檔案，請確認選取的資料夾內有檔案後再試一次');
