@@ -510,7 +510,8 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
                 <Upload className="w-4 h-4 mr-2" />上傳檔案
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => {
+                onSelect={(ev) => {
+                  ev.preventDefault();
                   handleUploadFolder();
                 }}
               >
