@@ -474,6 +474,18 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
 
   return (
     <>
+      {/* 常駐隱藏資料夾選擇 input：避免 Dropdown 關閉後動態 input.click() 失去使用者手勢 */}
+      <input
+        ref={folderInputRef}
+        type="file"
+        multiple
+        // @ts-expect-error 非標準 React 屬性，瀏覽器仍支援
+        webkitdirectory=""
+        // @ts-expect-error 非標準屬性
+        directory=""
+        style={{ display: 'none' }}
+        onChange={handleFolderInputChange}
+      />
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px] max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
