@@ -422,12 +422,14 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
         } else if (uploadedOk > 0 && piiItems.length === 0) {
           toast.success(`已成功上傳 ${uploadedOk} 個檔案`);
         }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : '未知錯誤';
-        toast.error(`資料夾上傳流程中斷：${message}`);
       }
-    };
-    input.click();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '未知錯誤';
+      toast.error(`資料夾上傳流程中斷：${message}`);
+    } finally {
+      // 重置以便下次能再選同一資料夾
+      if (e.target) (e.target as HTMLInputElement).value = '';
+    }
   };
 
   // 批次 PII：使用者選擇全部上傳
