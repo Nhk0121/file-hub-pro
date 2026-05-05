@@ -479,10 +479,7 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
         ref={folderInputRef}
         type="file"
         multiple
-        // @ts-expect-error 非標準 React 屬性，瀏覽器仍支援
-        webkitdirectory=""
-        // @ts-expect-error 非標準屬性
-        directory=""
+        {...({ webkitdirectory: '', directory: '' } as Record<string, string>)}
         style={{ display: 'none' }}
         onChange={handleFolderInputChange}
       />
