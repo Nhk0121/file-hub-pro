@@ -10,11 +10,12 @@ interface AuthContextType {
   isAuthenticated: boolean;
   allUsers: User[];
   loading: boolean;
-  login: (username: string, password: string) => Promise<boolean>;
+  login: (username: string, password: string) => Promise<{ ok: boolean; suspended?: boolean; message?: string }>;
   logout: () => void;
   addUser: (user: User, password: string) => Promise<void>;
   removeUser: (userId: string) => Promise<void>;
   updateUser: (userId: string, updates: Partial<User>) => Promise<void>;
+  suspendUser: (userId: string, suspended: boolean, reason?: string) => Promise<void>;
   updateUserRole: (userId: string, role: UserRole) => Promise<void>;
   updateProfile: (updates: Partial<User>) => Promise<void>;
   resetPassword: (userId: string) => Promise<void>;
@@ -103,16 +104,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { token, user: userData } = await authService.login(username, password);
       setUser(userData);
       sessionStore.setUser(userData);
-      // 登入後載入使用者列表
       await refreshUsers();
       await loadRegistrations();
-      return true;
-    } catch {
-      return false;
+      return { ok: true };
+    } catch (err: any) {
+      const status = err?.response?.status;
+      const data = err?.response?.data;
+      if (status === 403 && data?.suspended) {
+        return { ok: false, suspended: true, message: data?.message || '您的帳號因違規遭受停權處分，請聯絡系統管理員。' };
+      }
+      return { ok: false, message: data?.message };
     } finally {
       setLoading(false);
     }
   }, [refreshUsers, loadRegistrations]);
+
+  const suspendUser = useCallback(async (userId: string, suspended: boolean, reason?: string) => {
+    await userService.suspend(userId, suspended, reason);
+    await refreshUsers();
+  }, [refreshUsers]);
 
   const addUser = useCallback(async (newUser: User, password: string) => {
     await userService.create({ ...newUser, password } as any);
@@ -169,7 +179,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <AuthContext.Provider value={{
       user, isAuthenticated: !!user, allUsers, loading,
-      login, logout, addUser, removeUser, updateUser, updateUserRole, updateProfile, resetPassword,
+      login, logout, addUser, removeUser, updateUser, suspendUser, updateUserRole, updateProfile, resetPassword,
       registrations, submitRegistration, reviewRegistration, refreshUsers,
     }}>
       {children}
