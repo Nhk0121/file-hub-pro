@@ -1313,6 +1313,35 @@ const Admin = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 違規停權 Dialog */}
+      <Dialog open={suspendDialogOpen} onOpenChange={setSuspendDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Ban className="w-5 h-5" />違規停權
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm">
+              即將停權使用者「<span className="font-semibold">{suspendTarget?.username}</span>（{suspendTarget?.displayName}）」，停權後該帳號將無法登入，並會於登入畫面顯示停權訊息。
+            </p>
+            <div>
+              <Label className="mb-1 block">停權原因（可選，將顯示給使用者）</Label>
+              <Input
+                value={suspendReason}
+                onChange={e => setSuspendReason(e.target.value)}
+                placeholder="例如：違反資安規定、洩漏個資..."
+                maxLength={200}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSuspendDialogOpen(false)}>取消</Button>
+            <Button variant="destructive" onClick={handleConfirmSuspend}>確認停權</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
