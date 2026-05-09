@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useFiles } from '@/contexts/FileContext';
 import FileToolbar from '@/components/files/FileToolbar';
 import FileList from '@/components/files/FileList';
+import GroupQuotaPanel from '@/components/files/GroupQuotaPanel';
 import {
   Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
@@ -52,6 +53,9 @@ const Index = () => {
           </BreadcrumbList>
         </Breadcrumb>
       </div>
+
+      {/* Group quotas */}
+      <GroupQuotaPanel />
 
       {/* Toolbar */}
       <div className="px-6 py-3 border-b">
