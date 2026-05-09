@@ -470,6 +470,8 @@ const Admin = () => {
                       };
                       const q = userSearch.trim().toLowerCase();
                       const filtered = list.filter(u => {
+                        // 外包人員帳號統一在「外包人員管理」頁面維護，不顯示於系統管理
+                        if (u.applicantType === '外包人員' || u.role === '外包人員') return false;
                         const matchSearch = !q
                           || u.username.toLowerCase().includes(q)
                           || (u.displayName || '').toLowerCase().includes(q)
@@ -521,7 +523,6 @@ const Admin = () => {
                               <SelectItem value="系統管理員">系統管理員</SelectItem>
                               <SelectItem value="管理員">管理員</SelectItem>
                               <SelectItem value="使用者">使用者</SelectItem>
-                              <SelectItem value="外包人員">外包人員</SelectItem>
                             </SelectContent>
                           </Select>
                         </TableCell>
@@ -1107,9 +1108,9 @@ const Admin = () => {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="公司員工">公司員工</SelectItem>
-                  <SelectItem value="外包人員">外包人員</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground mt-1">外包人員帳號請至「外包人員管理」頁新增與維護</p>
             </div>
             <div>
               <Label className="mb-1 block">{newUserType === '公司員工' ? '帳號（姓名代號6碼數字）*' : '帳號（手機號碼）*'}</Label>
