@@ -260,6 +260,45 @@ const Admin = () => {
     toast.success(`已將「${username}」的密碼重置為 a0123456789+`);
   };
 
+  const handleOpenSuspend = (u: User) => {
+    if (u.id === user.id) { toast.error('無法停權自己的帳號'); return; }
+    setSuspendTarget(u);
+    setSuspendReason(u.suspendReason || '');
+    setSuspendDialogOpen(true);
+  };
+
+  const handleConfirmSuspend = async () => {
+    if (!suspendTarget) return;
+    try {
+      await suspendUser(suspendTarget.id, true, suspendReason.trim() || undefined);
+      addLog({
+        userId: user.id, userName: user.displayName,
+        action: '角色變更', targetName: suspendTarget.username,
+        details: `違規停權${suspendReason.trim() ? `：${suspendReason.trim()}` : ''}`,
+      });
+      toast.success(`已停權「${suspendTarget.username}」`);
+      setSuspendDialogOpen(false);
+      setSuspendTarget(null);
+      setSuspendReason('');
+    } catch {
+      toast.error('停權失敗');
+    }
+  };
+
+  const handleUnsuspend = async (u: User) => {
+    if (u.id === user.id) return;
+    try {
+      await suspendUser(u.id, false);
+      addLog({
+        userId: user.id, userName: user.displayName,
+        action: '角色變更', targetName: u.username, details: '解除停權',
+      });
+      toast.success(`已解除「${u.username}」的停權`);
+    } catch {
+      toast.error('解除停權失敗');
+    }
+  };
+
   const handleOpenEditUser = (u: User) => {
     setEditingUser(u);
     setEditForm({
