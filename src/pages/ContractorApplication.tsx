@@ -290,7 +290,16 @@ const ContractorApplication = () => {
                 <TableBody>
                   {contractorUsers.map(u => (
                     <TableRow key={u.id}>
-                      <TableCell className="font-medium">{u.username}</TableCell>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          {u.username}
+                          {u.isSuspended && (
+                            <Badge variant="destructive" className="gap-1" title={u.suspendReason || ''}>
+                              <Ban className="w-3 h-3" />停權中
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>{u.displayName}</TableCell>
                       <TableCell className="text-sm">{u.phone || '-'}</TableCell>
                       <TableCell className="text-sm">{u.email || '-'}</TableCell>
@@ -302,6 +311,15 @@ const ContractorApplication = () => {
                           <Button variant="ghost" size="icon" title="重置密碼" onClick={() => handleReset(u)} disabled={u.id === user?.id}>
                             <KeyRound className="w-4 h-4" />
                           </Button>
+                          {u.isSuspended ? (
+                            <Button variant="ghost" size="icon" title="解除停權" className="text-green-600" onClick={() => handleToggleSuspend(u)} disabled={u.id === user?.id}>
+                              <ShieldCheck className="w-4 h-4" />
+                            </Button>
+                          ) : (
+                            <Button variant="ghost" size="icon" title="違規停權" className="text-amber-600" onClick={() => handleToggleSuspend(u)} disabled={u.id === user?.id}>
+                              <Ban className="w-4 h-4" />
+                            </Button>
+                          )}
                           <Button variant="ghost" size="icon" className="text-destructive" title="刪除" onClick={() => handleDelete(u)} disabled={u.id === user?.id}>
                             <Trash2 className="w-4 h-4" />
                           </Button>
