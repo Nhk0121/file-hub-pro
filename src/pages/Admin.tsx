@@ -21,7 +21,7 @@ import {
   UserPlus, Lock, Download, FileEdit, LogIn, LogOut, Upload, FolderPlus, Pencil,
   Clock, CheckCircle, XCircle, ClipboardList, KeyRound, Building2,
   Eye, Printer, UserMinus, UserCog, FolderLock, FileSearch,
-  RefreshCw, AlertTriangle, Database, Share2,
+  RefreshCw, AlertTriangle, Database, Share2, Ban, ShieldCheck,
 } from 'lucide-react';
 import type { FolderPermission, AuditLog, UserRole, ApplicantType, User } from '@/types';
 import { DEPARTMENTS, getSectionsForDepartment, JOB_TITLES, addSection, removeSection, getDepartmentSections, setDepartmentSections } from '@/config/organization';
