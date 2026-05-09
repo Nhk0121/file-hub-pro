@@ -27,9 +27,10 @@ const Index = () => {
             <h1 className="text-2xl font-bold text-foreground tracking-tight">檔案管理</h1>
             <p className="text-sm text-muted-foreground mt-1">管理您的文件、資料夾與檔案</p>
           </div>
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <div className="flex items-center gap-3 text-sm text-muted-foreground">
             <span className="flex items-center gap-1.5 bg-muted/50 px-3 py-1.5 rounded-full"><FolderOpen className="w-4 h-4 text-primary" />{totalFolders} 個資料夾</span>
             <span className="flex items-center gap-1.5 bg-muted/50 px-3 py-1.5 rounded-full"><FileText className="w-4 h-4 text-primary" />{totalFiles} 個檔案</span>
+            <GroupQuotaPanel />
           </div>
         </div>
 
@@ -53,9 +54,6 @@ const Index = () => {
           </BreadcrumbList>
         </Breadcrumb>
       </div>
-
-      {/* Group quotas */}
-      <GroupQuotaPanel />
 
       {/* Toolbar */}
       <div className="px-6 py-3 border-b">
