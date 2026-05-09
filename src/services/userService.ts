@@ -29,6 +29,10 @@ const userService = {
     await apiClient.post(`/users/${userId}/reset-password`);
   },
 
+  suspend: async (userId: string, suspended: boolean, reason?: string): Promise<void> => {
+    await apiClient.post(`/users/${userId}/suspend`, { suspended, reason: reason || null });
+  },
+
   getRegistrations: async (): Promise<UserRegistration[]> => {
     const { data } = await apiClient.get<UserRegistration[]>('/users/registrations');
     return Array.isArray(data) ? data : [];

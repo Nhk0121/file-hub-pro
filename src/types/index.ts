@@ -17,6 +17,8 @@ export interface User {
   jobTitle?: string;     // 職稱
   phone?: string;
   extension?: string;    // 分機
+  isSuspended?: boolean; // 違規停權
+  suspendReason?: string;
 }
 
 export interface FileItem {
