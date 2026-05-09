@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { FileText, Shield, Users, Clock, ArrowRight, Database, Zap, Lock, Eye, Trash2, HardDrive, FolderUp } from 'lucide-react';
+import { FileText, Shield, Users, Clock, ArrowRight, Database, Zap, Lock, Eye, Trash2, HardDrive } from 'lucide-react';
 import { useMonthlyTheme } from '@/hooks/useMonthlyTheme';
 import { useSystemTitle } from '@/contexts/SystemTitleContext';
 
@@ -11,8 +11,6 @@ const Landing = () => {
 
   const features = [
     { icon: <FileText className="w-6 h-6" />, title: '文件集中管理', desc: '時效區與永久區分層架構，組別課別系統化歸檔，支援 Markdown、富文字與純文字線上編輯' },
-    
-    { icon: <FolderUp className="w-6 h-6" />, title: '整個資料夾上傳', desc: '支援拖放或選擇整個資料夾上傳，自動保留多層子目錄結構，大量檔案一次到位' },
     { icon: <Shield className="w-6 h-6" />, title: '資安與個資保護', desc: '上傳自動個資偵測、執行檔管控、細分資料夾權限，符合個資法與資安規範' },
     { icon: <Eye className="w-6 h-6" />, title: '線上預覽與編輯', desc: '支援圖片縮放旋轉、TXT/Markdown/HTML 線上編輯；Word、Excel、PDF 可預覽與下載' },
     { icon: <Trash2 className="w-6 h-6" />, title: '資源回收桶', desc: '誤刪檔案可在 30 天內還原，刪除前二次確認，由系統管理員統一管理' },
