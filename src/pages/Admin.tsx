@@ -51,7 +51,7 @@ const actionIcons: Record<AuditLog['action'], React.ReactNode> = {
 };
 
 const Admin = () => {
-  const { user, allUsers, addUser, removeUser, updateUser, updateUserRole, registrations, reviewRegistration, resetPassword, refreshUsers } = useAuth();
+  const { user, allUsers, addUser, removeUser, updateUser, updateUserRole, registrations, reviewRegistration, resetPassword, suspendUser, refreshUsers } = useAuth();
   const { files, addSectionFolder, removeSectionFolder } = useFiles();
   const { logs, loading: auditLoading, clearLogs, addLog, refreshLogs } = useAudit();
   const { setFolderPermission, getFolderRules, removeFolderPermission, permanentOverrides, setPermanentOverride, removePermanentOverride } = usePermissions();
@@ -95,6 +95,11 @@ const Admin = () => {
   // 永久區多組別權限
   const [permSpecialUserId, setPermSpecialUserId] = useState('');
   const [permSpecialDepts, setPermSpecialDepts] = useState<string[]>([]);
+
+  // 違規停權
+  const [suspendDialogOpen, setSuspendDialogOpen] = useState(false);
+  const [suspendTarget, setSuspendTarget] = useState<User | null>(null);
+  const [suspendReason, setSuspendReason] = useState('');
 
   // 組織管理
   const [orgSelectedDept, setOrgSelectedDept] = useState<string>('');
