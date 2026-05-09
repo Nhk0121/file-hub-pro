@@ -147,6 +147,28 @@ const ContractorApplication = () => {
     }
   };
 
+  const handleToggleSuspend = async (u: User) => {
+    if (!user || u.id === user.id) return;
+    if (u.isSuspended) {
+      try {
+        await suspendUser(u.id, false);
+        addLog({ userId: user.id, userName: user.displayName, action: '角色變更', targetName: u.username, details: '解除停權' });
+        toast.success(`已解除「${u.username}」的停權`);
+      } catch { toast.error('解除停權失敗'); }
+      return;
+    }
+    const reason = prompt(`要停權「${u.username}」嗎？\n請輸入停權原因（將顯示給使用者，可留空）：`, '');
+    if (reason === null) return;
+    try {
+      await suspendUser(u.id, true, reason.trim() || undefined);
+      addLog({
+        userId: user.id, userName: user.displayName,
+        action: '角色變更', targetName: u.username,
+        details: `違規停權${reason.trim() ? `：${reason.trim()}` : ''}`,
+      });
+      toast.success(`已停權「${u.username}」`);
+    } catch { toast.error('停權失敗'); }
+  };
   const statusIcon = (status: RegistrationStatus) => {
     switch (status) {
       case '待審核': return <Clock className="w-4 h-4 text-yellow-500" />;
