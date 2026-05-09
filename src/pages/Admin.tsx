@@ -571,7 +571,13 @@ const Admin = () => {
                           </Select>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">{savingRoleIds.includes(u.id) ? '儲存中' : `目前：${u.role}`}</Badge>
+                          {u.isSuspended ? (
+                            <Badge variant="destructive" title={u.suspendReason || ''} className="gap-1">
+                              <Ban className="w-3 h-3" />停權中
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline">{savingRoleIds.includes(u.id) ? '儲存中' : `目前：${u.role}`}</Badge>
+                          )}
                         </TableCell>
                         <TableCell className="text-right space-x-1">
                           <Button variant="ghost" size="icon" title="編輯" onClick={() => handleOpenEditUser(u)} disabled={u.id === user.id}>
@@ -580,6 +586,15 @@ const Admin = () => {
                           <Button variant="ghost" size="icon" title="重置密碼" onClick={() => handleResetPassword(u.id, u.username)} disabled={u.id === user.id}>
                             <KeyRound className="w-4 h-4" />
                           </Button>
+                          {u.isSuspended ? (
+                            <Button variant="ghost" size="icon" title="解除停權" className="text-green-600" onClick={() => handleUnsuspend(u)} disabled={u.id === user.id}>
+                              <ShieldCheck className="w-4 h-4" />
+                            </Button>
+                          ) : (
+                            <Button variant="ghost" size="icon" title="違規停權" className="text-amber-600" onClick={() => handleOpenSuspend(u)} disabled={u.id === user.id}>
+                              <Ban className="w-4 h-4" />
+                            </Button>
+                          )}
                           <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleRemoveUser(u.id, u.username)} disabled={u.id === user.id}>
                             <Trash2 className="w-4 h-4" />
                           </Button>
