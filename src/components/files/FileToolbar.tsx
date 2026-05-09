@@ -75,22 +75,6 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
   const [piiMatches, setPiiMatches] = useState<{ type: string; sample: string }[]>([]);
   const [pendingPiiFile, setPendingPiiFile] = useState<FileItem | null>(null);
 
-  // PII 警告彈窗（資料夾批次）
-  type BatchPiiItem = {
-    file: File;
-    parentId: string | null;
-    relativePath: string;
-    matches: { type: string; sample: string }[];
-  };
-  const [batchPiiOpen, setBatchPiiOpen] = useState(false);
-  const [batchPiiItems, setBatchPiiItems] = useState<BatchPiiItem[]>([]);
-
-  // 上傳結果彙總彈窗（被拒絕/失敗的檔案明細）
-  type RejectionItem = { path: string; reason: string };
-  const [rejectionDialogOpen, setRejectionDialogOpen] = useState(false);
-  const [rejectionItems, setRejectionItems] = useState<RejectionItem[]>([]);
-  const [rejectionSummary, setRejectionSummary] = useState<{ uploaded: number; total: number }>({ uploaded: 0, total: 0 });
-
   const isAdmin = user?.role === '管理員' || user?.role === '系統管理員';
 
   // 跨組別上傳管控：僅永久區限制，時效區不限制
