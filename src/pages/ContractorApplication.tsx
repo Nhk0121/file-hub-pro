@@ -8,12 +8,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { UserPlus, CheckCircle, XCircle, Clock, Pencil, KeyRound, Trash2, Search } from 'lucide-react';
+import { UserPlus, CheckCircle, XCircle, Clock, Pencil, KeyRound, Trash2, Search, Ban, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import type { RegistrationStatus, User } from '@/types';
 
 const ContractorApplication = () => {
-  const { user, allUsers, registrations, reviewRegistration, addUser, updateUser, removeUser, resetPassword } = useAuth();
+  const { user, allUsers, registrations, reviewRegistration, addUser, updateUser, removeUser, resetPassword, suspendUser } = useAuth();
   const { addLog } = useAudit();
   const isAdmin = user?.role === '管理員' || user?.role === '系統管理員';
 
@@ -147,6 +147,28 @@ const ContractorApplication = () => {
     }
   };
 
+  const handleToggleSuspend = async (u: User) => {
+    if (!user || u.id === user.id) return;
+    if (u.isSuspended) {
+      try {
+        await suspendUser(u.id, false);
+        addLog({ userId: user.id, userName: user.displayName, action: '角色變更', targetName: u.username, details: '解除停權' });
+        toast.success(`已解除「${u.username}」的停權`);
+      } catch { toast.error('解除停權失敗'); }
+      return;
+    }
+    const reason = prompt(`要停權「${u.username}」嗎？\n請輸入停權原因（將顯示給使用者，可留空）：`, '');
+    if (reason === null) return;
+    try {
+      await suspendUser(u.id, true, reason.trim() || undefined);
+      addLog({
+        userId: user.id, userName: user.displayName,
+        action: '角色變更', targetName: u.username,
+        details: `違規停權${reason.trim() ? `：${reason.trim()}` : ''}`,
+      });
+      toast.success(`已停權「${u.username}」`);
+    } catch { toast.error('停權失敗'); }
+  };
   const statusIcon = (status: RegistrationStatus) => {
     switch (status) {
       case '待審核': return <Clock className="w-4 h-4 text-yellow-500" />;
@@ -268,7 +290,16 @@ const ContractorApplication = () => {
                 <TableBody>
                   {contractorUsers.map(u => (
                     <TableRow key={u.id}>
-                      <TableCell className="font-medium">{u.username}</TableCell>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          {u.username}
+                          {u.isSuspended && (
+                            <Badge variant="destructive" className="gap-1" title={u.suspendReason || ''}>
+                              <Ban className="w-3 h-3" />停權中
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>{u.displayName}</TableCell>
                       <TableCell className="text-sm">{u.phone || '-'}</TableCell>
                       <TableCell className="text-sm">{u.email || '-'}</TableCell>
@@ -280,6 +311,15 @@ const ContractorApplication = () => {
                           <Button variant="ghost" size="icon" title="重置密碼" onClick={() => handleReset(u)} disabled={u.id === user?.id}>
                             <KeyRound className="w-4 h-4" />
                           </Button>
+                          {u.isSuspended ? (
+                            <Button variant="ghost" size="icon" title="解除停權" className="text-green-600" onClick={() => handleToggleSuspend(u)} disabled={u.id === user?.id}>
+                              <ShieldCheck className="w-4 h-4" />
+                            </Button>
+                          ) : (
+                            <Button variant="ghost" size="icon" title="違規停權" className="text-amber-600" onClick={() => handleToggleSuspend(u)} disabled={u.id === user?.id}>
+                              <Ban className="w-4 h-4" />
+                            </Button>
+                          )}
                           <Button variant="ghost" size="icon" className="text-destructive" title="刪除" onClick={() => handleDelete(u)} disabled={u.id === user?.id}>
                             <Trash2 className="w-4 h-4" />
                           </Button>

@@ -58,17 +58,19 @@ const Login = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const success = await login(username, password);
+    const result = await login(username, password);
     setLoading(false);
-    if (success) {
+    if (result.ok) {
       const foundUser = allUsers.find(u => u.username === username);
       if (foundUser) {
         addLog({ userId: foundUser.id, userName: foundUser.displayName, action: '登入' });
       }
       toast.success('登入成功');
       navigate('/');
+    } else if (result.suspended) {
+      toast.error(result.message || '您的帳號因違規遭受停權處分，請聯絡系統管理員。', { duration: 8000 });
     } else {
-      toast.error('帳號或密碼錯誤');
+      toast.error(result.message || '帳號或密碼錯誤');
     }
   };
 

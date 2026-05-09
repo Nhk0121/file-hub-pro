@@ -21,7 +21,7 @@ import {
   UserPlus, Lock, Download, FileEdit, LogIn, LogOut, Upload, FolderPlus, Pencil,
   Clock, CheckCircle, XCircle, ClipboardList, KeyRound, Building2,
   Eye, Printer, UserMinus, UserCog, FolderLock, FileSearch,
-  RefreshCw, AlertTriangle, Database, Share2,
+  RefreshCw, AlertTriangle, Database, Share2, Ban, ShieldCheck,
 } from 'lucide-react';
 import type { FolderPermission, AuditLog, UserRole, ApplicantType, User } from '@/types';
 import { DEPARTMENTS, getSectionsForDepartment, JOB_TITLES, addSection, removeSection, getDepartmentSections, setDepartmentSections } from '@/config/organization';
@@ -51,7 +51,7 @@ const actionIcons: Record<AuditLog['action'], React.ReactNode> = {
 };
 
 const Admin = () => {
-  const { user, allUsers, addUser, removeUser, updateUser, updateUserRole, registrations, reviewRegistration, resetPassword, refreshUsers } = useAuth();
+  const { user, allUsers, addUser, removeUser, updateUser, updateUserRole, registrations, reviewRegistration, resetPassword, suspendUser, refreshUsers } = useAuth();
   const { files, addSectionFolder, removeSectionFolder } = useFiles();
   const { logs, loading: auditLoading, clearLogs, addLog, refreshLogs } = useAudit();
   const { setFolderPermission, getFolderRules, removeFolderPermission, permanentOverrides, setPermanentOverride, removePermanentOverride } = usePermissions();
@@ -95,6 +95,11 @@ const Admin = () => {
   // 永久區多組別權限
   const [permSpecialUserId, setPermSpecialUserId] = useState('');
   const [permSpecialDepts, setPermSpecialDepts] = useState<string[]>([]);
+
+  // 違規停權
+  const [suspendDialogOpen, setSuspendDialogOpen] = useState(false);
+  const [suspendTarget, setSuspendTarget] = useState<User | null>(null);
+  const [suspendReason, setSuspendReason] = useState('');
 
   // 組織管理
   const [orgSelectedDept, setOrgSelectedDept] = useState<string>('');
@@ -253,6 +258,45 @@ const Admin = () => {
     resetPassword(userId);
     addLog({ userId: user.id, userName: user.displayName, action: '密碼重置', targetName: username });
     toast.success(`已將「${username}」的密碼重置為 a0123456789+`);
+  };
+
+  const handleOpenSuspend = (u: User) => {
+    if (u.id === user.id) { toast.error('無法停權自己的帳號'); return; }
+    setSuspendTarget(u);
+    setSuspendReason(u.suspendReason || '');
+    setSuspendDialogOpen(true);
+  };
+
+  const handleConfirmSuspend = async () => {
+    if (!suspendTarget) return;
+    try {
+      await suspendUser(suspendTarget.id, true, suspendReason.trim() || undefined);
+      addLog({
+        userId: user.id, userName: user.displayName,
+        action: '角色變更', targetName: suspendTarget.username,
+        details: `違規停權${suspendReason.trim() ? `：${suspendReason.trim()}` : ''}`,
+      });
+      toast.success(`已停權「${suspendTarget.username}」`);
+      setSuspendDialogOpen(false);
+      setSuspendTarget(null);
+      setSuspendReason('');
+    } catch {
+      toast.error('停權失敗');
+    }
+  };
+
+  const handleUnsuspend = async (u: User) => {
+    if (u.id === user.id) return;
+    try {
+      await suspendUser(u.id, false);
+      addLog({
+        userId: user.id, userName: user.displayName,
+        action: '角色變更', targetName: u.username, details: '解除停權',
+      });
+      toast.success(`已解除「${u.username}」的停權`);
+    } catch {
+      toast.error('解除停權失敗');
+    }
   };
 
   const handleOpenEditUser = (u: User) => {
@@ -527,7 +571,13 @@ const Admin = () => {
                           </Select>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">{savingRoleIds.includes(u.id) ? '儲存中' : `目前：${u.role}`}</Badge>
+                          {u.isSuspended ? (
+                            <Badge variant="destructive" title={u.suspendReason || ''} className="gap-1">
+                              <Ban className="w-3 h-3" />停權中
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline">{savingRoleIds.includes(u.id) ? '儲存中' : `目前：${u.role}`}</Badge>
+                          )}
                         </TableCell>
                         <TableCell className="text-right space-x-1">
                           <Button variant="ghost" size="icon" title="編輯" onClick={() => handleOpenEditUser(u)} disabled={u.id === user.id}>
@@ -536,6 +586,15 @@ const Admin = () => {
                           <Button variant="ghost" size="icon" title="重置密碼" onClick={() => handleResetPassword(u.id, u.username)} disabled={u.id === user.id}>
                             <KeyRound className="w-4 h-4" />
                           </Button>
+                          {u.isSuspended ? (
+                            <Button variant="ghost" size="icon" title="解除停權" className="text-green-600" onClick={() => handleUnsuspend(u)} disabled={u.id === user.id}>
+                              <ShieldCheck className="w-4 h-4" />
+                            </Button>
+                          ) : (
+                            <Button variant="ghost" size="icon" title="違規停權" className="text-amber-600" onClick={() => handleOpenSuspend(u)} disabled={u.id === user.id}>
+                              <Ban className="w-4 h-4" />
+                            </Button>
+                          )}
                           <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleRemoveUser(u.id, u.username)} disabled={u.id === user.id}>
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -1251,6 +1310,35 @@ const Admin = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditUserOpen(false)}>取消</Button>
             <Button onClick={handleSaveEditUser}>儲存</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 違規停權 Dialog */}
+      <Dialog open={suspendDialogOpen} onOpenChange={setSuspendDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Ban className="w-5 h-5" />違規停權
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm">
+              即將停權使用者「<span className="font-semibold">{suspendTarget?.username}</span>（{suspendTarget?.displayName}）」，停權後該帳號將無法登入，並會於登入畫面顯示停權訊息。
+            </p>
+            <div>
+              <Label className="mb-1 block">停權原因（可選，將顯示給使用者）</Label>
+              <Input
+                value={suspendReason}
+                onChange={e => setSuspendReason(e.target.value)}
+                placeholder="例如：違反資安規定、洩漏個資..."
+                maxLength={200}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSuspendDialogOpen(false)}>取消</Button>
+            <Button variant="destructive" onClick={handleConfirmSuspend}>確認停權</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

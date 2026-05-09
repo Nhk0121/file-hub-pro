@@ -32,6 +32,19 @@ public class AuthService
         if (string.IsNullOrEmpty(passwordHash) || !BCrypt.Net.BCrypt.Verify(password, passwordHash))
             throw new UnauthorizedAccessException("帳號或密碼錯誤");
 
+        // 停權檢查（密碼正確才告知停權，避免帳號探測）
+        bool suspended = false;
+        try { suspended = (bool)user.IsSuspended; } catch { suspended = false; }
+        if (suspended)
+        {
+            string? reason = null;
+            try { reason = (string?)user.SuspendReason; } catch { reason = null; }
+            var msg = string.IsNullOrWhiteSpace(reason)
+                ? "您的帳號因違規遭受停權處分，請聯絡系統管理員。"
+                : $"您的帳號因違規遭受停權處分：{reason}。請聯絡系統管理員。";
+            throw new AccountSuspendedException(msg);
+        }
+
         var token = GenerateJwtToken(user);
         return new LoginResponse(token, MapToUserDto(user));
     }
@@ -101,19 +114,33 @@ public class AuthService
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    public static UserDto MapToUserDto(dynamic u) => new()
+    public static UserDto MapToUserDto(dynamic u)
     {
-        Id = u.Id,
-        Username = u.Username,
-        DisplayName = u.DisplayName,
-        Email = u.Email,
-        Role = u.Role,
-        ApplicantType = u.ApplicantType,
-        EmployeeCode = u.EmployeeCode,
-        Department = u.Department,
-        Section = u.Section,
-        JobTitle = u.JobTitle,
-        Phone = u.Phone,
-        Extension = u.Extension,
-    };
+        bool suspended = false;
+        try { suspended = (bool)u.IsSuspended; } catch { suspended = false; }
+        string? reason = null;
+        try { reason = (string?)u.SuspendReason; } catch { reason = null; }
+        return new UserDto
+        {
+            Id = u.Id,
+            Username = u.Username,
+            DisplayName = u.DisplayName,
+            Email = u.Email,
+            Role = u.Role,
+            ApplicantType = u.ApplicantType,
+            EmployeeCode = u.EmployeeCode,
+            Department = u.Department,
+            Section = u.Section,
+            JobTitle = u.JobTitle,
+            Phone = u.Phone,
+            Extension = u.Extension,
+            IsSuspended = suspended,
+            SuspendReason = reason,
+        };
+    }
+}
+
+public class AccountSuspendedException : Exception
+{
+    public AccountSuspendedException(string message) : base(message) { }
 }
