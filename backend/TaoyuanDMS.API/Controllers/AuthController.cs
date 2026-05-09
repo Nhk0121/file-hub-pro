@@ -27,6 +27,10 @@ public class AuthController : BaseController
             }, GetClientIp());
             return Ok(result);
         }
+        catch (AccountSuspendedException ex)
+        {
+            return StatusCode(403, new { message = ex.Message, suspended = true });
+        }
         catch (UnauthorizedAccessException ex)
         {
             return Unauthorized(new { message = ex.Message });

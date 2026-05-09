@@ -81,6 +81,14 @@ public class UserService
             new { Id = userId });
     }
 
+    public async Task SuspendAsync(string userId, bool suspended, string? reason)
+    {
+        using var conn = _db.CreateConnection();
+        await conn.ExecuteAsync(
+            "UPDATE Users SET IsSuspended = @Suspended, SuspendReason = @Reason, UpdatedAt = GETUTCDATE() WHERE Id = @Id",
+            new { Suspended = suspended, Reason = suspended ? reason : null, Id = userId });
+    }
+
     public async Task<UserDto> GetByIdAsync(string id)
     {
         using var conn = _db.CreateConnection();

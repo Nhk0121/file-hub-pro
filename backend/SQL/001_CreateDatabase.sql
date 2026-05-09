@@ -36,9 +36,19 @@ CREATE TABLE [dbo].[Users] (
     [Phone]         NVARCHAR(30)   NULL,
     [Extension]     NVARCHAR(10)   NULL,
     [IsActive]      BIT            NOT NULL DEFAULT 1,
+    [IsSuspended]   BIT            NOT NULL DEFAULT 0,
+    [SuspendReason] NVARCHAR(500)  NULL,
     [CreatedAt]     DATETIME2      NOT NULL DEFAULT GETUTCDATE(),
     [UpdatedAt]     DATETIME2      NOT NULL DEFAULT GETUTCDATE()
 );
+GO
+
+-- 升級既有資料庫：補上停權相關欄位
+IF COL_LENGTH('dbo.Users', 'IsSuspended') IS NULL
+    ALTER TABLE [dbo].[Users] ADD [IsSuspended] BIT NOT NULL DEFAULT 0;
+GO
+IF COL_LENGTH('dbo.Users', 'SuspendReason') IS NULL
+    ALTER TABLE [dbo].[Users] ADD [SuspendReason] NVARCHAR(500) NULL;
 GO
 
 -- 預設系統管理員（密碼：Admin@123，部署後請立即修改！）

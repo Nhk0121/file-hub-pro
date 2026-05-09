@@ -50,6 +50,15 @@ public class UsersController : BaseController
         return Ok();
     }
 
+    [HttpPost("{id}/suspend")]
+    public async Task<IActionResult> Suspend(string id, [FromBody] SuspendUserRequest req)
+    {
+        if (GetUserRole() != "系統管理員" && GetUserRole() != "管理員")
+            return Forbid();
+        await _users.SuspendAsync(id, req.Suspended, req.Reason);
+        return Ok();
+    }
+
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string id)
     {

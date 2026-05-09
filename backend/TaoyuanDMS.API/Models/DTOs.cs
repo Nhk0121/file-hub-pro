@@ -20,7 +20,11 @@ public class UserDto
     public string? JobTitle { get; set; }
     public string? Phone { get; set; }
     public string? Extension { get; set; }
+    public bool IsSuspended { get; set; }
+    public string? SuspendReason { get; set; }
 }
+
+public record SuspendUserRequest(bool Suspended, string? Reason);
 
 public class CreateUserRequest
 {
