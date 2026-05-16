@@ -38,7 +38,17 @@ const FileContext = createContext<FileContextType | null>(null);
 export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated } = useAuth();
   const [files, setFiles] = useState<FileItem[]>([]);
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const CURRENT_FOLDER_KEY = 'dms_current_folder';
+  const [currentFolderId, _setCurrentFolderId] = useState<string | null>(() => {
+    try { return sessionStorage.getItem(CURRENT_FOLDER_KEY); } catch { return null; }
+  });
+  const setCurrentFolderId = useCallback((id: string | null) => {
+    _setCurrentFolderId(id);
+    try {
+      if (id) sessionStorage.setItem(CURRENT_FOLDER_KEY, id);
+      else sessionStorage.removeItem(CURRENT_FOLDER_KEY);
+    } catch { /* ignore */ }
+  }, []);
   const [trashItems, setTrashItems] = useState<TrashItemDTO[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -77,7 +87,13 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const uploadFile = useCallback(async (file: File, parentId: string | null): Promise<FileItem | null> => {
     try {
       const created = await fileService.upload(file, parentId);
-      setFiles(prev => [...prev, created]);
+      setFiles(prev => {
+        // 避免重複 (若後端已包含)
+        if (prev.some(f => f.id === created.id)) return prev;
+        return [...prev, created];
+      });
+      // 保底：從後端重新同步，確保即時呈現
+      fileService.getAll().then(setFiles).catch(() => { /* ignore */ });
       return created;
     } catch (err: any) {
       console.error('上傳失敗:', err);
@@ -94,7 +110,8 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const blob = new Blob([content], { type: mimeType });
       const f = new File([blob], name, { type: mimeType });
       const created = await fileService.upload(f, parentId);
-      setFiles(prev => [...prev, created]);
+      setFiles(prev => prev.some(x => x.id === created.id) ? prev : [...prev, created]);
+      fileService.getAll().then(setFiles).catch(() => { /* ignore */ });
       return created;
     } catch (err: any) {
       console.error('建立文件失敗:', err);
@@ -194,7 +211,14 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const getChildren = useCallback((parentId: string | null) => {
     const collator = new Intl.Collator('zh-TW', { numeric: true, sensitivity: 'base' });
     return files
-      .filter(f => f.parentId === parentId)
+      .filter(f => {
+        if (f.parentId !== parentId) return false;
+        // 根目錄僅允許顯示「時效區」與「永久區」兩個 zone 資料夾
+        if (parentId === null) {
+          return f.type === 'folder' && f.folderLevel === 'zone';
+        }
+        return true;
+      })
       .sort((a, b) => {
         // 資料夾優先，其次依名稱（含數字前綴 00.、01.…）排序
         if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
