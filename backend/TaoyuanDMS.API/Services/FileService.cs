@@ -392,6 +392,9 @@ public class FileService
                 throw new ArgumentException($"目標資料夾不存在或已被刪除（parentId={parentId}）。請重新整理頁面後再試。");
         }
 
+        // 同層唯一性檢查：禁止同層出現相同名稱的檔案
+        await EnsureNameUniqueInParentAsync(conn, parentId, file.FileName, "file", excludeId: null);
+
         var id = Guid.NewGuid().ToString();
         var now = DateTime.UtcNow;
 
