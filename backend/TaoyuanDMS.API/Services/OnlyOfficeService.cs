@@ -42,7 +42,7 @@ public class OnlyOfficeService
         return null;
     }
 
-    /// <summary>簽出 JWT（HS256）。</summary>
+    /// <summary>簽出 JWT（HS256）。payload 內如帶 exp 會自動跳過 expires 參數。</summary>
     public string Sign(object payload)
     {
         var handler = new JwtSecurityTokenHandler();
@@ -50,8 +50,13 @@ public class OnlyOfficeService
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
         var json = JsonSerializer.Serialize(payload);
         var payloadDict = JsonSerializer.Deserialize<Dictionary<string, object>>(json)!;
-        var claims = payloadDict.Select(kv => new Claim(kv.Key, kv.Value?.ToString() ?? string.Empty));
-        var token = new JwtSecurityToken(claims: claims, signingCredentials: creds, expires: DateTime.UtcNow.AddHours(8));
+        var claims = payloadDict
+            .Where(kv => kv.Key != "exp")
+            .Select(kv => new Claim(kv.Key, kv.Value?.ToString() ?? string.Empty));
+        DateTime? exp = payloadDict.TryGetValue("exp", out var e) && long.TryParse(e?.ToString(), out var ts)
+            ? DateTimeOffset.FromUnixTimeSeconds(ts).UtcDateTime
+            : DateTime.UtcNow.AddHours(8);
+        var token = new JwtSecurityToken(claims: claims, signingCredentials: creds, expires: exp);
         return handler.WriteToken(token);
     }
 
