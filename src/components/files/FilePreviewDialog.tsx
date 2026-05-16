@@ -36,6 +36,7 @@ const FilePreviewDialog = ({ file, open, onOpenChange }: FilePreviewDialogProps)
   const isPpt = /\.(ppt|pptx)$/i.test(name);
   const isBinaryDoc = isPdf || isWord || isExcel || isPpt;
   const isEditable = isMarkdown || isText || isCode || (mime.includes('html') && !isBinaryDoc);
+  const isOfficeEditable = isWord || isExcel || isPpt;
   const needsText = isMarkdown || isText || isCode;
 
   // 開啟對話框時：從後端下載檔案內容
@@ -139,11 +140,16 @@ const FilePreviewDialog = ({ file, open, onOpenChange }: FilePreviewDialogProps)
             <FileWarning className="w-16 h-16 mx-auto mb-4 opacity-40" />
             <p className="text-lg font-medium mb-2">{typeLabel} 文件</p>
             <p className="text-sm mb-4">
-              此格式無法於瀏覽器預覽，請下載至本機以桌面應用程式開啟。
+              點擊「線上編輯」開啟 OnlyOffice 編輯器,或下載至本機。
             </p>
-            <Button onClick={handleDownload} variant="outline">
-              <Download className="w-4 h-4 mr-2" />下載 {typeLabel} 檔案
-            </Button>
+            <div className="flex items-center justify-center gap-2">
+              <Button onClick={handleEdit} variant="default">
+                <Pencil className="w-4 h-4 mr-2" />線上編輯
+              </Button>
+              <Button onClick={handleDownload} variant="outline">
+                <Download className="w-4 h-4 mr-2" />下載 {typeLabel}
+              </Button>
+            </div>
           </div>
         </div>
       );
@@ -193,7 +199,7 @@ const FilePreviewDialog = ({ file, open, onOpenChange }: FilePreviewDialogProps)
           <div className="flex items-center justify-between pr-6">
             <DialogTitle className="truncate">{file.name}</DialogTitle>
             <div className="flex items-center gap-1">
-              {isEditable && (
+              {(isEditable || isOfficeEditable) && (
                 <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={handleEdit} title="線上編輯">
                   <Pencil className="w-4 h-4" />
                   編輯
