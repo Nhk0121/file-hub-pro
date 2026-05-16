@@ -114,9 +114,13 @@ const Editor = () => {
             </p>
           </div>
         </div>
-        <Button onClick={handleSave} disabled={!hasChanges || locked || loadingContent}>
+        <Button
+          onClick={handleSave}
+          disabled={!hasChanges || locked || loadingContent || isOffice}
+          title={isOffice ? 'OnlyOffice 會自動儲存,無需手動' : undefined}
+        >
           <Save className="w-4 h-4 mr-2" />
-          儲存
+          {isOffice ? '自動儲存中' : '儲存'}
         </Button>
       </div>
 
