@@ -171,14 +171,29 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const renameItem = useCallback(async (id: string, newName: string) => {
+    const self = files.find(f => f.id === id);
+    if (self) {
+      const dup = files.find(f =>
+        f.id !== id &&
+        f.parentId === self.parentId &&
+        f.type === self.type &&
+        f.name.toLowerCase() === newName.toLowerCase()
+      );
+      if (dup) {
+        const label = self.type === 'folder' ? '資料夾' : '檔案';
+        toast({ title: '重新命名失敗', description: `同一個資料夾內已存在${label}「${newName}」`, variant: 'destructive' });
+        return;
+      }
+    }
     try {
       const updated = await fileService.rename(id, newName);
       setFiles(prev => prev.map(f => f.id === id ? updated : f));
-    } catch (err) {
+    } catch (err: any) {
       console.error('重新命名失敗:', err);
-      toast({ title: '重新命名失敗', variant: 'destructive' });
+      const msg = err?.response?.data?.message || err?.message || '無法重新命名';
+      toast({ title: '重新命名失敗', description: msg, variant: 'destructive' });
     }
-  }, []);
+  }, [files]);
 
   const updateFileContent = useCallback(async (id: string, content: string) => {
     try {
