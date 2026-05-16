@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import RichTextEditor from '@/components/editor/RichTextEditor';
 import MarkdownEditor from '@/components/editor/MarkdownEditor';
+import OnlyOfficeEditor from '@/components/editor/OnlyOfficeEditor';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Save, Lock, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -25,7 +26,8 @@ const Editor = () => {
   const mime = file?.mimeType || '';
   const isMarkdown = mime.includes('markdown') || name.endsWith('.md');
   const isHtml = mime.includes('html') || name.endsWith('.html') || name.endsWith('.htm');
-  const isPlainText = !!file && !isMarkdown && !isHtml;
+  const isOffice = /\.(docx?|xlsx?|pptx?|odt|ods|odp|rtf)$/i.test(name);
+  const isPlainText = !!file && !isMarkdown && !isHtml && !isOffice;
 
   const [content, setContent] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
