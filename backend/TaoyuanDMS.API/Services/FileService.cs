@@ -340,6 +340,10 @@ public class FileService
             throw new ArgumentException("資料夾名稱不可為空");
 
         using var conn = _db.CreateConnection();
+
+        // 同層唯一性檢查：禁止同層出現相同名稱的資料夾
+        await EnsureNameUniqueInParentAsync(conn, parentId, name, "folder", excludeId: null);
+
         var id = Guid.NewGuid().ToString();
         var now = DateTime.UtcNow;
 
