@@ -255,7 +255,11 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
           </DropdownMenu>
         )}
 
-        {!canWrite && insideZone && isInPermanentZone && departmentOfFolder && !isAdmin && (
+        {isRoot && (
+          <span className="text-xs text-muted-foreground">根目錄僅保留「時效區」「永久區」,請進入後再上傳</span>
+        )}
+
+        {!canWrite && !isRoot && insideZone && isInPermanentZone && departmentOfFolder && !isAdmin && (
           <span className="text-xs text-destructive">您無法在永久區「{departmentOfFolder}」上傳檔案</span>
         )}
       </div>
