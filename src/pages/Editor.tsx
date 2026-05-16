@@ -46,6 +46,11 @@ const Editor = () => {
       setLoadingContent(false);
       return;
     }
+    // Office 檔不從前端載入內容,由 OnlyOffice DocServer 自行拉取
+    if (isOffice) {
+      setLoadingContent(false);
+      return;
+    }
     let cancelled = false;
     setLoadingContent(true);
     fileService.download(file.id)
@@ -62,7 +67,7 @@ const Editor = () => {
       })
       .finally(() => { if (!cancelled) setLoadingContent(false); });
     return () => { cancelled = true; };
-  }, [file?.id]);
+  }, [file?.id, isOffice]);
 
   if (!file) {
     return (
