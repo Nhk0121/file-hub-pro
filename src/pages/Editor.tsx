@@ -146,6 +146,8 @@ const Editor = () => {
           <div className="p-6"><MarkdownEditor content={content} onChange={handleContentChange} /></div>
         ) : isHtml ? (
           <div className="p-6"><RichTextEditor content={content} onChange={handleContentChange} /></div>
+        ) : isOffice ? (
+          <OnlyOfficeEditor fileId={file.id} />
         ) : isPlainText ? (
           <div className="p-6">
             <textarea
