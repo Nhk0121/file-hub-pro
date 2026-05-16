@@ -80,6 +80,7 @@ const Editor = () => {
 
   const editorTypeLabel = isMarkdown ? 'Markdown 編輯器'
     : isHtml ? '富文字編輯器'
+    : isOffice ? 'OnlyOffice 線上編輯器'
     : '純文字編輯器';
 
   const handleSave = () => {
