@@ -96,9 +96,13 @@ const FileToolbar = ({ viewMode, onViewModeChange, searchQuery, onSearchChange }
     return false;
   })();
 
-  const canWrite = !currentFolderId || !user || isAdmin
-    ? true
-    : (getFolderPermission(currentFolderId, user.id) === '完整權限' && canUploadToDept);
+  // 根目錄一律禁止上傳/新增（僅允許「時效區」「永久區」存在）
+  const isRoot = !currentFolderId;
+  const canWrite = isRoot
+    ? false
+    : (!user || isAdmin
+      ? true
+      : (getFolderPermission(currentFolderId, user.id) === '完整權限' && canUploadToDept));
 
   const canAddFolder = canWrite && canCreateSubfolder(currentFolderId);
 
