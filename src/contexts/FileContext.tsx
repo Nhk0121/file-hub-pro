@@ -122,16 +122,27 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const addFolder = useCallback(async (name: string, parentId: string | null): Promise<FileItem | null> => {
+    // 前端先做同層同名檢查（後端為最終守門員）
+    const dup = files.find(f =>
+      f.parentId === parentId &&
+      f.type === 'folder' &&
+      f.name.toLowerCase() === name.trim().toLowerCase()
+    );
+    if (dup) {
+      toast({ title: '建立失敗', description: `同一個資料夾內已存在資料夾「${name}」`, variant: 'destructive' });
+      return null;
+    }
     try {
       const folder = await fileService.createFolder(name, parentId);
       setFiles(prev => [...prev, folder]);
       return folder;
-    } catch (err) {
+    } catch (err: any) {
       console.error('建立資料夾失敗:', err);
-      toast({ title: '建立失敗', variant: 'destructive' });
+      const msg = err?.response?.data?.message || err?.message || '無法建立資料夾';
+      toast({ title: '建立失敗', description: msg, variant: 'destructive' });
       return null;
     }
-  }, []);
+  }, [files]);
 
   const deleteItem = useCallback(async (id: string): Promise<boolean> => {
     try {
