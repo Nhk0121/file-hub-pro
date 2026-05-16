@@ -85,14 +85,20 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const uploadFile = useCallback(async (file: File, parentId: string | null): Promise<FileItem | null> => {
+    const dup = files.find(f =>
+      f.parentId === parentId && f.type === 'file' &&
+      f.name.toLowerCase() === file.name.toLowerCase()
+    );
+    if (dup) {
+      toast({ title: '上傳失敗', description: `同一個資料夾內已存在檔案「${file.name}」`, variant: 'destructive' });
+      return null;
+    }
     try {
       const created = await fileService.upload(file, parentId);
       setFiles(prev => {
-        // 避免重複 (若後端已包含)
         if (prev.some(f => f.id === created.id)) return prev;
         return [...prev, created];
       });
-      // 保底：從後端重新同步，確保即時呈現
       fileService.getAll().then(setFiles).catch(() => { /* ignore */ });
       return created;
     } catch (err: any) {
@@ -101,11 +107,19 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast({ title: '上傳失敗', description: msg, variant: 'destructive' });
       return null;
     }
-  }, []);
+  }, [files]);
 
   const createTextFile = useCallback(async (
     name: string, content: string, mimeType: string, parentId: string | null
   ): Promise<FileItem | null> => {
+    const dup = files.find(f =>
+      f.parentId === parentId && f.type === 'file' &&
+      f.name.toLowerCase() === name.toLowerCase()
+    );
+    if (dup) {
+      toast({ title: '建立失敗', description: `同一個資料夾內已存在檔案「${name}」`, variant: 'destructive' });
+      return null;
+    }
     try {
       const blob = new Blob([content], { type: mimeType });
       const f = new File([blob], name, { type: mimeType });
@@ -119,7 +133,7 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast({ title: '建立失敗', description: msg, variant: 'destructive' });
       return null;
     }
-  }, []);
+  }, [files]);
 
   const addFolder = useCallback(async (name: string, parentId: string | null): Promise<FileItem | null> => {
     // 前端先做同層同名檢查（後端為最終守門員）
