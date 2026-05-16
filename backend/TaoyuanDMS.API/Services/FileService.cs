@@ -340,6 +340,10 @@ public class FileService
             throw new ArgumentException("資料夾名稱不可為空");
 
         using var conn = _db.CreateConnection();
+
+        // 同層唯一性檢查：禁止同層出現相同名稱的資料夾
+        await EnsureNameUniqueInParentAsync(conn, parentId, name, "folder", excludeId: null);
+
         var id = Guid.NewGuid().ToString();
         var now = DateTime.UtcNow;
 
@@ -388,6 +392,9 @@ public class FileService
                 throw new ArgumentException($"目標資料夾不存在或已被刪除（parentId={parentId}）。請重新整理頁面後再試。");
         }
 
+        // 同層唯一性檢查：禁止同層出現相同名稱的檔案
+        await EnsureNameUniqueInParentAsync(conn, parentId, file.FileName, "file", excludeId: null);
+
         var id = Guid.NewGuid().ToString();
         var now = DateTime.UtcNow;
 
@@ -434,11 +441,42 @@ public class FileService
 
     public async Task<FileDto> RenameAsync(string id, string newName)
     {
+        if (string.IsNullOrWhiteSpace(newName))
+            throw new ArgumentException("名稱不可為空");
+
         using var conn = _db.CreateConnection();
+        var existing = await conn.QueryFirstOrDefaultAsync<FileDto>(
+            "SELECT * FROM Files WHERE Id = @Id", new { Id = id })
+            ?? throw new KeyNotFoundException("檔案不存在");
+
+        // 同層唯一性檢查：排除自己
+        await EnsureNameUniqueInParentAsync(conn, existing.ParentId, newName, existing.Type, excludeId: id);
+
         await conn.ExecuteAsync(
             "UPDATE Files SET Name = @Name, UpdatedAt = GETUTCDATE() WHERE Id = @Id AND IsSystem = 0",
             new { Name = newName, Id = id });
         return await GetByIdAsync(id);
+    }
+
+    /// <summary>
+    /// 同層唯一性檢查：同一個 ParentId 之下,禁止出現相同名稱（不分大小寫）的同類型項目。
+    /// </summary>
+    private static async Task EnsureNameUniqueInParentAsync(
+        System.Data.IDbConnection conn, string? parentId, string name, string type, string? excludeId)
+    {
+        var sql = @"
+            SELECT COUNT(1) FROM Files
+            WHERE ((@ParentId IS NULL AND ParentId IS NULL) OR ParentId = @ParentId)
+              AND LOWER(Name) = LOWER(@Name)
+              AND Type = @Type
+              AND (@ExcludeId IS NULL OR Id <> @ExcludeId)";
+        var count = await conn.ExecuteScalarAsync<int>(sql,
+            new { ParentId = parentId, Name = name, Type = type, ExcludeId = excludeId });
+        if (count > 0)
+        {
+            var label = type == "folder" ? "資料夾" : "檔案";
+            throw new InvalidOperationException($"同一個資料夾內已存在相同名稱的{label}「{name}」,請改用其他名稱。");
+        }
     }
 
     public async Task<FileDto> UpdateContentAsync(string id, string content)

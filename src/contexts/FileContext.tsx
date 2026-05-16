@@ -85,14 +85,20 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const uploadFile = useCallback(async (file: File, parentId: string | null): Promise<FileItem | null> => {
+    const dup = files.find(f =>
+      f.parentId === parentId && f.type === 'file' &&
+      f.name.toLowerCase() === file.name.toLowerCase()
+    );
+    if (dup) {
+      toast({ title: '上傳失敗', description: `同一個資料夾內已存在檔案「${file.name}」`, variant: 'destructive' });
+      return null;
+    }
     try {
       const created = await fileService.upload(file, parentId);
       setFiles(prev => {
-        // 避免重複 (若後端已包含)
         if (prev.some(f => f.id === created.id)) return prev;
         return [...prev, created];
       });
-      // 保底：從後端重新同步，確保即時呈現
       fileService.getAll().then(setFiles).catch(() => { /* ignore */ });
       return created;
     } catch (err: any) {
@@ -101,11 +107,19 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast({ title: '上傳失敗', description: msg, variant: 'destructive' });
       return null;
     }
-  }, []);
+  }, [files]);
 
   const createTextFile = useCallback(async (
     name: string, content: string, mimeType: string, parentId: string | null
   ): Promise<FileItem | null> => {
+    const dup = files.find(f =>
+      f.parentId === parentId && f.type === 'file' &&
+      f.name.toLowerCase() === name.toLowerCase()
+    );
+    if (dup) {
+      toast({ title: '建立失敗', description: `同一個資料夾內已存在檔案「${name}」`, variant: 'destructive' });
+      return null;
+    }
     try {
       const blob = new Blob([content], { type: mimeType });
       const f = new File([blob], name, { type: mimeType });
@@ -119,19 +133,30 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast({ title: '建立失敗', description: msg, variant: 'destructive' });
       return null;
     }
-  }, []);
+  }, [files]);
 
   const addFolder = useCallback(async (name: string, parentId: string | null): Promise<FileItem | null> => {
+    // 前端先做同層同名檢查（後端為最終守門員）
+    const dup = files.find(f =>
+      f.parentId === parentId &&
+      f.type === 'folder' &&
+      f.name.toLowerCase() === name.trim().toLowerCase()
+    );
+    if (dup) {
+      toast({ title: '建立失敗', description: `同一個資料夾內已存在資料夾「${name}」`, variant: 'destructive' });
+      return null;
+    }
     try {
       const folder = await fileService.createFolder(name, parentId);
       setFiles(prev => [...prev, folder]);
       return folder;
-    } catch (err) {
+    } catch (err: any) {
       console.error('建立資料夾失敗:', err);
-      toast({ title: '建立失敗', variant: 'destructive' });
+      const msg = err?.response?.data?.message || err?.message || '無法建立資料夾';
+      toast({ title: '建立失敗', description: msg, variant: 'destructive' });
       return null;
     }
-  }, []);
+  }, [files]);
 
   const deleteItem = useCallback(async (id: string): Promise<boolean> => {
     try {
@@ -146,14 +171,29 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const renameItem = useCallback(async (id: string, newName: string) => {
+    const self = files.find(f => f.id === id);
+    if (self) {
+      const dup = files.find(f =>
+        f.id !== id &&
+        f.parentId === self.parentId &&
+        f.type === self.type &&
+        f.name.toLowerCase() === newName.toLowerCase()
+      );
+      if (dup) {
+        const label = self.type === 'folder' ? '資料夾' : '檔案';
+        toast({ title: '重新命名失敗', description: `同一個資料夾內已存在${label}「${newName}」`, variant: 'destructive' });
+        return;
+      }
+    }
     try {
       const updated = await fileService.rename(id, newName);
       setFiles(prev => prev.map(f => f.id === id ? updated : f));
-    } catch (err) {
+    } catch (err: any) {
       console.error('重新命名失敗:', err);
-      toast({ title: '重新命名失敗', variant: 'destructive' });
+      const msg = err?.response?.data?.message || err?.message || '無法重新命名';
+      toast({ title: '重新命名失敗', description: msg, variant: 'destructive' });
     }
-  }, []);
+  }, [files]);
 
   const updateFileContent = useCallback(async (id: string, content: string) => {
     try {
