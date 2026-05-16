@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import RichTextEditor from '@/components/editor/RichTextEditor';
 import MarkdownEditor from '@/components/editor/MarkdownEditor';
+import OnlyOfficeEditor from '@/components/editor/OnlyOfficeEditor';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Save, Lock, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -25,7 +26,8 @@ const Editor = () => {
   const mime = file?.mimeType || '';
   const isMarkdown = mime.includes('markdown') || name.endsWith('.md');
   const isHtml = mime.includes('html') || name.endsWith('.html') || name.endsWith('.htm');
-  const isPlainText = !!file && !isMarkdown && !isHtml;
+  const isOffice = /\.(docx?|xlsx?|pptx?|odt|ods|odp|rtf)$/i.test(name);
+  const isPlainText = !!file && !isMarkdown && !isHtml && !isOffice;
 
   const [content, setContent] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
@@ -41,6 +43,11 @@ const Editor = () => {
 
   useEffect(() => {
     if (!file) {
+      setLoadingContent(false);
+      return;
+    }
+    // Office 檔不從前端載入內容,由 OnlyOffice DocServer 自行拉取
+    if (isOffice) {
       setLoadingContent(false);
       return;
     }
@@ -60,7 +67,7 @@ const Editor = () => {
       })
       .finally(() => { if (!cancelled) setLoadingContent(false); });
     return () => { cancelled = true; };
-  }, [file?.id]);
+  }, [file?.id, isOffice]);
 
   if (!file) {
     return (
@@ -73,6 +80,7 @@ const Editor = () => {
 
   const editorTypeLabel = isMarkdown ? 'Markdown 編輯器'
     : isHtml ? '富文字編輯器'
+    : isOffice ? 'OnlyOffice 線上編輯器'
     : '純文字編輯器';
 
   const handleSave = () => {
@@ -106,9 +114,13 @@ const Editor = () => {
             </p>
           </div>
         </div>
-        <Button onClick={handleSave} disabled={!hasChanges || locked || loadingContent}>
+        <Button
+          onClick={handleSave}
+          disabled={!hasChanges || locked || loadingContent || isOffice}
+          title={isOffice ? 'OnlyOffice 會自動儲存,無需手動' : undefined}
+        >
           <Save className="w-4 h-4 mr-2" />
-          儲存
+          {isOffice ? '自動儲存中' : '儲存'}
         </Button>
       </div>
 
@@ -134,6 +146,8 @@ const Editor = () => {
           <div className="p-6"><MarkdownEditor content={content} onChange={handleContentChange} /></div>
         ) : isHtml ? (
           <div className="p-6"><RichTextEditor content={content} onChange={handleContentChange} /></div>
+        ) : isOffice ? (
+          <OnlyOfficeEditor fileId={file.id} />
         ) : isPlainText ? (
           <div className="p-6">
             <textarea

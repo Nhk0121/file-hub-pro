@@ -459,6 +459,28 @@ public class FileService
     }
 
     /// <summary>
+    /// 將檔案內容整個覆寫（供 OnlyOffice 儲存回呼使用）。
+    /// 同步更新實體檔案、Size 與 UpdatedAt。
+    /// </summary>
+    public async Task OverwriteFileBytesAsync(string id, byte[] bytes)
+    {
+        using var conn = _db.CreateConnection();
+        var file = await conn.QueryFirstOrDefaultAsync<FileDto>(
+            "SELECT * FROM Files WHERE Id = @Id", new { Id = id })
+            ?? throw new KeyNotFoundException("檔案不存在");
+        if (file.Type != "file") throw new InvalidOperationException("僅能覆寫檔案");
+        if (string.IsNullOrEmpty(file.DiskPath)) throw new InvalidOperationException("檔案實體路徑遺失");
+
+        var dir = Path.GetDirectoryName(file.DiskPath)!;
+        Directory.CreateDirectory(dir);
+        await File.WriteAllBytesAsync(file.DiskPath, bytes);
+
+        await conn.ExecuteAsync(
+            "UPDATE Files SET Size = @Size, UpdatedAt = GETUTCDATE() WHERE Id = @Id",
+            new { Size = bytes.LongLength, Id = id });
+    }
+
+    /// <summary>
     /// 同層唯一性檢查：同一個 ParentId 之下,禁止出現相同名稱（不分大小寫）的同類型項目。
     /// </summary>
     private static async Task EnsureNameUniqueInParentAsync(

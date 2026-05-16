@@ -43,6 +43,14 @@ builder.Services.AddScoped<EditLockService>();
 builder.Services.AddScoped<StorageService>();
 builder.Services.AddScoped<SectionService>();
 builder.Services.AddScoped<ShareService>();
+builder.Services.AddScoped<OnlyOfficeService>();
+
+// DocServer 自簽憑證可能存在 → 此 HttpClient 略過憑證驗證
+builder.Services.AddHttpClient("OnlyOffice")
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+    {
+        ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
+    });
 // CORS — 雙站台架構，需指定前端來源
 var allowedOrigins = (builder.Configuration["Cors:AllowedOrigins"] ?? "https://localhost:7443")
     .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
